@@ -78,6 +78,7 @@
   .rr-shoot{background:var(--green);color:#fff;border:none;border-radius:10px;width:42px;height:42px;font-size:19px;cursor:pointer;display:grid;place-items:center}
   .rr-guide{background:var(--gold-l);color:var(--green);border:1.5px solid var(--gold);border-radius:10px;width:42px;height:42px;font-size:17px;cursor:pointer;display:grid;place-items:center}
   .rr-import{background:var(--green-l);color:var(--green);border:1.5px solid var(--line);border-radius:10px;width:42px;height:42px;font-size:17px;cursor:pointer;display:grid;place-items:center}
+  .rr-cmp{background:var(--gold);color:#06243f;border:none;border-radius:10px;width:42px;height:42px;font-size:17px;cursor:pointer;display:grid;place-items:center}
 
   /* overlay screens */
   .screen{position:fixed;inset:0;background:var(--bg);z-index:100;overflow-y:auto;-webkit-overflow-scrolling:touch;display:none}
@@ -418,16 +419,18 @@ const DATA = {
 };
 
 const CTX_DEF={
-  hiTol:6, loTol:6, portraitOK:false, checkBow:true,
-  sharpLo:20, sharpHi:120,                 // netteté : lapVar bas (flou=0) / haut (net=100)
+  // DURCI le 2026-07-01 (~-28% sur les tolérances, +25% sur les seuils de netteté) : notation
+  // globalement plus stricte, appliquée uniformément à toutes les catégories ci-dessous.
+  hiTol:4, loTol:4, portraitOK:false, checkBow:true,
+  sharpLo:25, sharpHi:150,                 // netteté : lapVar bas (flou=0) / haut (net=100) — barre relevée
   // Exposition RECALIBRÉE le 2026-06-30 sur photos réelles : l'optimum est décalé vers le CLAIR
-  // (rendu lumineux recherché en immobilier, meanL ~140-160) et la tolérance haute élargie.
+  // (rendu lumineux recherché en immobilier, meanL ~140-160). Tolérances resserrées le 2026-07-01.
   // Les fenêtres cramées restent gérées séparément (pénalité de clipping hiPct), donc pas de double peine.
-  expoCenter:140, expoSpanHigh:80, expoSpanLow:68,    // centre idéal (clair) + sensibilité haute/basse
-  contrastDiv:36,                          // contraste : diviseur de pénalité autour de l'optimum (58)
-  // Balance des blancs RECALIBRÉE : tolérance relevée + pente adoucie (wbSlope) pour ne pas
-  // sanctionner une ambiance volontairement chaude (bois, lampes) qui fait vendre.
-  wbTol:9, wbSlope:2.6,                     // tolérance de dominante (%) avant pénalité, puis pts perdus par %
+  expoCenter:140, expoSpanHigh:58, expoSpanLow:50,    // centre idéal (clair) + sensibilité haute/basse (resserrée)
+  contrastDiv:26,                          // contraste : diviseur de pénalité autour de l'optimum (58) — plus sévère
+  // Balance des blancs — tolérance resserrée + pente accentuée (wbSlope) pour être plus stricte
+  // tout en restant tolérante à une ambiance volontairement chaude (bois, lampes).
+  wbTol:6, wbSlope:3.3,                     // tolérance de dominante (%) avant pénalité, puis pts perdus par %
   // Poids des critères (importance relative). Un poids à 0 RETIRE le critère pour la catégorie.
   // Réglages par défaut (= profil "Général") ; surchargés par catégorie ci-dessous.
   w:{sharp:30, expo:25, contrast:12, wb:10, frame:11, bow:8, aplomb:9, resol:10}
@@ -435,41 +438,45 @@ const CTX_DEF={
 // Chaque catégorie a SES critères et SES poids (w), choisis selon ce qui fait vendre
 // la photo de cette pièce. Un poids à 0 retire le critère (il n'apparaît pas dans le score).
 const CTX_OVR={
+  // DURCI le 2026-07-01 : mêmes proportions que CTX_DEF (~-28% sur hiTol/loTol/wbTol/contrastDiv,
+  // +25% sur sharpLo/sharpHi) appliquées à chaque surcharge par catégorie ci-dessous.
   general:{},
 
   // SALON — photo de couverture : netteté + lumière + verticales droites priment.
-  chambre:{hiTol:7, wbTol:12,
+  chambre:{hiTol:5, wbTol:9,
     w:{sharp:30, expo:24, contrast:9, wb:12, frame:11, bow:7, aplomb:10, resol:10}},   // cocon : lumière douce + chaleur des blancs assumée
-  sam:{hiTol:7, wbTol:11,
+  sam:{hiTol:5, wbTol:8,
     w:{sharp:30, expo:25, contrast:9, wb:10, frame:11, bow:8, aplomb:11, resol:10}},    // table + fenêtre/suspension (ambiance chaude OK)
-  bureau:{hiTol:7, wbTol:10,
+  bureau:{hiTol:5, wbTol:7,
     w:{sharp:30, expo:24, contrast:10, wb:9, frame:11, bow:8, aplomb:11, resol:10}},    // neutre, équilibré
-  cuisine:{hiTol:7, wbTol:9,
+  cuisine:{hiTol:5, wbTol:6,
     w:{sharp:30, expo:24, contrast:9, wb:14, frame:9, bow:8, aplomb:11, resol:10}},     // néons/lumière mixte : blancs neutres essentiels
-  entree:{hiTol:7,loTol:11,
+  entree:{hiTol:5,loTol:8,
     w:{sharp:28, expo:28, contrast:9, wb:7, frame:8, bow:8, aplomb:14, resol:10}},      // souvent sombre + perspective : expo & aplomb
-  garage:{hiTol:8,loTol:12, wbTol:10,
+  garage:{hiTol:6,loTol:9, wbTol:7,
     w:{sharp:28, expo:28, contrast:8, wb:6, frame:8, bow:0, aplomb:10, resol:12}},      // sombre : expo prioritaire, déformation hors sujet
 
   // EXTÉRIEUR — pas de "lignes courbées" (bow retiré) ; l'aplomb (verticales/horizon) prend le relais.
-  facade:{hiTol:12,portraitOK:true,checkBow:false,
+  facade:{hiTol:9,portraitOK:true,checkBow:false,
     w:{sharp:28, expo:24, contrast:8, wb:6, frame:8, bow:0, aplomb:20, resol:10}},      // vitrine : verticales parfaitement droites
-  jardin:{hiTol:13,checkBow:false,
+  jardin:{hiTol:9,checkBow:false,
     w:{sharp:28, expo:24, contrast:10, wb:12, frame:10, bow:0, aplomb:6, resol:10}},    // couleur de la verdure ; peu de lignes droites
-  terrasse:{hiTol:13,checkBow:false,
+  terrasse:{hiTol:9,checkBow:false,
     w:{sharp:28, expo:24, contrast:8, wb:10, frame:10, bow:0, aplomb:12, resol:10}},    // garde-corps droits + lumière douce
-  piscine:{hiTol:14,checkBow:false,
+  piscine:{hiTol:10,checkBow:false,
     w:{sharp:26, expo:24, contrast:8, wb:16, frame:8, bow:0, aplomb:10, resol:10}},     // eau turquoise + ciel : couleur décisive
-  vue:{hiTol:14,portraitOK:true,checkBow:false,
+  vue:{hiTol:10,portraitOK:true,checkBow:false,
     w:{sharp:26, expo:24, contrast:8, wb:6, frame:10, bow:0, aplomb:18, resol:10}},     // horizon parfaitement droit
 
-  // Calibré le 2026-06-30 sur 3 photos réelles de salon (DSC_0296/0460/0525, notées ~80-95%) :
-  // lapVar moy=143, meanL moy=147, sd moy=49, cast moy=6.1 -> ancrés vers un score ~85-90.
-  salon:{hiTol:7, sharpLo:20, sharpHi:165, contrastDiv:25, wbTol:11,
+  // Calibré le 2026-06-30 sur 3 photos réelles de salon (DSC_0296/0460/0525, notées ~80-95%),
+  // seuils durcis le 2026-07-01 (scores désormais plus bas sur ces mêmes photos, volontairement) :
+  // lapVar moy=143, meanL moy=147, sd moy=49, cast moy=6.1.
+  salon:{hiTol:5, sharpLo:25, sharpHi:206, contrastDiv:18, wbTol:8,
     w:{sharp:32, expo:26, contrast:10, wb:8, frame:12, bow:8, aplomb:12, resol:10}},    // photo de couverture (expo claire OK)
-  // Calibré le 2026-06-30 sur 3 photos réelles de salle de bain (DSC_0569/0759/0782, notées ~80-95%) :
-  // lapVar moy=130.5, meanL moy=147.3, sd moy=41.1, cast moy=4.3 -> ancrés vers un score ~85-90.
-  sdb:{hiTol:7, sharpLo:20, sharpHi:150, contrastDiv:25, wbTol:9,
+  // Calibré le 2026-06-30 sur 3 photos réelles de salle de bain (DSC_0569/0759/0782, notées ~80-95%),
+  // seuils durcis le 2026-07-01 (scores désormais plus bas sur ces mêmes photos, volontairement) :
+  // lapVar moy=130.5, meanL moy=147.3, sd moy=41.1, cast moy=4.3.
+  sdb:{hiTol:5, sharpLo:25, sharpHi:188, contrastDiv:18, wbTol:6,
     w:{sharp:30, expo:22, contrast:8, wb:16, frame:8, bow:10, aplomb:9, resol:10}}      // blancs neutres + pièce étroite (grand-angle)
 };
 function ctxLabel(k){ return k==='general'?'Général':(DATA[k]?DATA[k].name:'Général'); }
@@ -649,12 +656,12 @@ function analyze(img, prof){
   contrast=clamp(contrast);
   // 4. Balance des blancs — tolérance calibrable par pièce (prof.wbTol)
   let wb=clamp(100 - Math.max(0,cast-prof.wbTol)*prof.wbSlope);
-  // 5. Cadrage / orientation
+  // 5. Cadrage / orientation — DURCI le 2026-07-01 : fourchette idéale resserrée, pénalités renforcées
   const ratio=W0/H0, landscape=W0>=H0;
-  let frame = landscape ? (ratio>=1.25&&ratio<=1.95?100: ratio<1.25?82: 88)
-                        : (prof.portraitOK?92:55); // portrait OK pour façade/vue, pénalisé pour les pièces
-  // 6. Résolution
-  let resol = mp>=2.2?100: mp>=1.4? 70+(mp-1.4)/0.8*30 : mp>=0.8? 40+(mp-0.8)/0.6*30 : clamp(mp/0.8*40);
+  let frame = landscape ? (ratio>=1.3&&ratio<=1.85?100: ratio<1.3?72: 80)
+                        : (prof.portraitOK?85:40); // portrait OK pour façade/vue, davantage pénalisé pour les pièces
+  // 6. Résolution — DURCI le 2026-07-01 : seuils relevés (~+25%)
+  let resol = mp>=2.8?100: mp>=1.75? 70+(mp-1.75)/1.05*30 : mp>=1.0? 40+(mp-1.0)/0.75*30 : clamp(mp/1.0*40);
   resol=clamp(resol);
   // 7. Déformation / lignes courbées (grand-angle excessif)
   // bow = écart-type des résidus (rmse) en pixels, échelle image réduite ~640px de large.
@@ -663,9 +670,10 @@ function analyze(img, prof){
   // L'ancien seuil (0,5) mettait donc 0 à toutes les bonnes photos -> faux positif systématique.
   // Nouveaux seuils : on ne pénalise qu'à partir d'une courbure nettement supérieure au bruit normal.
   // Si le grand-angle est activé volontairement (acc.grandangle), on tolère encore davantage.
-  const bowTol = acc.grandangle ? 26 : 20;
-  const bowMaxPenalty = acc.grandangle ? 35 : 60;
-  const bowSpan = acc.grandangle ? 22 : 18;
+  // DURCI le 2026-07-01 : tolérance resserrée (~-27%), pénalité qui monte plus vite (span réduit)
+  const bowTol = acc.grandangle ? 19 : 15;
+  const bowMaxPenalty = acc.grandangle ? 42 : 68;
+  const bowSpan = acc.grandangle ? 16 : 13;
   let bow = !bowRes.detected ? 100
           : bowRes.bow<=bowTol ? 100
           : clamp(100-(bowRes.bow-bowTol)/bowSpan*bowMaxPenalty);
@@ -673,7 +681,7 @@ function analyze(img, prof){
   // 8. Aplomb (appareil penché) — tolérant : on accepte un petit angle à main levée,
   // puis pénalité progressive. Doux par construction pour éviter les faux positifs.
   const tiltRes = detectTilt(lum, TW, TH);
-  const tiltTol = 1.3; // degrés tolérés
+  const tiltTol = 1.0; // degrés tolérés — DURCI le 2026-07-01 (était 1.3)
   let aplomb = !tiltRes.detected ? 100
              : tiltRes.tilt<=tiltTol ? 100
              : clamp(100-(tiltRes.tilt-tiltTol)/3.5*70);
@@ -722,9 +730,10 @@ function analyze(img, prof){
   // être "noyé" par les autres critères dans la moyenne pondérée. On plafonne le score global
   // proportionnellement à la gravité du pire de ces deux critères.
   const expoM = metrics.find(m=>m.key==='expo'), sharpM = metrics.find(m=>m.key==='sharp');
+  // DURCI le 2026-07-01 : seuil de déclenchement relevé (55 au lieu de 50) et plafond plus bas
   const worstCritical = Math.min(expoM ? expoM.score : 100, sharpM ? sharpM.score : 100);
-  if(worstCritical<50){
-    overall = Math.min(overall, 35 + worstCritical*0.6); // ex: critique=16 -> plafond ~45 ; critique=0 -> plafond 35
+  if(worstCritical<55){
+    overall = Math.min(overall, 28 + worstCritical*0.55); // ex: critique=16 -> plafond ~37 ; critique=0 -> plafond 28
   }
   overall=Math.round(clamp(overall));
   // keep only what the UI / history need (critères pertinents uniquement)
@@ -839,16 +848,16 @@ function roomRow(b,k){
   const sub=ps.length?(ps.length+' angle'+(ps.length>1?'s':'')+(kept?' · ✓ retenue':'')):'À prendre';
   return `<div class="roomrow ${ps.length?'done':''}">
     <span class="rr-ic">${r.icon}</span>
-    <div class="rr-main" ${ps.length?`data-cmp="${k}"`:''} style="${ps.length?'cursor:pointer':''}"><div class="rr-name">${r.name}</div><div class="rr-sub">${sub}</div></div>
+    <div class="rr-main"><div class="rr-name">${r.name}</div><div class="rr-sub">${sub}</div></div>
     ${best!=null?`<span class="rr-badge ${bd}">${best}</span>`:''}
-    <div class="rr-act"><button class="rr-guide" data-guide="${k}" title="Conseils">💡</button><button class="rr-import" data-import="${k}" title="Importer des images">🖼️</button><button class="rr-shoot" data-shoot="${k}" title="Prendre">📷</button></div></div>`;
+    <div class="rr-act"><button class="rr-cmp" data-cmp="${k}" title="Comparer les photos">⚖️</button><button class="rr-guide" data-guide="${k}" title="Conseils">💡</button><button class="rr-import" data-import="${k}" title="Importer des images">🖼️</button><button class="rr-shoot" data-shoot="${k}" title="Prendre">📷</button></div></div>`;
 }
 $('bienBody').addEventListener('click',e=>{
   if(e.target.closest('#exportBtn'))return exportBien(currentBienId);
   const s=e.target.closest('[data-shoot]');if(s)return openCam(s.dataset.shoot);
   const im=e.target.closest('[data-import]');if(im)return triggerImport(im.dataset.import);
   const g=e.target.closest('[data-guide]');if(g)return openGuide(g.dataset.guide);
-  const c=e.target.closest('[data-cmp]');if(c)return openCompare(c.dataset.cmp);
+  const c=e.target.closest('[data-cmp]');if(c){const ps=photosOf(getBien(currentBienId),c.dataset.cmp);if(ps.length<2){toast('Prenez au moins 2 photos de cette pièce pour comparer');return;}return openCompare(c.dataset.cmp);}
 });
 
 /* ============================ GUIDE PIÈCE ============================ */
@@ -1166,6 +1175,7 @@ function renderScore(entry,isNew){
     <button class="btn btn-green" id="keepBtn" style="width:100%;margin-top:6px">${entry.kept?'✓ Photo retenue':'✅ Retenir cette photo'}</button>
     <div class="score-actions">
       <button id="retakeBtn">📷 Reprendre</button>
+      <button id="reimportBtn">🖼️ Réimporter</button>
       <button id="rotateBtn">🔄 Pivoter</button>
       ${ps.length>1?`<button id="cmpBtn">⚖️ Comparer (${ps.length})</button>`:''}
     </div>
@@ -1175,6 +1185,7 @@ function renderScore(entry,isNew){
   $('ovPhoto').onclick=()=>setOverlay(false);
   $('ovDef').onclick=()=>setOverlay(true,url);
   $('retakeBtn').onclick=()=>{closeScreen('scoreScreen');openCam(entry.room);};
+  $('reimportBtn').onclick=()=>{closeScreen('scoreScreen');triggerImport(entry.room);};
   $('rotateBtn').onclick=()=>rotatePhoto(entry);
   $('keepBtn').onclick=()=>{const willKeep=keepPhoto(entry.room,entry.id);entry.kept=willKeep;$('keepBtn').textContent=willKeep?'✓ Photo retenue':'✅ Retenir cette photo';toast(willKeep?'Photo retenue pour '+DATA[entry.room].name:'Sélection annulée');};
   const cb=$('cmpBtn');if(cb)cb.onclick=()=>{closeScreen('scoreScreen');openCompare(entry.room);};
