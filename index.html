@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#16266b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Laforêt Apps">
+<link rel="icon" href="logo_laforet.png">
+<link rel="apple-touch-icon" href="logo_laforet.png">
+<title>Laforêt Pithiviers — Applications</title>
+<style>
+  :root {
+    --blue: #16266b;
+    --blue-d: #0f1b50;
+    --blue-l: #e9ecf7;
+    --sky: #29a9e0;
+    --sky-l: #e4f4fc;
+    --bg: #f4f6fa;
+    --card: #fff;
+    --ink: #161d33;
+    --muted: #525d7a;
+    --line: #e2e7f0;
+    --shadow: 0 1px 3px rgba(22,38,107,.08), 0 8px 24px rgba(22,38,107,.07);
+    --radius: 16px;
+  }
+  *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* HEADER */
+  header {
+    background: linear-gradient(135deg, var(--blue-d), var(--blue));
+    color: #fff;
+    padding: calc(20px + env(safe-area-inset-top)) 20px 22px;
+    text-align: center;
+  }
+  .logo-wrap {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 2px solid rgba(255,255,255,.25);
+    margin: 0 auto 14px;
+    background: #fff;
+  }
+  .logo-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  header h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: .2px; }
+  header p { margin: 5px 0 0; font-size: 13px; opacity: .8; }
+
+  /* MAIN */
+  main {
+    flex: 1;
+    max-width: 520px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 28px 16px calc(32px + env(safe-area-inset-bottom));
+  }
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .7px;
+    margin: 0 4px 14px;
+  }
+
+  /* CARDS */
+  .app-card {
+    background: var(--card);
+    border: 1.5px solid var(--line);
+    border-radius: var(--radius);
+    padding: 20px 18px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+    box-shadow: var(--shadow);
+    margin-bottom: 13px;
+    transition: transform .12s, box-shadow .12s;
+    -webkit-user-select: none;
+  }
+  .app-card:active { transform: scale(.98); }
+  .app-card:hover { transform: translateY(-2px); box-shadow: 0 3px 12px rgba(22,38,107,.12), 0 12px 30px rgba(22,38,107,.09); }
+
+  .app-icon {
+    width: 58px;
+    height: 58px;
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    flex-shrink: 0;
+  }
+  .icon-blue { background: var(--blue-l); }
+  .icon-sky  { background: var(--sky-l); }
+
+  .app-info { flex: 1; min-width: 0; }
+  .app-name {
+    font-size: 16.5px;
+    font-weight: 800;
+    margin: 0 0 4px;
+    color: var(--ink);
+  }
+  .app-desc {
+    font-size: 13px;
+    color: var(--muted);
+    margin: 0;
+    line-height: 1.5;
+  }
+  .app-arrow {
+    font-size: 22px;
+    color: #c5cede;
+    flex-shrink: 0;
+    font-weight: 300;
+  }
+
+  /* BADGE */
+  .app-badge {
+    display: inline-block;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-top: 5px;
+  }
+  .badge-blue { background: var(--blue-l); color: var(--blue); }
+  .badge-sky  { background: var(--sky-l);  color: #0f7ab0; }
+
+  /* FOOTER */
+  footer {
+    text-align: center;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    font-size: 11px;
+    color: #a8b0c2;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-wrap">
+    <img src="logo_laforet.png" alt="Logo Laforêt">
+  </div>
+  <h1>Laforêt Pithiviers</h1>
+  <p>Outils & Applications internes</p>
+</header>
+
+<main>
+  <p class="section-label">Choisir une application</p>
+
+  <a class="app-card" href="bibliotheque.html">
+    <div class="app-icon icon-blue">📚</div>
+    <div class="app-info">
+      <p class="app-name">Bibliothèque de prompts</p>
+      <p class="app-desc">Prompts IA prêts à l'emploi — annonces, emails, réseaux sociaux, prospection et admin.</p>
+      <span class="app-badge badge-blue">IA · Claude &amp; Gemini</span>
+    </div>
+    <span class="app-arrow">›</span>
+  </a>
+
+  <a class="app-card" href="photoimmo.html">
+    <div class="app-icon icon-sky">📷</div>
+    <div class="app-info">
+      <p class="app-name">PhotoImmo Pro</p>
+      <p class="app-desc">Notez et gérez vos photos de biens immobiliers pièce par pièce, avec guide de prise de vue.</p>
+      <span class="app-badge badge-sky">Photos · Biens</span>
+    </div>
+    <span class="app-arrow">›</span>
+  </a>
+</main>
+
+<footer>Laforêt Pithiviers · Usage interne</footer>
+
+</body>
+</html>

@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#16266b">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="logo_laforet.png">
+<link rel="apple-touch-icon" href="logo_laforet.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PhotoImmo">
+<title>PhotoImmo Pro — Laforêt</title>
+<style>
+  :root{
+    --green:#16266b; --green-d:#0f1b50; --green-l:#e9ecf7;
+    --gold:#29a9e0; --gold-l:#e4f4fc;
+    --bg:#f4f6fa; --card:#fff; --ink:#161d33; --muted:#525d7a;
+    --line:#e2e7f0; --shadow:0 1px 3px rgba(22,38,107,.08),0 8px 24px rgba(22,38,107,.07);
+    --radius:16px; --ok:#0f6b3f; --mid:#b07d12; --bad:#c0492f;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.5;padding-bottom:env(safe-area-inset-bottom)}
+  :focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+  header{background:linear-gradient(135deg,var(--green-d),var(--green));color:#fff;
+    padding:calc(16px + env(safe-area-inset-top)) 18px 16px;position:sticky;top:0;z-index:50;box-shadow:0 2px 16px rgba(15,46,29,.25)}
+  .h-top{display:flex;align-items:center;gap:12px}
+  .logo{width:46px;height:46px;border-radius:12px;overflow:hidden;flex:none;border:1px solid rgba(255,255,255,.18)}
+  .logo img{width:100%;height:100%;object-fit:cover;display:block}
+  header h1{font-size:18px;margin:0;font-weight:800;letter-spacing:.2px}
+  header p{margin:2px 0 0;font-size:12px;opacity:.85}
+  .install-btn{margin-left:auto;background:var(--gold);border:none;color:#06243f;font-size:13px;font-weight:800;padding:9px 13px;border-radius:999px;cursor:pointer;display:none}
+  .back-home{background:rgba(255,255,255,.16);border:none;color:#fff;font-size:13px;font-weight:700;padding:8px 13px;border-radius:999px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:5px;flex:none}
+  .wrap{max-width:760px;margin:0 auto;padding:16px 16px 90px}
+  .section-title{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:22px 4px 10px}
+  .section-title:first-child{margin-top:4px}
+
+  .btn{border:none;border-radius:14px;font-weight:800;cursor:pointer;font-size:15.5px;padding:15px;min-height:54px;display:flex;align-items:center;justify-content:center;gap:9px;transition:.12s}
+  .btn:active{transform:scale(.98)}
+  .btn-primary{background:linear-gradient(135deg,var(--green),#2b6fc4);color:#fff;box-shadow:var(--shadow);width:100%}
+  .btn-gold{background:var(--gold);color:#06243f;width:100%}
+  .btn-ghost{background:var(--card);color:var(--ink);border:1.5px solid var(--line)}
+  #nbType .btn[aria-pressed="true"]{background:var(--green);color:#fff;border-color:var(--green)}
+  .btn-green{background:var(--ok);color:#fff}
+  .btn-row{display:flex;gap:10px}
+  .btn-row>*{flex:1}
+
+  /* cards biens */
+  .bien-card{background:var(--card);border:1.5px solid var(--line);border-radius:var(--radius);padding:15px 16px;box-shadow:var(--shadow);margin-bottom:11px;cursor:pointer;display:flex;align-items:center;gap:13px}
+  .bien-card:active{transform:scale(.99)}
+  .bien-ic{width:46px;height:46px;border-radius:12px;background:var(--green-l);display:grid;place-items:center;font-size:24px;flex:none}
+  .bien-main{flex:1;min-width:0}
+  .bien-addr{font-weight:800;font-size:15.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bien-sub{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .bien-prog{font-size:12px;font-weight:700;color:var(--green);background:var(--green-l);padding:4px 10px;border-radius:999px;flex:none}
+  .bien-del{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;flex:none;padding:4px}
+  .empty{text-align:center;color:var(--muted);font-size:14.5px;padding:40px 20px;line-height:1.6}
+
+  /* progress bar */
+  .pbar{height:9px;border-radius:99px;background:#e6eaf2;overflow:hidden;margin-top:8px}
+  .pbar>i{display:block;height:100%;background:var(--green);border-radius:99px;transition:width .4s}
+
+  /* room rows (shot list) */
+  .roomlist{display:flex;flex-direction:column;gap:9px}
+  .roomrow{background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow)}
+  .roomrow.done{border-color:var(--ok);background:#f1faf4}
+  .roomrow .rr-ic{font-size:25px;flex:none}
+  .roomrow .rr-main{flex:1;min-width:0}
+  .roomrow .rr-name{font-weight:800;font-size:14.5px}
+  .roomrow .rr-sub{font-size:12px;color:var(--muted);margin-top:1px}
+  .roomrow .rr-badge{font-size:12px;font-weight:800;color:#fff;border-radius:8px;padding:3px 8px;flex:none}
+  .rr-badge.ok{background:var(--ok)} .rr-badge.mid{background:var(--mid)} .rr-badge.bad{background:var(--bad)}
+  .rr-act{display:flex;gap:7px;flex:none}
+  .rr-shoot{background:var(--green);color:#fff;border:none;border-radius:10px;width:42px;height:42px;font-size:19px;cursor:pointer;display:grid;place-items:center}
+  .rr-guide{background:var(--gold-l);color:var(--green);border:1.5px solid var(--gold);border-radius:10px;width:42px;height:42px;font-size:17px;cursor:pointer;display:grid;place-items:center}
+  .rr-import{background:var(--green-l);color:var(--green);border:1.5px solid var(--line);border-radius:10px;width:42px;height:42px;font-size:17px;cursor:pointer;display:grid;place-items:center}
+
+  /* overlay screens */
+  .screen{position:fixed;inset:0;background:var(--bg);z-index:100;overflow-y:auto;-webkit-overflow-scrolling:touch;display:none}
+  .screen.open{display:block;animation:fade .2s ease}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  .s-head{background:linear-gradient(135deg,var(--green-d),var(--green));color:#fff;padding:calc(13px + env(safe-area-inset-top)) 16px 16px;position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:12px}
+  .s-back{background:rgba(255,255,255,.16);border:none;color:#fff;font-size:14px;font-weight:700;padding:9px 14px;border-radius:999px;cursor:pointer}
+  .s-title{font-size:17px;font-weight:800;margin:0}
+  .s-body{max-width:760px;margin:0 auto;padding:16px 16px 90px}
+
+  /* camera */
+  #camWrap{position:fixed;inset:0;background:#000;z-index:200;display:none;flex-direction:column}
+  #camWrap.open{display:flex}
+  .cam-stage{position:relative;flex:1;overflow:hidden;background:#000}
+  #camVideo{width:100%;height:100%;object-fit:cover;display:block}
+  #camGuide{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+  .cam-top{position:absolute;top:0;left:0;right:0;padding:calc(10px + env(safe-area-inset-top)) 14px 10px;display:flex;align-items:center;gap:10px;background:linear-gradient(#000a,transparent);z-index:3}
+  .cam-top .ct-title{color:#fff;font-weight:800;font-size:15px;flex:1;text-align:center}
+  .cam-x{background:rgba(255,255,255,.18);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer}
+  .cam-chips{position:absolute;left:0;right:0;bottom:118px;display:flex;flex-wrap:wrap;gap:7px;justify-content:center;padding:0 14px;z-index:3}
+  .cam-chip{font-size:12.5px;font-weight:800;padding:6px 11px;border-radius:999px;color:#fff;background:rgba(0,0,0,.5);backdrop-filter:blur(3px);display:flex;align-items:center;gap:5px}
+  .cam-chip.ok{background:rgba(15,107,63,.85)} .cam-chip.warn{background:rgba(192,73,47,.9)} .cam-chip.lvl{background:rgba(176,125,18,.9)}
+  .cam-bar{position:absolute;left:0;right:0;bottom:0;padding:16px 0 calc(20px + env(safe-area-inset-bottom));display:flex;align-items:center;justify-content:center;gap:34px;background:linear-gradient(transparent,#000a);z-index:3}
+  .shutter{width:74px;height:74px;border-radius:50%;background:#fff;border:5px solid rgba(255,255,255,.45);cursor:pointer}
+  .shutter:active{transform:scale(.94)}
+  .cam-side{width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.18);border:none;color:#fff;font-size:20px;cursor:pointer}
+  .cam-msg{position:absolute;inset:0;display:grid;place-items:center;padding:30px;text-align:center;color:#fff;font-size:15px;line-height:1.6;z-index:4}
+
+  /* score */
+  .thumb{width:100%;max-height:58vh;object-fit:contain;background:#0d1430;border-radius:12px;margin:6px 0 12px;display:block;image-orientation:from-image}
+  /* rotation EXIF manuelle (fallback iOS) */
+  .thumb[data-rot="90"] {transform:rotate(90deg);max-height:none;width:58vh;margin:auto;display:block}
+  .thumb[data-rot="180"]{transform:rotate(180deg)}
+  .thumb[data-rot="270"]{transform:rotate(270deg);max-height:none;width:58vh;margin:auto;display:block}
+  .thumb-wrap{position:relative;overflow:hidden}
+  .thumb-wrap canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;border-radius:12px}
+  .ov-toggle{display:flex;gap:8px;margin:0 0 12px}
+  .ov-toggle button{flex:1;border:1.5px solid var(--line);background:var(--card);border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;color:var(--ink)}
+  .ov-toggle button[aria-pressed="true"]{background:var(--green);color:#fff;border-color:var(--green)}
+  .score-hero{text-align:center;padding:6px 0 2px}
+  .gauge{position:relative;width:160px;height:160px;margin:4px auto}
+  .gauge svg{transform:rotate(-90deg)}
+  .gauge .val{position:absolute;inset:0;display:grid;place-items:center}
+  .gauge .num{font-size:44px;font-weight:800;line-height:1}
+  .gauge .den{font-size:12px;color:var(--muted);font-weight:600}
+  .verdict{font-size:17px;font-weight:800;margin:4px 0 2px}
+  .verdict-sub{font-size:13px;color:var(--muted);margin-bottom:6px;padding:0 8px}
+  .priority{background:#fff4e6;border:1.5px solid #f0a44a;border-left:5px solid #e8862a;border-radius:12px;padding:12px 14px;margin:2px 0 14px;font-size:14px;color:#5b3b12;line-height:1.5}
+  .priority .pt{font-weight:800;display:block;margin-bottom:3px;color:#9a5b12}
+  .priority.good{background:#eaf6ef;border-color:#3f9d6b;border-left-color:var(--ok);color:#13502f}
+  .priority.good .pt{color:var(--ok)}
+  .metric{margin-bottom:12px}
+  .metric .top{display:flex;justify-content:space-between;align-items:baseline;font-size:14px;margin-bottom:5px}
+  .metric .mname{font-weight:700}.metric .mscore{font-weight:800}
+  .bar{height:9px;border-radius:99px;background:#eceef3;overflow:hidden}
+  .bar>i{display:block;height:100%;border-radius:99px;transition:width .5s}
+  .bar.ok>i{background:var(--ok)}.bar.mid>i{background:var(--gold)}.bar.bad>i{background:#d0664f}
+  .mtip{font-size:13.5px;color:var(--muted);margin-top:5px;line-height:1.5}.mtip.warn{color:#9a3b2e}
+  .score-actions{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0 6px}
+  .score-actions button{flex:1;border-radius:12px;padding:15px;min-height:52px;font-size:15px;font-weight:700;cursor:pointer;border:1.5px solid var(--line);background:var(--card);color:var(--ink)}
+
+  /* compare */
+  .cmp-grid{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px}
+  .cmp-card{flex:none;width:46%;max-width:230px;background:var(--card);border:1.5px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);cursor:pointer;transition:.15s}
+  .cmp-card:active{transform:scale(.97)}
+  .cmp-card.best{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold)}
+  .cmp-card.kept{border-color:var(--ok);box-shadow:0 0 0 2px var(--ok)}
+  .cmp-card img{width:100%;height:130px;object-fit:cover;display:block;background:#0d1430}
+  .cmp-info{padding:10px 11px}
+  .cmp-score{font-size:22px;font-weight:800}
+  .cmp-state{width:100%;margin-top:8px;border-radius:9px;padding:9px;font-weight:800;font-size:13px;text-align:center;background:var(--green-l);color:var(--green)}
+  .cmp-card.kept .cmp-state{background:var(--ok);color:#fff}
+
+  /* guide (room detail) */
+  .accroche{background:var(--gold-l);border-left:4px solid var(--gold);border-radius:10px;padding:12px 14px;font-size:14px;margin-bottom:14px;color:#1c3050}
+  .gcard{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px 15px;margin-bottom:11px;box-shadow:var(--shadow)}
+  .gcard h3{margin:0 0 9px;font-size:13.5px;font-weight:800;color:var(--green);text-transform:uppercase;letter-spacing:.4px}
+  .gcard p{margin:0;font-size:14.5px}.gcard ul{margin:0;padding-left:18px;font-size:14.5px}.gcard li{margin:5px 0}
+  .srow{display:flex;gap:10px;font-size:14px;padding:6px 0;border-bottom:1px dashed var(--line)}
+  .srow:last-child{border-bottom:none}.slabel{flex:none;width:92px;font-weight:700;color:var(--muted);font-size:12px;text-transform:uppercase}
+  .eviter h3{color:#9a3b2e}.eviter li{color:#9a3b2e}
+  .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#11203f;color:#fff;font-weight:700;font-size:14px;padding:12px 18px;border-radius:999px;z-index:300;box-shadow:0 6px 20px rgba(0,0,0,.3);opacity:0;transition:.25s;pointer-events:none}
+  .toast.show{opacity:1}
+  .footer-note{text-align:center;color:var(--muted);font-size:12px;margin-top:22px;line-height:1.6}
+  /* fiche imprimable (export PDF local) */
+  #printArea{display:none}
+  #printArea .pa-head{background:#0f1b50;color:#fff;padding:14px 16px;border-radius:8px;margin-bottom:14px}
+  #printArea .pa-head h2{margin:0;font-size:18px}
+  #printArea .pa-sub{font-size:12px;opacity:.9;margin-top:4px}
+  #printArea .pa-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  #printArea figure{margin:0;break-inside:avoid;page-break-inside:avoid}
+  #printArea img{width:100%;height:150px;object-fit:cover;border-radius:8px;background:#0d1430;display:block}
+  #printArea figcaption{font-size:12px;font-weight:700;margin-top:5px}
+  @media print{
+    header,.wrap,.screen,#camWrap,.toast,input,#work,canvas#work{display:none!important}
+    #printArea{display:block!important;padding:0}
+    body{background:#fff}
+    @page{margin:12mm}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="h-top">
+    <a class="back-home" href="index.html" title="Retour à l'accueil">← Accueil</a>
+    <div class="logo"><img src="logo_laforet.png" alt="Laforêt"></div>
+    <div>
+      <h1>PhotoImmo <span style="font-size:11px;font-weight:700;letter-spacing:1.5px;background:var(--gold);color:var(--green-d);padding:2px 6px;border-radius:5px;vertical-align:middle">PRO</span></h1>
+      <p>Shooting guidé, noté et livré — par bien</p>
+    </div>
+    <button class="install-btn" id="installBtn">⬇️ Installer</button>
+  </div>
+</header>
+
+<div class="wrap" id="home"></div>
+
+<!-- BIEN -->
+<div class="screen" id="bienScreen"><div class="s-head"><button class="s-back" data-close="bienScreen">‹ Mes biens</button><h2 class="s-title" id="bienTitle">Bien</h2></div><div class="s-body" id="bienBody"></div></div>
+<!-- GUIDE -->
+<div class="screen" id="guideScreen"><div class="s-head"><button class="s-back" data-close="guideScreen">‹ Retour</button><h2 class="s-title" id="guideTitle">Guide</h2></div><div class="s-body" id="guideBody"></div></div>
+<!-- SCORE -->
+<div class="screen" id="scoreScreen"><div class="s-head"><button class="s-back" data-close="scoreScreen">‹ Retour</button><h2 class="s-title">Score de publication</h2></div><div class="s-body" id="scoreBody"></div></div>
+<!-- COMPARE -->
+<div class="screen" id="cmpScreen"><div class="s-head"><button class="s-back" data-close="cmpScreen">‹ Retour</button><h2 class="s-title" id="cmpTitle">Comparer les angles</h2></div><div class="s-body" id="cmpBody"></div></div>
+
+<!-- CAMERA -->
+<div id="camWrap">
+  <div class="cam-stage">
+    <video id="camVideo" playsinline autoplay muted></video>
+    <canvas id="camGuide"></canvas>
+    <div class="cam-top"><button class="cam-x" id="camClose">✕</button><div class="ct-title" id="camTitle">Pièce</div><div style="width:40px"></div></div>
+    <div class="cam-chips" id="camChips"></div>
+    <div class="cam-msg" id="camMsg" style="display:none"></div>
+  </div>
+  <div class="cam-bar">
+    <button class="cam-side" id="camGrid" title="Grille">▦</button>
+    <button class="shutter" id="camShot" aria-label="Prendre la photo"></button>
+    <button class="cam-side" id="camGuideBtn" title="Conseils">💡</button>
+  </div>
+</div>
+
+<input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none">
+<input type="file" id="importInput" accept="image/*" multiple style="display:none">
+<canvas id="work" style="display:none"></canvas>
+<div id="printArea"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* $ et état accessoires requis par le moteur */
+const $ = id=>document.getElementById(id);
+const acc = {trepied:false, grandangle:false};
+/* ====== MOTEUR (réutilisé verbatim depuis l'app calibrée) ====== */
+const clamp=(v,a=0,b=100)=>Math.max(a,Math.min(b,v));
+const DATA = {
+  // INTÉRIEUR
+  salon:{cat:"int",icon:"🛋️",name:"Salon / Séjour",sub:"La pièce reine",
+    accroche:"C'est <b>la photo de couverture</b> dans 8 cas sur 10. Objectif : un espace lumineux, ouvert et qui « respire ». L'acquéreur doit s'y projeter en 2 secondes.",
+    reglages:{
+      auto:[["Mode","Photo standard + <b>HDR auto</b>"],["Grille","Activée (lignes droites)"],["Expo","Touchez une zone moyenne, baissez un peu si fenêtre"],["Astuce","Mode <b>0,5× / Ultra grand-angle</b> seulement si nécessaire, sinon ça déforme"]],
+      pro:[["ISO","100–400 (le plus bas possible)"],["Vitesse","Selon lumière ; trépied si < 1/30 s"],["Format","<b>RAW</b> pour rattraper les fenêtres"],["Balance","Auto ou ~4500 K (lumière chaude)"],["Expo","-0,3 à -0,7 EV pour garder le dehors"]],
+      hybride:[["Mode","A / Av (priorité ouverture)"],["Ouverture","<b>f/7,1 – f/9</b> (tout net)"],["ISO","100–400"],["Focale","16–24 mm (plein format) / 10–16 mm APS-C"],["HDR","<b>Bracketing 3 vues</b> (-1, 0, +1) si fenêtres"]]
+    },
+    focale:"Grand-angle modéré. Sur smartphone : objectif principal (1×), passez en 0,5× <b>seulement</b> pour les très petits salons — et reculez au maximum.",
+    angle:"Placez-vous dans <b>un coin</b> de la pièce, dos au mur. On doit voir deux murs + le sol qui s'ouvre vers la fenêtre. Appareil à ~1,30 m, parfaitement droit.",
+    composition:"Cadrez vers la <b>source de lumière</b> (fenêtre) et la plus belle perspective. Laissez de l'espace au sol au premier plan : ça donne la profondeur. Un canapé ou une table en amorce guide l'œil.",
+    lumiere:"Lumière du jour + toutes les lampes allumées. Évitez le contre-jour direct sur la fenêtre : HDR/bracketing obligatoire. Heure idéale : <b>milieu de journée</b> par temps légèrement couvert.",
+    eviter:["Télécommandes, câbles, gamelles d'animaux qui traînent","Photographier debout au niveau des yeux (écrase la pièce)","Le 0,5× systématique : ça courbe les murs","Flash intégré (ombres dures, couleurs fausses)"],
+    checklist:["Pièce rangée et désencombrée","Coussins redressés, plaid plié","Toutes les lampes allumées","Rideaux ouverts au maximum","Pris depuis 2 coins différents"]},
+
+  cuisine:{cat:"int",icon:"🍳",name:"Cuisine",sub:"Propre = vendeur",
+    accroche:"Pièce <b>décisive</b> pour les acheteurs. Mot d'ordre : <b>plans de travail vides et brillants</b>. Une cuisine nette inspire confiance sur tout le bien.",
+    reglages:{
+      auto:[["Mode","Photo + HDR auto"],["Grille","Activée (alignez les meubles)"],["Expo","Touchez le plan de travail, ajustez"],["Astuce","Essuyez l'inox/les vitres avant : les reflets se voient"]],
+      pro:[["ISO","100–400"],["Format","RAW"],["Balance","~4000–4500 K (néons cuisine tirent froid)"],["Expo","Neutre à -0,3 EV"]],
+      hybride:[["Mode","A / Av"],["Ouverture","f/7,1 – f/9"],["ISO","100–400"],["Focale","18–24 mm"],["HDR","Bracketing si fenêtre"]]
+    },
+    focale:"Grand-angle modéré pour saisir l'ensemble. Reculez dans l'embrasure de la porte si la cuisine est petite.",
+    angle:"Cadrage de <b>3/4</b> depuis l'entrée ou un angle : on suit la ligne du plan de travail qui file vers le fond. Hauteur ~1,30 m, bien droit pour que les meubles ne penchent pas.",
+    composition:"Montrez la <b>continuité du plan de travail</b> et l'électroménager. Un détail soigné (crédence, robinet design, îlot) en plan rapproché complète bien.",
+    lumiere:"Allumez les <b>spots sous-meubles</b> et la hotte : ça fait « cuisine équipée ». Attention aux reflets sur l'inox et le carrelage.",
+    eviter:["Éponges, torchons, produits vaisselle, poubelle visibles","Magnets et papiers sur le frigo","Vaisselle dans l'évier","Reflets de vous-même dans l'inox/le four"],
+    checklist:["Plans de travail entièrement dégagés","Évier vide et sec","Frigo nettoyé (façade)","Spots et hotte allumés","Inox/vitres sans traces"]},
+
+  chambre:{cat:"int",icon:"🛏️",name:"Chambre",sub:"Cocon apaisant",
+    accroche:"Vendez une <b>ambiance reposante</b>. Lit fait impeccablement, espace dégagé. L'acheteur doit imaginer son repos ici.",
+    reglages:{
+      auto:[["Mode","Photo + HDR auto"],["Grille","Activée"],["Expo","Légèrement clair (ambiance douce)"],["Astuce","Allumez les lampes de chevet, effet cosy"]],
+      pro:[["ISO","100–400"],["Format","RAW"],["Balance","~4000 K (chaud, cocon)"],["Expo","0 à +0,3 EV"]],
+      hybride:[["Mode","A / Av"],["Ouverture","f/7,1 – f/8"],["ISO","100–400"],["Focale","18–24 mm"],["HDR","Bracketing si fenêtre"]]
+    },
+    focale:"Grand-angle modéré depuis l'angle opposé au lit. Évitez la déformation du 0,5×.",
+    angle:"Depuis le <b>coin de la porte</b>, en diagonale vers le lit et la fenêtre. Montrez le volume au sol et la hauteur sous plafond. ~1,30 m, droit.",
+    composition:"Le <b>lit fait</b> est le point d'ancrage. Laissez voir l'espace de circulation autour. Une fenêtre dans le cadre = lumière + sentiment d'espace.",
+    lumiere:"Lumière naturelle douce + lampes de chevet allumées pour le côté cocon. Évitez le plafonnier seul (lumière plate).",
+    eviter:["Lit défait ou couvre-lit froissé","Affaires personnelles, linge qui traîne","Placards ouverts","Trop d'objets sur les tables de nuit"],
+    checklist:["Lit fait au carré, oreillers gonflés","Sols et chaises dégagés","Lampes de chevet allumées","Rideaux ouverts","Objets perso rangés"]},
+
+  sdb:{cat:"int",icon:"🛁",name:"Salle de bain / WC",sub:"Net & sec",
+    accroche:"Une salle de bain <b>impeccable et sèche</b> rassure énormément. Misez sur la propreté et la luminosité, pas sur la taille.",
+    reglages:{
+      auto:[["Mode","Photo + HDR auto"],["Grille","Activée"],["Expo","Un peu clair (blancheur)"],["Astuce","Essuyez miroir, robinetterie, parois : tout reflète"]],
+      pro:[["ISO","100–400"],["Format","RAW"],["Balance","~4500 K"],["Expo","+0,3 EV (propreté)"]],
+      hybride:[["Mode","A / Av"],["Ouverture","f/8"],["ISO","100–640"],["Focale","16–20 mm (pièce souvent étroite)"],["HDR","Utile (carrelage + lumière mixte)"]]
+    },
+    focale:"Grand-angle réel souvent nécessaire (pièce exiguë). Tirez depuis la porte. Veillez à ne pas vous voir dans le miroir.",
+    angle:"Depuis l'<b>entrée/porte</b>, en angle pour cadrer vasque + douche/baignoire. Cherchez l'axe où vous n'apparaissez pas dans le miroir.",
+    composition:"Mettez en valeur la <b>douche/baignoire</b> et la vasque. Une serviette propre et pliée, un objet déco neutre = touche « hôtel ».",
+    lumiere:"Maximum de lumière : plafonnier + spots miroir allumés. Surfaces sèches (pas de gouttes sur les parois).",
+    eviter:["Brosses à dents, gels douche, produits perso","Serviettes usagées","Lunette WC relevée","Votre reflet dans le miroir","Traces d'eau / calcaire"],
+    checklist:["Surfaces dégagées (pas de produits)","Miroir et robinetterie sans traces","Serviette propre pliée","Toutes lumières allumées","WC fermé, abattant baissé"]},
+
+  entree:{cat:"int",icon:"🚪",name:"Entrée / Couloir",sub:"Première impression",
+    accroche:"Souvent négligé, mais c'est le <b>premier pas dans le bien</b>. Un dégagement net et lumineux pose le ton.",
+    reglages:{
+      auto:[["Mode","Photo + HDR auto"],["Grille","Activée (verticales droites)"],["Expo","Standard, attention au fond sombre"],["Astuce","Allumez toute lumière dispo, espace souvent peu éclairé"]],
+      pro:[["ISO","200–800 (souvent sombre)"],["Format","RAW"],["Balance","Auto"],["Expo","+0,3 EV"]],
+      hybride:[["Mode","A / Av"],["Ouverture","f/7,1"],["ISO","200–800"],["Focale","16–20 mm"],["HDR","Recommandé (forts écarts de lumière)"]]
+    },
+    focale:"Grand-angle pour donner de l'ampleur à un espace souvent étroit. Tenez bien droit : les couloirs trahissent les murs penchés.",
+    angle:"Dans l'<b>axe du couloir</b>, centré, pour la perspective qui file. Ou de 3/4 dans l'entrée pour montrer les rangements.",
+    composition:"Jouez la <b>perspective fuyante</b> (lignes qui convergent au fond). Une porte ouverte sur une pièce lumineuse au bout = effet d'appel.",
+    lumiere:"Allumez tout. Si une pièce lumineuse donne sur le couloir, ouvrez sa porte : la lumière entre et agrandit.",
+    eviter:["Chaussures, manteaux, parapluies en vrac","Mur penché (couloir = piège à verticales)","Photo trop sombre au fond"],
+    checklist:["Sol dégagé, chaussures rangées","Patère/console désencombrée","Lumières allumées","Portes des pièces claires ouvertes","Pris dans l'axe, bien droit"]},
+
+  bureau:{cat:"int",icon:"💼",name:"Bureau / Pièce annexe",sub:"Polyvalence",
+    accroche:"Montrez le <b>potentiel</b> : bureau, chambre d'amis, dressing... Une pièce rangée = un atout « pièce en plus » qui justifie le prix.",
+    reglages:{
+      auto:[["Mode","Photo + HDR auto"],["Grille","Activée"],["Expo","Standard"],["Astuce","Dégagez le bureau au maximum"]],
+      pro:[["ISO","100–400"],["Format","RAW"],["Balance","Auto"],["Expo","Neutre"]],
+      hybride:[["Mode","A / Av"],["Ouverture","f/7,1 – f/8"],["ISO","100–400"],["Focale","18–24 mm"],["HDR","Si fenêtre"]]
+    },
+    focale:"Grand-angle modéré depuis un coin.",
+    angle:"Depuis l'angle vers la fenêtre, pour montrer le <b>volume utilisable</b>. ~1,30 m, droit.",
+    composition:"Mise en scène <b>minimale et neutre</b> : un bureau dégagé, une chaise, de la lumière. Évitez de figer un seul usage trop personnel.",
+    lumiere:"Lumière naturelle + d'appoint. Pièce qui doit paraître saine et claire.",
+    eviter:["Bazar de câbles, papiers, cartons","Pièce transformée en débarras","Usage trop marqué (cave à vin perso, etc.)"],
+    checklist:["Surface de travail dégagée","Câbles rangés","Sol libre","Lumières allumées","Fenêtre dans le cadre"]},
+
+  sam:{cat:"int",icon:"🍽️",name:"Salle à manger",sub:"Convivialité",
+    accroche:"Vendez des <b>moments à partager</b>. Table mise sobrement, espace de circulation visible. Effet « on reçoit ici ».",
+    reglages:{
+      auto:[["Mode","Photo + HDR auto"],["Grille","Activée"],["Expo","Vers la fenêtre, baissez un peu"],["Astuce","Suspension allumée au-dessus de la table"]],
+      pro:[["ISO","100–400"],["Format","RAW"],["Balance","~4500 K"],["Expo","-0,3 EV si fenêtre"]],
+      hybride:[["Mode","A / Av"],["Ouverture","f/7,1 – f/9"],["ISO","100–400"],["Focale","16–24 mm"],["HDR","Bracketing si fenêtre"]]
+    },
+    focale:"Grand-angle modéré depuis un coin de la pièce.",
+    angle:"En <b>diagonale</b> par rapport à la table, depuis un angle : on voit la table, l'espace autour et la fenêtre.",
+    composition:"La <b>table</b> est le centre. Quelques éléments déco discrets (chemin de table, vase) suffisent. Laissez l'espace de circulation visible.",
+    lumiere:"Suspension allumée pour l'ambiance + lumière du jour. Évitez le contre-jour pur.",
+    eviter:["Table encombrée de courrier/objets","Trop de chaises dépareillées","Vaisselle sale visible"],
+    checklist:["Table dégagée ou mise sobrement","Chaises alignées","Suspension allumée","Rideaux ouverts","Pris en diagonale"]},
+
+  // EXTÉRIEUR
+  facade:{cat:"ext",icon:"🏠",name:"Façade / Extérieur du bien",sub:"L'accroche n°1",
+    accroche:"C'est <b>la vitrine</b> de l'annonce. Une façade nette, sous belle lumière, sans voiture devant, déclenche le clic. Soignez-la comme la couverture.",
+    reglages:{
+      auto:[["Mode","Photo + HDR auto"],["Grille","Activée (verticales droites !)"],["Expo","Sur la façade, ciel pas cramé"],["Astuce","Évitez le grand soleil de midi (ombres dures)"]],
+      pro:[["ISO","100"],["Format","RAW"],["Balance","Lumière du jour"],["Expo","-0,3 EV (garder le ciel)"]],
+      hybride:[["Mode","A / Av"],["Ouverture","f/8 – f/11"],["ISO","100"],["Focale","24–35 mm (évitez de trop déformer)"],["HDR","Bracketing (façade sombre + ciel clair)"]]
+    },
+    focale:"Focale modérée pour ne pas déformer le bâti. Reculez plutôt que d'élargir au 0,5×. Format paysage (ou portrait si maison étroite et haute).",
+    angle:"Légèrement de <b>3/4</b> (pas de face plate) pour donner du volume à la maison. Tenez l'appareil droit : verticales parfaitement verticales. Baissez-vous un peu pour valoriser.",
+    composition:"Dégagez l'entrée et l'allée. Un beau ciel et un peu de verdure encadrent bien. Évitez fils électriques et poubelles dans le cadre si possible.",
+    lumiere:"<b>Lumière dorée</b> : début de matinée ou fin d'après-midi (selon l'orientation de la façade). Ciel bleu ou légèrement nuageux. Fuyez le plein midi et le ciel blanc.",
+    eviter:["Voitures devant (la vôtre y compris)","Poubelles sorties, fils, panneaux","Façade en plein contre-jour","Ciel totalement cramé (blanc)","Plan trop penché vers le haut"],
+    checklist:["Voitures déplacées","Poubelles rentrées","Allée/entrée balayée","Volets ouverts (uniformes)","Belle lumière (matin/soir)","Verticales bien droites"]},
+
+  jardin:{cat:"ext",icon:"🌳",name:"Jardin",sub:"Espace de vie en plus",
+    accroche:"Le jardin se vend comme une <b>pièce supplémentaire</b>. Montrez l'espace, l'intimité et le potentiel (jeux, repas, détente).",
+    reglages:{
+      auto:[["Mode","Photo + HDR auto"],["Grille","Activée"],["Expo","Vers la végétation"],["Astuce","Soleil dans le dos pour des couleurs saturées"]],
+      pro:[["ISO","100"],["Format","RAW"],["Balance","Lumière du jour"],["Expo","Neutre"]],
+      hybride:[["Mode","A / Av"],["Ouverture","f/8 – f/11 (tout net)"],["ISO","100"],["Focale","24–35 mm"],["HDR","Si fort contraste ombre/soleil"]]
+    },
+    focale:"Modérée. Privilégiez plusieurs vues à un ultra grand-angle qui éloigne tout et écrase l'espace.",
+    angle:"Depuis un <b>angle du jardin vers la maison</b> (montre le bien + l'extérieur), puis une vue inverse pour la profondeur du terrain. Hauteur d'yeux ou légèrement plus haut.",
+    composition:"Cadrez la <b>profondeur du terrain</b>. Une terrasse ou un salon de jardin en amorce donne l'usage. Pelouse tondue, massifs nets.",
+    lumiere:"Beau temps, <b>soleil dans le dos</b> pour un vert éclatant et un ciel bleu. Évitez le contre-jour qui assombrit la pelouse.",
+    eviter:["Pelouse non tondue, feuilles, déchets verts","Tuyau d'arrosage, jouets, outils","Linge qui sèche","Ciel blanc / temps gris terne"],
+    checklist:["Pelouse tondue, massifs nets","Salon de jardin en place et propre","Outils/tuyaux rangés","Beau temps, soleil dans le dos","Vue maison + vue profondeur prises"]},
+
+  terrasse:{cat:"ext",icon:"⛱️",name:"Terrasse / Balcon",sub:"Vivre dehors",
+    accroche:"Vendez l'<b>art de vivre extérieur</b>. Même un petit balcon mis en scène (table, plante) fait rêver et augmente la valeur perçue.",
+    reglages:{
+      auto:[["Mode","Photo + HDR auto"],["Grille","Activée"],["Expo","Équilibrez sol et ciel"],["Astuce","Tôt le matin ou fin de journée pour la lumière douce"]],
+      pro:[["ISO","100"],["Format","RAW"],["Balance","Lumière du jour"],["Expo","-0,3 EV"]],
+      hybride:[["Mode","A / Av"],["Ouverture","f/8"],["ISO","100"],["Focale","20–28 mm"],["HDR","Recommandé (sol ombragé + ciel)"]]
+    },
+    focale:"Grand-angle modéré pour englober l'espace et un bout de vue. Tenez droit (garde-corps, lignes).",
+    angle:"Depuis l'<b>intérieur vers la terrasse</b> (montre la continuité dedans/dehors) et une vue sur la terrasse seule avec la vue/dégagement.",
+    composition:"Mise en scène <b>« apéro / détente »</b> : table dressée, transats, plantes. Intégrez la vue ou la verdure au fond.",
+    lumiere:"Lumière douce (matin/soir). Le coucher de soleil fait des photos très accrocheuses si l'orientation s'y prête.",
+    eviter:["Mobilier sale, cendrier, étendoir","Sol non balayé","Heure de plein cagnard (ombres dures)"],
+    checklist:["Sol balayé/nettoyé","Mobilier d'extérieur en scène","Plantes soignées","Vue dégagée","Lumière douce"]},
+
+  piscine:{cat:"ext",icon:"🏊",name:"Piscine",sub:"L'argument rêve",
+    accroche:"La piscine est un <b>aimant à clics</b>. Eau propre, reflets, ciel bleu : c'est la photo « coup de cœur » par excellence.",
+    reglages:{
+      auto:[["Mode","Photo + HDR auto"],["Grille","Activée"],["Expo","Sur l'eau, ciel pas cramé"],["Astuce","Reflets plus beaux quand le soleil est bas"]],
+      pro:[["ISO","100"],["Format","RAW"],["Balance","Lumière du jour"],["Expo","-0,3 EV"],["Filtre","Polarisant = eau plus turquoise"]],
+      hybride:[["Mode","A / Av"],["Ouverture","f/8 – f/11"],["ISO","100"],["Focale","20–28 mm"],["Filtre","<b>Polarisant</b> pour saturer l'eau et le ciel"]]
+    },
+    focale:"Modérée. Cherchez à intégrer piscine + maison + ciel dans un cadre harmonieux.",
+    angle:"Depuis un <b>angle bas près de l'eau</b> : le bassin occupe le premier plan et file vers la maison. Les reflets de la maison/du ciel dans l'eau sont un plus énorme.",
+    composition:"<b>Eau au premier plan</b>, maison ou vue en fond. Bassin propre, plage et transats en scène. Le bleu de l'eau doit ressortir.",
+    lumiere:"Ciel bleu, soleil pas trop haut (reflets et turquoise). Un polarisant (ou mode HDR) sublime l'eau. Évitez l'eau dans l'ombre.",
+    eviter:["Eau verte/trouble, robot ou tuyau dans le bassin","Bâche/volet de piscine fermé","Transats en désordre","Ciel gris (l'eau devient terne)"],
+    checklist:["Eau propre et limpide","Robot/épuisette retirés","Plage et transats en place","Ciel bleu, soleil bas","Reflets dans l'eau soignés"]},
+
+  vue:{cat:"ext",icon:"🌄",name:"Vue / Panorama",sub:"L'exception qui vend",
+    accroche:"Une <b>belle vue</b> (mer, montagne, campagne, ville) est un argument rare et différenciant. Faites-la respirer dans l'annonce.",
+    reglages:{
+      auto:[["Mode","Photo + HDR auto"],["Grille","Activée (horizon droit)"],["Expo","Équilibrez ciel et paysage"],["Astuce","Mode Panoramique pour les vues larges"]],
+      pro:[["ISO","100"],["Format","RAW"],["Balance","Lumière du jour"],["Expo","-0,3 EV (garder le ciel)"]],
+      hybride:[["Mode","A / Av"],["Ouverture","f/8 – f/11"],["ISO","100"],["Focale","24–50 mm"],["HDR","Bracketing (ciel lumineux + sol)"]]
+    },
+    focale:"Selon la vue : grand-angle pour un panorama large, focale standard (35–50 mm) pour isoler un point fort (clocher, mer, sommet).",
+    angle:"Depuis le <b>point de vue du bien</b> (fenêtre, balcon, terrasse). Idéalement intégrez un cadre (rambarde, baie) pour ancrer la vue « depuis chez soi ». <b>Horizon parfaitement droit.</b>",
+    composition:"Respectez la <b>règle des tiers</b> : horizon sur la ligne haute ou basse, pas au milieu. Un premier plan (terrasse) renforce le « c'est votre vue ».",
+    lumiere:"Lever/coucher de soleil = vues spectaculaires. Ciel dégagé. Évitez la brume et le plein midi délavé.",
+    eviter:["Horizon penché","Vitre sale entre l'objectif et la vue","Ciel cramé tout blanc","Premier plan encombré"],
+    checklist:["Horizon bien droit","Vitres propres (si depuis l'intérieur)","Belle heure (matin/soir)","Premier plan « depuis chez soi »","Règle des tiers respectée"]},
+
+  garage:{cat:"ext",icon:"🚗",name:"Garage / Dépendance",sub:"Atout pratique",
+    accroche:"Garage, cave, abri : des <b>arguments concrets</b>. Montrez le volume et la propreté, pas le bazar.",
+    reglages:{
+      auto:[["Mode","Photo + HDR auto"],["Grille","Activée"],["Expo","+0,3 EV (souvent sombre)"],["Astuce","Ouvrez la porte pour faire entrer la lumière"]],
+      pro:[["ISO","400–1600 (sombre)"],["Format","RAW"],["Balance","Auto"],["Expo","+0,3 EV"]],
+      hybride:[["Mode","A / Av"],["Ouverture","f/7,1"],["ISO","400–1600"],["Focale","16–20 mm"],["HDR","Recommandé (porte claire / fond sombre)"]]
+    },
+    focale:"Grand-angle pour le volume. Tenez droit malgré le peu de lumière (trépied utile).",
+    angle:"Depuis la <b>porte ouverte</b>, dans l'axe, pour montrer la profondeur et qu'une voiture rentre. Lumière du dehors dans le dos.",
+    composition:"Espace <b>vidé et balayé</b>. Montrez le volume utile, l'établi ou le rangement comme atout, pas l'accumulation.",
+    lumiere:"Porte grande ouverte + lumière intérieure allumée. HDR pour gérer l'écart porte/fond.",
+    eviter:["Garage rempli de cartons et bazar","Photo trop sombre","Taches d'huile au sol visibles"],
+    checklist:["Sol balayé, dégagé","Cartons/bazar retirés","Porte ouverte, lumière allumée","Volume bien visible","Pris dans l'axe"]}
+};
+
+const CTX_DEF={
+  hiTol:6, loTol:6, portraitOK:false, checkBow:true,
+  sharpLo:20, sharpHi:120,                 // netteté : lapVar bas (flou=0) / haut (net=100)
+  // Exposition RECALIBRÉE le 2026-06-30 sur photos réelles : l'optimum est décalé vers le CLAIR
+  // (rendu lumineux recherché en immobilier, meanL ~140-160) et la tolérance haute élargie.
+  // Les fenêtres cramées restent gérées séparément (pénalité de clipping hiPct), donc pas de double peine.
+  expoCenter:140, expoSpanHigh:80, expoSpanLow:68,    // centre idéal (clair) + sensibilité haute/basse
+  contrastDiv:36,                          // contraste : diviseur de pénalité autour de l'optimum (58)
+  // Balance des blancs RECALIBRÉE : tolérance relevée + pente adoucie (wbSlope) pour ne pas
+  // sanctionner une ambiance volontairement chaude (bois, lampes) qui fait vendre.
+  wbTol:9, wbSlope:2.6,                     // tolérance de dominante (%) avant pénalité, puis pts perdus par %
+  // Poids des critères (importance relative). Un poids à 0 RETIRE le critère pour la catégorie.
+  // Réglages par défaut (= profil "Général") ; surchargés par catégorie ci-dessous.
+  w:{sharp:30, expo:25, contrast:12, wb:10, frame:11, bow:8, aplomb:9, resol:10}
+};
+// Chaque catégorie a SES critères et SES poids (w), choisis selon ce qui fait vendre
+// la photo de cette pièce. Un poids à 0 retire le critère (il n'apparaît pas dans le score).
+const CTX_OVR={
+  general:{},
+
+  // SALON — photo de couverture : netteté + lumière + verticales droites priment.
+  chambre:{hiTol:7, wbTol:12,
+    w:{sharp:30, expo:24, contrast:9, wb:12, frame:11, bow:7, aplomb:10, resol:10}},   // cocon : lumière douce + chaleur des blancs assumée
+  sam:{hiTol:7, wbTol:11,
+    w:{sharp:30, expo:25, contrast:9, wb:10, frame:11, bow:8, aplomb:11, resol:10}},    // table + fenêtre/suspension (ambiance chaude OK)
+  bureau:{hiTol:7, wbTol:10,
+    w:{sharp:30, expo:24, contrast:10, wb:9, frame:11, bow:8, aplomb:11, resol:10}},    // neutre, équilibré
+  cuisine:{hiTol:7, wbTol:9,
+    w:{sharp:30, expo:24, contrast:9, wb:14, frame:9, bow:8, aplomb:11, resol:10}},     // néons/lumière mixte : blancs neutres essentiels
+  entree:{hiTol:7,loTol:11,
+    w:{sharp:28, expo:28, contrast:9, wb:7, frame:8, bow:8, aplomb:14, resol:10}},      // souvent sombre + perspective : expo & aplomb
+  garage:{hiTol:8,loTol:12, wbTol:10,
+    w:{sharp:28, expo:28, contrast:8, wb:6, frame:8, bow:0, aplomb:10, resol:12}},      // sombre : expo prioritaire, déformation hors sujet
+
+  // EXTÉRIEUR — pas de "lignes courbées" (bow retiré) ; l'aplomb (verticales/horizon) prend le relais.
+  facade:{hiTol:12,portraitOK:true,checkBow:false,
+    w:{sharp:28, expo:24, contrast:8, wb:6, frame:8, bow:0, aplomb:20, resol:10}},      // vitrine : verticales parfaitement droites
+  jardin:{hiTol:13,checkBow:false,
+    w:{sharp:28, expo:24, contrast:10, wb:12, frame:10, bow:0, aplomb:6, resol:10}},    // couleur de la verdure ; peu de lignes droites
+  terrasse:{hiTol:13,checkBow:false,
+    w:{sharp:28, expo:24, contrast:8, wb:10, frame:10, bow:0, aplomb:12, resol:10}},    // garde-corps droits + lumière douce
+  piscine:{hiTol:14,checkBow:false,
+    w:{sharp:26, expo:24, contrast:8, wb:16, frame:8, bow:0, aplomb:10, resol:10}},     // eau turquoise + ciel : couleur décisive
+  vue:{hiTol:14,portraitOK:true,checkBow:false,
+    w:{sharp:26, expo:24, contrast:8, wb:6, frame:10, bow:0, aplomb:18, resol:10}},     // horizon parfaitement droit
+
+  // Calibré le 2026-06-30 sur 3 photos réelles de salon (DSC_0296/0460/0525, notées ~80-95%) :
+  // lapVar moy=143, meanL moy=147, sd moy=49, cast moy=6.1 -> ancrés vers un score ~85-90.
+  salon:{hiTol:7, sharpLo:20, sharpHi:165, contrastDiv:25, wbTol:11,
+    w:{sharp:32, expo:26, contrast:10, wb:8, frame:12, bow:8, aplomb:12, resol:10}},    // photo de couverture (expo claire OK)
+  // Calibré le 2026-06-30 sur 3 photos réelles de salle de bain (DSC_0569/0759/0782, notées ~80-95%) :
+  // lapVar moy=130.5, meanL moy=147.3, sd moy=41.1, cast moy=4.3 -> ancrés vers un score ~85-90.
+  sdb:{hiTol:7, sharpLo:20, sharpHi:150, contrastDiv:25, wbTol:9,
+    w:{sharp:30, expo:22, contrast:8, wb:16, frame:8, bow:10, aplomb:9, resol:10}}      // blancs neutres + pièce étroite (grand-angle)
+};
+function ctxLabel(k){ return k==='general'?'Général':(DATA[k]?DATA[k].name:'Général'); }
+function profileFor(k){
+  const ovr=CTX_OVR[k]||{};
+  const p=Object.assign({}, CTX_DEF, ovr, {key:k, label:ctxLabel(k)});
+  p.w=Object.assign({}, CTX_DEF.w, ovr.w||{});   // fusion fine des poids (les clés non surchargées gardent le défaut)
+  return p;
+}
+function detectBow(lum, W, H){
+  // Pour une bande horizontale (haut ou bas), on cherche pour chaque colonne x
+  // la position y du gradient vertical le plus fort (= contour le plus marqué).
+  function strongestEdgeY(yStart, yEnd, xStep){
+    const pts=[];
+    for(let x=4;x<W-4;x+=xStep){
+      let bestY=-1, bestG=0;
+      for(let y=yStart+1;y<yEnd-1;y++){
+        const g=Math.abs(lum[(y+1)*W+x]-lum[(y-1)*W+x]);
+        if(g>bestG){ bestG=g; bestY=y; }
+      }
+      if(bestG>18) pts.push([x,bestY]); // seuil de gradient mini pour ignorer le bruit
+    }
+    return pts;
+  }
+  function strongestEdgeX(xStart, xEnd, yStep){
+    const pts=[];
+    for(let y=4;y<H-4;y+=yStep){
+      let bestX=-1, bestG=0;
+      for(let x=xStart+1;x<xEnd-1;x++){
+        const g=Math.abs(lum[y*W+(x+1)]-lum[y*W+(x-1)]);
+        if(g>bestG){ bestG=g; bestX=x; }
+      }
+      if(bestG>18) pts.push([y,bestX]);
+    }
+    return pts;
+  }
+  // écart-type des résidus par rapport à la droite de régression (mesure de courbure)
+  function bowScore(pts){
+    if(pts.length<8) return 0; // pas assez de contour détecté, on ne juge pas
+    const n=pts.length;
+    let sx=0,sy=0; pts.forEach(([a,b])=>{sx+=a;sy+=b;});
+    const mx=sx/n, my=sy/n;
+    let num=0,den=0;
+    pts.forEach(([a,b])=>{ num+=(a-mx)*(b-my); den+=(a-mx)*(a-mx); });
+    const slope = den!==0 ? num/den : 0;
+    const intercept = my - slope*mx;
+    let sumSq=0, maxAbs=0;
+    pts.forEach(([a,b])=>{
+      const resid=b-(slope*a+intercept);
+      sumSq+=resid*resid;
+      maxAbs=Math.max(maxAbs,Math.abs(resid));
+    });
+    const rmse=Math.sqrt(sumSq/n);
+    return {rmse, maxAbs, n};
+  }
+  const bandH=Math.max(8,Math.round(H*0.10));
+  const bandW=Math.max(8,Math.round(W*0.10));
+  const top=bowScore(strongestEdgeY(0,bandH,4));
+  const bottom=bowScore(strongestEdgeY(H-bandH,H,4));
+  const left=bowScore(strongestEdgeX(0,bandW,4));
+  const right=bowScore(strongestEdgeX(W-bandW,W,4));
+  const candidates=[top,bottom,left,right].filter(c=>c && c.n>=8);
+  if(!candidates.length) return {bow:0, detected:false};
+  // on retient la pire courbure détectée (la plus parlante visuellement)
+  const worst=candidates.reduce((a,c)=>c.rmse>a.rmse?c:a, candidates[0]);
+  return {bow:worst.rmse, maxAbs:worst.maxAbs, detected:true};
+}
+
+// Détecte l'inclinaison (appareil penché) : on cherche les lignes droites dominantes
+// près des bords et on mesure leur angle par rapport à l'horizontale/verticale.
+// Garde-fous : on ne retient une bande que si elle forme une vraie ligne droite
+// (faible erreur de régression) et il faut au moins 2 lignes fiables pour conclure,
+// afin d'éviter de pénaliser à tort un meuble ou un objet isolé.
+// IMPORTANT : on mesure un angle SIGNÉ par bande, puis on en prend la médiane.
+// Pourquoi : sur une photo prise depuis un angle de la pièce (cas normal), la perspective
+// fait fuir les lignes vers un point de fuite -> le bord du haut penche dans un sens et celui
+// du bas dans l'autre (angles opposés). Un vrai appareil penché, lui, fait pencher TOUTES les
+// lignes dans le même sens. En gardant le signe, la perspective symétrique s'annule à la médiane
+// alors que le roulis réel subsiste. (Avant, on prenait la valeur absolue -> la perspective
+// s'additionnait et créait de faux "penchés", ex. cuisine prise de 3/4 lue à 7°.)
+function detectTilt(lum, W, H){
+  function angleOf(pts, isVertical){
+    if(pts.length<10) return null;
+    const n=pts.length; let sx=0,sy=0; pts.forEach(([a,b])=>{sx+=a;sy+=b;});
+    const mx=sx/n, my=sy/n; let num=0,den=0;
+    pts.forEach(([a,b])=>{ num+=(a-mx)*(b-my); den+=(a-mx)*(a-mx); });
+    if(den===0) return null;
+    const slope=num/den, intc=my-slope*mx;
+    let ss=0; pts.forEach(([a,b])=>{ const r=b-(slope*a+intc); ss+=r*r; });
+    if(Math.sqrt(ss/n)>14) return null;            // pas une vraie droite : on ignore
+    let ang=Math.atan(slope)*180/Math.PI;          // angle SIGNÉ
+    if(isVertical) ang=-ang;                        // convention de signe inversée pour les verticales
+    return ang;
+  }
+  function edgesY(yS,yE){ const pts=[]; for(let x=4;x<W-4;x+=4){ let bY=-1,bG=0;
+    for(let y=yS+1;y<yE-1;y++){ const g=Math.abs(lum[(y+1)*W+x]-lum[(y-1)*W+x]); if(g>bG){bG=g;bY=y;} }
+    if(bG>22) pts.push([x,bY]); } return pts; }
+  function edgesX(xS,xE){ const pts=[]; for(let y=4;y<H-4;y+=4){ let bX=-1,bG=0;
+    for(let x=xS+1;x<xE-1;x++){ const g=Math.abs(lum[y*W+(x+1)]-lum[y*W+(x-1)]); if(g>bG){bG=g;bX=x;} }
+    if(bG>22) pts.push([y,bX]); } return pts; }
+  const bH=Math.max(8,Math.round(H*0.14)), bW=Math.max(8,Math.round(W*0.14));
+  const angs=[ angleOf(edgesY(0,bH),false), angleOf(edgesY(H-bH,H),false),
+               angleOf(edgesX(0,bW),true), angleOf(edgesX(W-bW,W),true) ].filter(a=>a!==null);
+  if(angs.length<2) return {tilt:0, detected:false};
+  angs.sort((a,b)=>a-b);
+  const m=angs.length, med = m%2 ? angs[(m-1)/2] : (angs[m/2-1]+angs[m/2])/2;
+  return {tilt:Math.abs(med), detected:true};      // |médiane| : perspective annulée, roulis conservé
+}
+
+function analyze(img, prof){
+  prof=prof||CTX_DEF;
+  const W0=img.width, H0=img.height;
+  const mp=(W0*H0)/1e6;
+  // draw downscaled for pixel analysis
+  const TW=Math.min(640, W0), scale=TW/W0, TH=Math.round(H0*scale);
+  const cv=$('work'); cv.width=TW; cv.height=TH;
+  const ctx=cv.getContext('2d',{willReadFrequently:true});
+  ctx.drawImage(img,0,0,TW,TH);
+  const thumb=cv.toDataURL('image/jpeg',0.62);
+  const {data}=ctx.getImageData(0,0,TW,TH);
+  const N=TW*TH;
+
+  // luminance array + channel means + histogram
+  const lum=new Float32Array(N);
+  let sR=0,sG=0,sB=0, sumL=0, hi=0, lo=0;
+  for(let i=0,p=0;i<N;i++,p+=4){
+    const r=data[p],g=data[p+1],b=data[p+2];
+    sR+=r;sG+=g;sB+=b;
+    const l=0.299*r+0.587*g+0.114*b;
+    lum[i]=l; sumL+=l;
+    if(l>=248) hi++; if(l<=6) lo++;
+  }
+  const meanL=sumL/N, hiPct=hi/N*100, loPct=lo/N*100;
+  const avgR=sR/N, avgG=sG/N, avgB=sB/N;
+
+  // contrast = std dev of luminance
+  let varL=0; for(let i=0;i<N;i++){const d=lum[i]-meanL;varL+=d*d;}
+  const sd=Math.sqrt(varL/N);
+
+  // sharpness: variance of Laplacian
+  let sumLap=0, sumLap2=0, cnt=0;
+  for(let y=1;y<TH-1;y++){
+    for(let x=1;x<TW-1;x++){
+      const i=y*TW+x;
+      const lap=lum[i-1]+lum[i+1]+lum[i-TW]+lum[i+TW]-4*lum[i];
+      sumLap+=lap; sumLap2+=lap*lap; cnt++;
+    }
+  }
+  const lapMean=sumLap/cnt, lapVar=sumLap2/cnt-lapMean*lapMean;
+
+  // distorsion de perspective (lignes courbées) — uniquement pertinent pour les pièces (pas façade/vue)
+  const bowRes = prof.checkBow!==false ? detectBow(lum, TW, TH) : {bow:0, detected:false};
+
+  // white balance cast (gray-world)
+  const grand=(avgR+avgG+avgB)/3;
+  const cast=Math.max(Math.abs(avgR-grand),Math.abs(avgG-grand),Math.abs(avgB-grand))/grand*100;
+  const warm=avgR>avgB; // tungsten warm vs cold
+
+  // ----- subscores -----
+  // 1. Netteté — bornes calibrables par pièce (prof.sharpLo/sharpHi). Défaut générique calibré
+  // le 2026-06-30 sur une photo réelle nette (DSC_0782.jpg -> lapVar=158), affiné par pièce
+  // quand des photos de référence existent (voir CTX_OVR).
+  let sharp=clamp((lapVar-prof.sharpLo)/(prof.sharpHi-prof.sharpLo)*100);
+  // 2. Exposition (mean toward expoCenter + clipping penalty)
+  let expoBase= meanL<60? clamp(meanL/60*55)
+              : meanL<95? clamp(55+(meanL-60)/35*25)   // zone "sombre" élargie : pénalité progressive jusqu'à 95
+              : meanL>=prof.expoCenter? clamp(100-(meanL-prof.expoCenter)/prof.expoSpanHigh*32)
+              : 100-Math.abs(meanL-prof.expoCenter)/prof.expoSpanLow*22;
+  let clipPen=0;
+  if(hiPct>prof.hiTol) clipPen+=Math.min(40,(hiPct-prof.hiTol)*4);   // fenêtres/ciel cramés
+  if(loPct>prof.loTol) clipPen+=Math.min(35,(loPct-prof.loTol)*4);   // zones bouchées
+  let expo=clamp(expoBase-clipPen);
+  // 3. Contraste — diviseur de pénalité calibrable par pièce (prof.contrastDiv)
+  let contrast = sd<22? clamp(sd/22*60)
+               : sd>85? clamp(100-(sd-85)/40*45)
+               : 100-Math.abs(sd-58)/prof.contrastDiv*15;
+  contrast=clamp(contrast);
+  // 4. Balance des blancs — tolérance calibrable par pièce (prof.wbTol)
+  let wb=clamp(100 - Math.max(0,cast-prof.wbTol)*prof.wbSlope);
+  // 5. Cadrage / orientation
+  const ratio=W0/H0, landscape=W0>=H0;
+  let frame = landscape ? (ratio>=1.25&&ratio<=1.95?100: ratio<1.25?82: 88)
+                        : (prof.portraitOK?92:55); // portrait OK pour façade/vue, pénalisé pour les pièces
+  // 6. Résolution
+  let resol = mp>=2.2?100: mp>=1.4? 70+(mp-1.4)/0.8*30 : mp>=0.8? 40+(mp-0.8)/0.6*30 : clamp(mp/0.8*40);
+  resol=clamp(resol);
+  // 7. Déformation / lignes courbées (grand-angle excessif)
+  // bow = écart-type des résidus (rmse) en pixels, échelle image réduite ~640px de large.
+  // RECALIBRÉ le 2026-06-30 sur 12 photos d'intérieur réelles bien cadrées : leur rmse va
+  // de 9 à 19 (le "contour le plus fort" suit le mobilier, pas une ligne droite parfaite).
+  // L'ancien seuil (0,5) mettait donc 0 à toutes les bonnes photos -> faux positif systématique.
+  // Nouveaux seuils : on ne pénalise qu'à partir d'une courbure nettement supérieure au bruit normal.
+  // Si le grand-angle est activé volontairement (acc.grandangle), on tolère encore davantage.
+  const bowTol = acc.grandangle ? 26 : 20;
+  const bowMaxPenalty = acc.grandangle ? 35 : 60;
+  const bowSpan = acc.grandangle ? 22 : 18;
+  let bow = !bowRes.detected ? 100
+          : bowRes.bow<=bowTol ? 100
+          : clamp(100-(bowRes.bow-bowTol)/bowSpan*bowMaxPenalty);
+  bow=clamp(bow);
+  // 8. Aplomb (appareil penché) — tolérant : on accepte un petit angle à main levée,
+  // puis pénalité progressive. Doux par construction pour éviter les faux positifs.
+  const tiltRes = detectTilt(lum, TW, TH);
+  const tiltTol = 1.3; // degrés tolérés
+  let aplomb = !tiltRes.detected ? 100
+             : tiltRes.tilt<=tiltTol ? 100
+             : clamp(100-(tiltRes.tilt-tiltTol)/3.5*70);
+  aplomb=clamp(aplomb);
+
+  const metrics=[
+    {key:'sharp',name:'Netteté',score:Math.round(sharp),w:prof.w.sharp,
+      tipBad:'Photo floue ou pas assez nette. Stabilisez (2 mains/trépied), touchez l\'écran pour faire le point, évitez de bouger au déclenchement.',
+      tipMid:'Netteté correcte sans plus. Verrouillez la mise au point et stabilisez davantage.'},
+    {key:'expo',name:'Exposition',score:Math.round(expo),w:prof.w.expo,
+      tipBad: hiPct>prof.hiTol ? `Fenêtres / zones « cramées » (${hiPct.toFixed(0)}% de blanc pur). Activez le HDR, exposez sur l\'intérieur, ou faites du bracketing.` : (meanL<60?'Photo trop sombre. Allumez les lumières, ouvrez les rideaux, montez l\'exposition (+0,3 à +0,7 EV).':(loPct>prof.loTol?`Zones bouchées (${loPct.toFixed(0)}% de noir). Ajoutez de la lumière ou éclaircissez.`:'Exposition à revoir : éclairez la pièce et équilibrez.')),
+      tipMid:'Exposition acceptable. Allumez toutes les lampes et activez le HDR pour gagner en équilibre.'},
+    {key:'contrast',name:'Contraste',score:Math.round(contrast),w:prof.w.contrast,
+      tipBad: sd<22?'Image plate / voilée. Nettoyez l\'objectif, évitez le contre-jour brumeux, relancez le contraste.':'Contraste trop dur : adoucissez (HDR) pour récupérer ombres et hautes lumières.',
+      tipMid:'Contraste un peu juste — un léger ajustement à la retouche aiderait.'},
+    {key:'wb',name:'Balance des blancs',score:Math.round(wb),w:prof.w.wb,
+      tipBad:`Dominante ${warm?'chaude (jaune/orange)':'froide (bleue)'} marquée. Réglez la balance des blancs, ou évitez de mélanger lumière du jour et ampoules.`,
+      tipMid:'Légère dominante de couleur. Les blancs pourraient être plus neutres.'},
+    {key:'frame',name:'Format / orientation',score:Math.round(frame),w:prof.w.frame,
+      tipBad: landscape? 'Proportions inhabituelles. Privilégiez le format paysage 4:3 (réglage recommandé), ou à défaut 3:2.' : 'Photo en portrait : pour une pièce, le format paysage 4:3 (horizontal) est attendu sur les annonces. Le portrait reste OK pour une façade haute ou un détail.',
+      tipMid:'Cadrage correct ; le format paysage 4:3 reste l\'idéal pour les pièces.'},
+    {key:'bow',name:'Lignes droites / déformation',score:Math.round(bow),w:prof.w.bow,
+      tipBad: acc.grandangle
+        ? 'Déformation marquée même pour du grand-angle. Essayez de rester bien parallèle aux murs, ou redressez les lignes à la retouche (Lightroom/Photoshop : correction d\'objectif).'
+        : 'Murs ou plafond visiblement courbés (effet grand-angle trop prononcé). Reculez-vous si possible, évitez le tout grand-angle, ou redressez les lignes à la retouche (Lightroom/Photoshop : correction d\'objectif).',
+      tipMid: acc.grandangle
+        ? 'Légère courbure, normale en grand-angle. Vérifiez que l\'appareil reste bien parallèle aux murs si possible.'
+        : 'Légère courbure des lignes verticales/horizontales. Vérifiez que l\'appareil est bien parallèle aux murs.'},
+    {key:'aplomb',name:'Aplomb (appareil droit)',score:Math.round(aplomb),w:prof.w.aplomb,
+      tipBad:`Photo penchée${tiltRes.detected?` (~${tiltRes.tilt.toFixed(1)}°)`:''}. Tenez l\'appareil de niveau : activez la grille (ou le niveau à bulle), et alignez les verticales et l\'horizon sur les bords de l\'écran.`,
+      tipMid:'Léger défaut d\'aplomb. Activez la grille et calez les lignes verticales sur les bords de l\'écran avant de déclencher.'},
+    {key:'resol',name:'Résolution',score:Math.round(resol),w:prof.w.resol,
+      tipBad:`Définition faible (${mp.toFixed(1)} Mpx). Visez ≥ 2 Mpx pour une annonce nette en plein écran. Vérifiez la qualité photo de l\'appareil.`,
+      tipMid:`Définition juste (${mp.toFixed(1)} Mpx). Correct pour le web, sans marge pour le recadrage.`}
+  ];
+
+  // On ne garde que les critères pertinents pour cette catégorie (poids > 0).
+  const used = metrics.filter(m=>m.w>0);
+  let total=0,wsum=0;
+  used.forEach(m=>{
+    total+=m.score*m.w; wsum+=m.w;
+    m.tip = m.score<55 ? m.tipBad : (m.score<75 ? m.tipMid : '');
+  });
+  let overall=Math.round(total/wsum);
+  // Garde-fou : un défaut rédhibitoire (photo trop sombre/cramée ou trop floue) ne doit pas
+  // être "noyé" par les autres critères dans la moyenne pondérée. On plafonne le score global
+  // proportionnellement à la gravité du pire de ces deux critères.
+  const expoM = metrics.find(m=>m.key==='expo'), sharpM = metrics.find(m=>m.key==='sharp');
+  const worstCritical = Math.min(expoM ? expoM.score : 100, sharpM ? sharpM.score : 100);
+  if(worstCritical<50){
+    overall = Math.min(overall, 35 + worstCritical*0.6); // ex: critique=16 -> plafond ~45 ; critique=0 -> plafond 35
+  }
+  overall=Math.round(clamp(overall));
+  // keep only what the UI / history need (critères pertinents uniquement)
+  const slim=used.map(m=>({name:m.name,score:m.score,tip:m.tip,w:m.w}));
+  return {overall, metrics:slim, thumb};
+}
+
+function band(s){return s>=75?'ok':s>=55?'mid':'bad';}
+function safeName(s){return (s||'photo').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/gi,'-').replace(/^-|-$/g,'');}
+
+/* ============================ APP PRO ============================ */
+function loadImg(file){return new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=no;i.src=URL.createObjectURL(file);});}
+let toastT;
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2200);}
+function fmtDate(t){const d=new Date(t),p=n=>String(n).padStart(2,'0');return p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear();}
+
+/* ---------- modèle ---------- */
+const BKEY='photoimmo_pro_biens';
+function loadBiens(){try{return JSON.parse(localStorage.getItem(BKEY))||[];}catch(e){return[];}}
+function saveBiens(l){try{localStorage.setItem(BKEY,JSON.stringify(l));}catch(e){toast('Mémoire pleine : exportez puis videz d’anciens biens');}}
+function getBien(id){return loadBiens().find(b=>b.id===id);}
+const sessionFull={};   // id photo -> {file,url} (session courante, plein écran/PDF)
+
+const REQUIRED={
+  maison:['facade','entree','salon','cuisine','sam','chambre','sdb','bureau','jardin','terrasse','garage','vue'],
+  appartement:['entree','salon','cuisine','sam','chambre','sdb','bureau','terrasse','vue']
+};
+function roomsForBien(b){const req=(REQUIRED[b.type]||REQUIRED.maison).filter(k=>DATA[k]);const extra=Object.keys(DATA).filter(k=>!req.includes(k));return{req,extra};}
+function photosOf(b,room){return (b.photos||[]).filter(p=>p.room===room);}
+function bestOf(b,room){const ps=photosOf(b,room);return ps.length?Math.max(...ps.map(p=>p.score)):null;}
+function progress(b){const{req}=roomsForBien(b);const done=req.filter(k=>photosOf(b,k).length>0).length;return{done,total:req.length};}
+
+/* ---------- navigation écrans ---------- */
+function openScreen(id){$(id).classList.add('open');$(id).scrollTop=0;window.scrollTo(0,0);}
+function closeScreen(id){$(id).classList.remove('open');}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-close]');if(b)closeScreen(b.dataset.close);});
+
+/* ============================ ACCUEIL ============================ */
+let currentBienId=null, currentRoom=null;
+function renderHome(){
+  const list=loadBiens();
+  let html='<button class="btn btn-primary" id="newBienBtn" style="margin-bottom:14px">➕ Nouveau bien</button>';
+  if(!list.length){
+    html+='<div class="empty">Aucun bien pour l’instant.<br>Créez un bien, puis shootez pièce par pièce :<br>l’app vous guide, note chaque photo et garde la meilleure.</div>';
+  }else{
+    html+='<div class="section-title">Mes biens</div>';
+    list.forEach(b=>{
+      const pr=progress(b),pct=Math.round(pr.done/pr.total*100),n=(b.photos||[]).length;
+      html+=`<div class="bien-card" data-bien="${b.id}">
+        <div class="bien-ic">${b.type==='appartement'?'🏢':'🏡'}</div>
+        <div class="bien-main"><div class="bien-addr">${esc(b.address)}</div>
+          <div class="bien-sub">${b.type==='appartement'?'Appartement':'Maison'} · ${n} photo${n>1?'s':''} · ${fmtDate(b.created)}</div>
+          <div class="pbar"><i style="width:${pct}%"></i></div></div>
+        <div class="bien-prog">${pr.done}/${pr.total}</div>
+        <button class="bien-del" data-delbien="${b.id}" title="Supprimer">🗑️</button></div>`;
+    });
+  }
+  html+='<div class="section-title">Aide</div><button class="btn btn-ghost" id="rulesBtn" style="width:100%">⭐ Les 10 règles d’or du shooting</button>';
+  html+='<div class="footer-note">Analyse 100% locale — vos photos ne quittent pas l’appareil. Ajoutez l’app à l’écran d’accueil pour l’utiliser hors-ligne sur le terrain.</div>';
+  $('home').innerHTML=html;
+}
+function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+$('home').addEventListener('click',e=>{
+  if(e.target.closest('#newBienBtn'))return openNewBien();
+  if(e.target.closest('#rulesBtn'))return openRules();
+  const del=e.target.closest('[data-delbien]');
+  if(del){e.stopPropagation();const b=getBien(del.dataset.delbien);if(b&&confirm('Supprimer le bien « '+b.address+' » et ses photos ?')){saveBiens(loadBiens().filter(x=>x.id!==del.dataset.delbien));renderHome();}return;}
+  const card=e.target.closest('[data-bien]');if(card)openBien(card.dataset.bien);
+});
+
+/* ---------- nouveau bien (modal) ---------- */
+function openNewBien(){
+  let m=$('newBienModal');
+  if(!m){m=document.createElement('div');m.id='newBienModal';m.className='screen';
+    m.innerHTML=`<div class="s-head"><button class="s-back" data-close="newBienModal">‹ Annuler</button><h2 class="s-title">Nouveau bien</h2></div>
+      <div class="s-body">
+        <div class="section-title">Adresse du bien</div>
+        <input id="nbAddr" placeholder="12 rue des Lilas, Pithiviers" style="width:100%;padding:14px;font-size:16px;border:1.5px solid var(--line);border-radius:12px">
+        <div class="section-title">Type</div>
+        <div class="btn-row" id="nbType"><button class="btn btn-ghost" data-t="maison" aria-pressed="true">🏡 Maison</button><button class="btn btn-ghost" data-t="appartement">🏢 Appartement</button></div>
+        <button class="btn btn-primary" id="nbCreate" style="margin-top:18px">Créer le bien</button>
+      </div>`;
+    document.body.appendChild(m);
+    let type='maison';
+    m.querySelector('#nbType').addEventListener('click',ev=>{const b=ev.target.closest('[data-t]');if(!b)return;type=b.dataset.t;m.querySelectorAll('#nbType .btn').forEach(x=>x.setAttribute('aria-pressed',x===b));x:1;});
+    m.querySelector('#nbCreate').onclick=()=>{
+      const addr=m.querySelector('#nbAddr').value.trim();if(!addr){toast('Indiquez une adresse');return;}
+      const b={id:'b'+Date.now(),address:addr,type,created:Date.now(),photos:[]};
+      const l=loadBiens();l.unshift(b);saveBiens(l);
+      m.querySelector('#nbAddr').value='';closeScreen('newBienModal');renderHome();openBien(b.id);
+    };
+  }
+  openScreen('newBienModal');setTimeout(()=>m.querySelector('#nbAddr').focus(),250);
+}
+
+/* ============================ BIEN ============================ */
+function openBien(id){currentBienId=id;renderBien();openScreen('bienScreen');}
+function renderBien(){
+  const b=getBien(currentBienId);if(!b)return;
+  $('bienTitle').textContent=b.address;
+  const{req,extra}=roomsForBien(b),pr=progress(b),pct=Math.round(pr.done/pr.total*100);
+  let html=`<div class="gcard"><div style="display:flex;justify-content:space-between;align-items:baseline"><b>Avancement</b><span style="font-weight:800;color:var(--green)">${pr.done}/${pr.total} pièces clés</span></div><div class="pbar" style="margin-top:9px"><i style="width:${pct}%"></i></div></div>`;
+  html+='<button class="btn btn-gold" id="exportBtn" style="margin-bottom:6px">📄 Générer le PDF du bien</button>';
+  html+='<div class="section-title">Pièces clés à shooter</div><div class="roomlist">'+req.map(k=>roomRow(b,k)).join('')+'</div>';
+  html+='<div class="section-title">Autres pièces / extérieurs</div><div class="roomlist">'+extra.map(k=>roomRow(b,k)).join('')+'</div>';
+  $('bienBody').innerHTML=html;
+}
+function roomRow(b,k){
+  const r=DATA[k],ps=photosOf(b,k),best=bestOf(b,k),kept=ps.find(p=>p.kept);
+  const bd=best!=null?band(best):null;
+  const sub=ps.length?(ps.length+' angle'+(ps.length>1?'s':'')+(kept?' · ✓ retenue':'')):'À prendre';
+  return `<div class="roomrow ${ps.length?'done':''}">
+    <span class="rr-ic">${r.icon}</span>
+    <div class="rr-main" ${ps.length?`data-cmp="${k}"`:''} style="${ps.length?'cursor:pointer':''}"><div class="rr-name">${r.name}</div><div class="rr-sub">${sub}</div></div>
+    ${best!=null?`<span class="rr-badge ${bd}">${best}</span>`:''}
+    <div class="rr-act"><button class="rr-guide" data-guide="${k}" title="Conseils">💡</button><button class="rr-import" data-import="${k}" title="Importer des images">🖼️</button><button class="rr-shoot" data-shoot="${k}" title="Prendre">📷</button></div></div>`;
+}
+$('bienBody').addEventListener('click',e=>{
+  if(e.target.closest('#exportBtn'))return exportBien(currentBienId);
+  const s=e.target.closest('[data-shoot]');if(s)return openCam(s.dataset.shoot);
+  const im=e.target.closest('[data-import]');if(im)return triggerImport(im.dataset.import);
+  const g=e.target.closest('[data-guide]');if(g)return openGuide(g.dataset.guide);
+  const c=e.target.closest('[data-cmp]');if(c)return openCompare(c.dataset.cmp);
+});
+
+/* ============================ GUIDE PIÈCE ============================ */
+function openRules(){
+  $('guideTitle').textContent='Les 10 règles d’or';
+  $('guideBody').innerHTML=`<div class="gcard"><ul>
+    <li><b>Préparez la pièce :</b> désencombrez, rangez, dépersonnalisez.</li>
+    <li><b>Lumière à fond :</b> volets ouverts, TOUTES les lampes allumées.</li>
+    <li><b>Appareil droit et de niveau</b> (le niveau de l’app vous y aide).</li>
+    <li><b>Hauteur de poitrine (~1,30 m)</b>, pas au niveau des yeux.</li>
+    <li><b>Format paysage 4:3</b> pour les pièces.</li>
+    <li><b>Tirez depuis un coin</b> : on voit 2 murs, ça agrandit.</li>
+    <li><b>2 à 3 angles par pièce</b>, on garde le meilleur.</li>
+    <li><b>Objectif propre</b> (un coup de chiffon).</li>
+    <li><b>HDR activé</b> dès qu’il y a une fenêtre.</li>
+    <li><b>Stabilité :</b> deux mains, coudes au corps.</li></ul></div>`;
+  openScreen('guideScreen');
+}
+function srows(a){return a.map(([l,v])=>`<div class="srow"><span class="slabel">${l}</span><span>${v}</span></div>`).join('');}
+function openGuide(k){
+  const r=DATA[k];currentRoom=k;
+  $('guideTitle').textContent=r.name;
+  $('guideBody').innerHTML=`
+    <button class="btn btn-primary" id="guideShoot" style="margin-bottom:14px">📷 Prendre cette pièce</button>
+    <div class="accroche">${r.accroche}</div>
+    <div class="gcard"><h3>🎛️ Réglages (smartphone auto)</h3>${srows(r.reglages.auto)}</div>
+    <div class="gcard"><h3>📐 Angle & position</h3><p>${r.angle}</p></div>
+    <div class="gcard"><h3>🎯 Composition</h3><p>${r.composition}</p></div>
+    <div class="gcard"><h3>💡 Lumière</h3><p>${r.lumiere}</p></div>
+    <div class="gcard"><h3>✅ Avant de déclencher</h3><ul>${r.checklist.map(c=>'<li>'+c+'</li>').join('')}</ul></div>
+    <div class="gcard eviter"><h3>🚫 À éviter</h3><ul>${r.eviter.map(c=>'<li>'+c+'</li>').join('')}</ul></div>`;
+  $('guideShoot').onclick=()=>{closeScreen('guideScreen');openCam(k);};
+  openScreen('guideScreen');
+}
+
+/* ============================ CAMÉRA LIVE ============================ */
+let camStream=null, camOpen=false, camRoom=null, showGrid=true, lastRoll=0, lastTiltOK=true, coachT=null;
+let lastGamma=null, lastBeta=null; // valeurs brutes accéléromètre, indépendantes du verrouillage de rotation écran
+function openCam(room){
+  camRoom=room;currentRoom=room;
+  $('camTitle').textContent=DATA[room]?DATA[room].name:'Pièce';
+  $('camMsg').style.display='none';$('camChips').innerHTML='';
+  $('camWrap').classList.add('open');camOpen=true;
+  requestOrientation();
+  startStream();
+}
+function camFail(msg){
+  $('camMsg').style.display='grid';
+  $('camMsg').innerHTML=msg+'<br><br><button class="btn btn-gold" id="camFallback" style="max-width:280px">📷 Utiliser l’appareil photo</button>';
+  $('camFallback').onclick=()=>{closeCam();const inp=$('fileInput');inp.onchange=e=>{const f=e.target.files&&e.target.files[0];if(f)handlePhoto(f,room);inp.value='';};inp.click();};
+}
+async function startStream(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){return camFail('Caméra intégrée non disponible sur ce navigateur.');}
+  try{
+    camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:3840},height:{ideal:2160}},audio:false});
+    const v=$('camVideo');v.srcObject=camStream;await v.play().catch(()=>{});
+    guideLoop();startCoach();
+  }catch(err){
+    camFail('Accès caméra refusé ou indisponible.<br><span style="opacity:.8;font-size:13px">(La caméra intégrée nécessite une connexion sécurisée https.)</span>');
+  }
+}
+function closeCam(){
+  camOpen=false;clearInterval(coachT);
+  if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null;}
+  $('camWrap').classList.remove('open');
+}
+$('camClose').onclick=closeCam;
+$('camGrid').onclick=()=>{showGrid=!showGrid;};
+$('camGuideBtn').onclick=()=>{const r=camRoom;closeCam();openGuide(r);};
+$('camShot').onclick=capturePhoto;
+
+/* niveau (orientation) */
+function requestOrientation(){
+  if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){
+    DeviceOrientationEvent.requestPermission().then(s=>{if(s==='granted')window.addEventListener('deviceorientation',onOrient);}).catch(()=>{});
+  }else{window.addEventListener('deviceorientation',onOrient);}
+}
+function onOrient(e){
+  lastGamma=e.gamma; lastBeta=e.beta;
+  // Détecter l'angle d'orientation écran (0 = portrait, ±90 = paysage)
+  const angle = (screen.orientation && screen.orientation.angle != null)
+    ? screen.orientation.angle
+    : (typeof window.orientation !== 'undefined' ? window.orientation : 0);
+  let roll;
+  if (Math.abs(angle) === 90 || Math.abs(angle) === 270) {
+    // Mode paysage : l'axe de roulis devient beta
+    roll = e.beta != null ? e.beta : 0;
+    // Paysage gauche (270° / -90°) : inverser
+    if (angle === 270 || angle === -90) roll = -roll;
+  } else {
+    // Mode portrait : axe de roulis = gamma
+    roll = e.gamma != null ? e.gamma : 0;
+  }
+  lastRoll = Math.max(-45, Math.min(45, roll));
+}
+
+function guideLoop(){
+  if(!camOpen)return;
+  const cv=$('camGuide'),w=cv.clientWidth,h=cv.clientHeight;
+  if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h;}
+  const g=cv.getContext('2d');g.clearRect(0,0,w,h);
+  if(showGrid){g.strokeStyle='rgba(255,255,255,.32)';g.lineWidth=1;
+    for(let i=1;i<3;i++){g.beginPath();g.moveTo(w*i/3,0);g.lineTo(w*i/3,h);g.stroke();g.beginPath();g.moveTo(0,h*i/3);g.lineTo(w,h*i/3);g.stroke();}}
+  const ok=Math.abs(lastRoll)<=1.5;lastTiltOK=ok;
+  g.save();g.translate(w/2,h/2);g.rotate(-lastRoll*Math.PI/180);
+  g.strokeStyle=ok?'rgba(63,200,120,.95)':'rgba(255,205,70,.95)';g.lineWidth=3;
+  g.beginPath();g.moveTo(-w*0.17,0);g.lineTo(-w*0.04,0);g.moveTo(w*0.04,0);g.lineTo(w*0.17,0);g.stroke();g.restore();
+  g.fillStyle='rgba(255,255,255,.55)';g.beginPath();g.arc(w/2,h/2,3.5,0,7);g.fill();
+  requestAnimationFrame(guideLoop);
+}
+function startCoach(){
+  clearInterval(coachT);
+  const ac=document.createElement('canvas');ac.width=160;
+  coachT=setInterval(()=>{
+    const v=$('camVideo');if(!v.videoWidth)return;
+    ac.height=Math.round(160*v.videoHeight/v.videoWidth);
+    const c=ac.getContext('2d');c.drawImage(v,0,0,ac.width,ac.height);
+    const d=c.getImageData(0,0,ac.width,ac.height).data;let sum=0,hi=0,n=ac.width*ac.height;
+    for(let i=0,p=0;i<n;i++,p+=4){const l=0.299*d[p]+0.587*d[p+1]+0.114*d[p+2];sum+=l;if(l>=248)hi++;}
+    const meanL=sum/n,hiPct=hi/n*100;
+    const chips=[];
+    if(meanL<70)chips.push(['warn','🌑 Trop sombre — allumez les lumières']);
+    else if(meanL>205)chips.push(['warn','☀️ Trop clair']);
+    else chips.push(['ok','💡 Lumière OK']);
+    if(hiPct>8)chips.push(['warn','🪟 Fenêtre cramée — HDR']);
+    chips.push(lastTiltOK?['ok','📐 Droit']:['lvl','📐 Penché ('+Math.abs(Math.round(lastRoll))+'°)']);
+    $('camChips').innerHTML=chips.map(([c,t])=>`<span class="cam-chip ${c}">${t}</span>`).join('');
+  },500);
+}
+// Certains navigateurs (Android/Chrome notamment) ne pivotent pas correctement
+// le flux caméra quand le téléphone est tourné en paysage vers la gauche
+// (angle d'écran 270°/-90°) : la photo capturée sort alors à l'envers.
+// On détecte cet angle au moment du déclenchement et on corrige avec une rotation 180°.
+function captureNeedsFlip(){
+  // Priorité aux valeurs brutes de l'accéléromètre (gamma) : elles reflètent
+  // l'inclinaison physique réelle même si le verrouillage de rotation de l'écran
+  // est activé (auquel cas screen.orientation.angle reste figé à 0 à tort).
+  if(lastGamma!=null){
+    return lastGamma<-45; // paysage, téléphone tourné vers la gauche
+  }
+  const angle=(screen.orientation&&screen.orientation.angle!=null)
+    ? screen.orientation.angle
+    : (typeof window.orientation!=='undefined'?window.orientation:0);
+  return angle===270||angle===-90;
+}
+async function capturePhoto(){
+  const flip=captureNeedsFlip();
+  let blob=null;
+  try{
+    const track=camStream&&camStream.getVideoTracks()[0];
+    if(window.ImageCapture&&track){const ic=new ImageCapture(track);blob=await ic.takePhoto().catch(()=>null);}
+  }catch(e){console.warn('[capturePhoto] ImageCapture indisponible/échoué:',e);}
+  if(blob&&flip){
+    try{
+      const bmp=await createImageBitmap(blob);
+      const c=document.createElement('canvas');c.width=bmp.width;c.height=bmp.height;
+      const g=c.getContext('2d');g.translate(c.width,c.height);g.rotate(Math.PI);g.drawImage(bmp,0,0);
+      const fixed=await new Promise(r=>c.toBlob(r,'image/jpeg',0.92));
+      if(fixed)blob=fixed;
+    }catch(e){console.warn('[capturePhoto] correction flip échouée, blob ImageCapture conservé tel quel:',e);}
+  }
+  if(!blob){
+    try{
+      const v=$('camVideo');if(!v.videoWidth){toast('Caméra pas prête');return;}
+      const c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;
+      const g=c.getContext('2d');
+      if(flip){g.translate(c.width,c.height);g.rotate(Math.PI);}
+      g.drawImage(v,0,0);
+      blob=await new Promise(r=>c.toBlob(r,'image/jpeg',0.92));
+    }catch(e){console.warn('[capturePhoto] fallback canvas échoué:',e);}
+  }
+  if(!blob){
+    console.error('[capturePhoto] échec total (ImageCapture + fallback canvas), aucune photo capturée');
+    toast('Échec de la capture, réessayez');
+    return;
+  }
+  const file=new File([blob],'shot.jpg',{type:blob.type||'image/jpeg'});
+  const room=camRoom;closeCam();handlePhoto(file,room);
+}
+
+/* ============================ IMPORT GALERIE ============================ */
+function triggerImport(room){
+  const inp=$('importInput');
+  inp.onchange=e=>{const files=e.target.files;if(files&&files.length)handleImportFiles(files,room);inp.value='';};
+  inp.click();
+}
+async function handleImportFiles(fileList,room){
+  const files=Array.from(fileList||[]);
+  if(!files.length)return;
+  currentRoom=room;
+  if(files.length===1){await handlePhoto(files[0],room);return;}
+  openScreen('scoreScreen');
+  $('scoreBody').innerHTML='<div class="empty"><div style="font-size:30px">⏳</div>Import de '+files.length+' photos…</div>';
+  let lastEntry=null,ok=0;
+  for(const file of files){
+    try{
+      const prof=profileFor(room);
+      const bmp=await createImageBitmap(file,{imageOrientation:'from-image'}).catch(()=>loadImg(file));
+      const res=analyze(bmp,prof);
+      const url=URL.createObjectURL(file);
+      const entry={id:'p'+Date.now()+Math.floor(Math.random()*1e3),room,score:res.overall,metrics:res.metrics,thumb:res.thumb,t:Date.now(),kept:false};
+      const b=getBien(currentBienId);b.photos=b.photos||[];b.photos.push(entry);
+      const l=loadBiens();const idx=l.findIndex(x=>x.id===currentBienId);l[idx]=b;saveBiens(l);
+      sessionFull[entry.id]={file,url};
+      lastEntry=entry;ok++;
+    }catch(e){console.warn('[handleImportFiles] fichier ignoré (échec de lecture):',file&&file.name,e);}
+  }
+  renderBien();
+  if(lastEntry){renderScore(lastEntry,true);toast(ok+' photo'+(ok>1?'s':'')+' importée'+(ok>1?'s':''));}
+  else{closeScreen('scoreScreen');toast('Impossible de lire ces images');}
+}
+
+
+async function handlePhoto(file,room){
+  openScreen('scoreScreen');
+  $('scoreBody').innerHTML='<div class="empty"><div style="font-size:30px">⏳</div>Analyse de la photo…</div>';
+  try{
+    const prof=profileFor(room);
+    const bmp=await createImageBitmap(file,{imageOrientation:'from-image'}).catch(()=>loadImg(file));
+    const res=analyze(bmp,prof);
+    const url=URL.createObjectURL(file);
+    const entry={id:'p'+Date.now()+Math.floor(Math.random()*1e3),room,score:res.overall,metrics:res.metrics,thumb:res.thumb,t:Date.now(),kept:false};
+    const b=getBien(currentBienId);b.photos=b.photos||[];b.photos.push(entry);
+    const l=loadBiens();const idx=l.findIndex(x=>x.id===currentBienId);l[idx]=b;saveBiens(l);
+    sessionFull[entry.id]={file,url};
+    renderScore(entry,true);
+  }catch(e){$('scoreBody').innerHTML='<div class="empty">Impossible de lire cette image.<br>Réessayez.</div>';}
+}
+// Lit l'orientation EXIF d'un File/Blob JPEG (premiers 64 Ko suffisent)
+// Retourne : 1=normal, 3=180°, 6=90°CW, 8=270°CW (conventions EXIF standard)
+async function readExifOrientation(file){
+  try{
+    const buf=await file.slice(0,65536).arrayBuffer();
+    const view=new DataView(buf);
+    if(view.getUint16(0)!==0xFFD8) return 1; // pas un JPEG
+    let off=2;
+    while(off<view.byteLength-4){
+      const marker=view.getUint16(off);off+=2;
+      const len=view.getUint16(off);
+      if(marker===0xFFE1){ // APP1 = EXIF
+        if(view.getUint32(off+2)===0x45786966){ // "Exif"
+          const tiff=off+8;
+          const le=view.getUint16(tiff)===0x4949;
+          const get16=(o)=>le?view.getUint16(tiff+o,true):view.getUint16(tiff+o);
+          const get32=(o)=>le?view.getUint32(tiff+o,true):view.getUint32(tiff+o);
+          const ifd=tiff+get32(4);
+          const n=get16(ifd-tiff);
+          for(let i=0;i<n;i++){
+            const tag=get16(ifd-tiff+2+i*12);
+            if(tag===0x0112) return get16(ifd-tiff+2+i*12+8);
+          }
+        }
+      }
+      off+=len;
+    }
+  }catch(e){console.warn('[readExifOrientation] lecture EXIF échouée, orientation par défaut utilisée:',e);}
+  return 1;
+}
+// Corrige l'affichage d'une <img> selon l'orientation EXIF du fichier
+async function fixThumbOrientation(imgEl, file){
+  if(!file) return;
+  const o=await readExifOrientation(file);
+  // Sur iOS Safari moderne, image-orientation:from-image suffit (o=1 = déjà géré)
+  // On force quand même data-rot pour les cas où le CSS seul ne suffit pas
+  if(o===6)      imgEl.setAttribute('data-rot','90');
+  else if(o===3) imgEl.setAttribute('data-rot','180');
+  else if(o===8) imgEl.setAttribute('data-rot','270');
+  else           imgEl.removeAttribute('data-rot');
+}
+
+async function rotatePhoto(entry){
+  try{
+    const sf=sessionFull[entry.id];
+    const srcUrl=(sf&&sf.url)||entry.thumb;
+    const img=new Image();
+    await new Promise((res,rej)=>{img.onload=res;img.onerror=rej;img.src=srcUrl;});
+    const w=img.naturalWidth,h=img.naturalHeight;
+    const c=document.createElement('canvas');c.width=h;c.height=w;
+    const g=c.getContext('2d');g.translate(c.width/2,c.height/2);g.rotate(Math.PI/2);g.drawImage(img,-w/2,-h/2);
+    const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',0.92));
+    if(!blob)return;
+    const file=new File([blob],'shot.jpg',{type:'image/jpeg'});
+    const newUrl=URL.createObjectURL(file);
+    if(sf&&sf.url)URL.revokeObjectURL(sf.url);
+    sessionFull[entry.id]={file,url:newUrl};
+    const prof=profileFor(entry.room);
+    const bmp=await createImageBitmap(file,{imageOrientation:'from-image'}).catch(()=>loadImg(file));
+    const res=analyze(bmp,prof);
+    entry.score=res.overall;entry.metrics=res.metrics;entry.thumb=res.thumb;
+    const b=getBien(currentBienId);
+    const idx=(b.photos||[]).findIndex(p=>p.id===entry.id);
+    if(idx>-1){b.photos[idx]=entry;const l=loadBiens();const li=l.findIndex(x=>x.id===currentBienId);l[li]=b;saveBiens(l);}
+    renderBien();
+    renderScore(entry,false);
+    toast('Photo pivotée');
+  }catch(e){console.error('[rotatePhoto] échec de la rotation:',e);toast('Impossible de pivoter la photo');}
+}
+function renderScore(entry,isNew){
+  const o=entry.score,prof=profileFor(entry.room),metrics=entry.metrics;
+  const v=o>=80?{c:'#0f6b3f',t:'Prête à publier',s:'Belle photo d’annonce.'}:o>=60?{c:'#c9a24b',t:'Correcte, améliorable',s:'Publiable, mais quelques réglages aideraient.'}:{c:'#d0664f',t:'À refaire',s:'Corrigez les points rouges et reprenez.'};
+  const R=72,C=2*Math.PI*R,off=C*(1-o/100);
+  const fix=metrics.filter(m=>m.score<75).sort((a,b)=>((b.w||1)*(100-b.score))-((a.w||1)*(100-a.score)));
+  const prio=fix.length?`<div class="priority"><span class="pt">🎯 À corriger en priorité : ${fix[0].name} · ${fix[0].score}/100</span>${fix[0].tip||''}</div>`:`<div class="priority good"><span class="pt">🎯 Rien à corriger</span>Tous les critères sont au vert.</div>`;
+  const mh=metrics.map(m=>{const bd=band(m.score),tip=m.tip?`<div class="mtip${m.score<55?' warn':''}">${m.tip}</div>`:'';
+    return `<div class="metric"><div class="top"><span class="mname">${m.name}</span><span class="mscore" style="color:${bd==='ok'?'#0f6b3f':bd==='mid'?'#b07d12':'#9a3b2e'}">${m.score}<span style="color:#aab">/100</span></span></div><div class="bar ${bd}"><i style="width:${m.score}%"></i></div>${tip}</div>`;}).join('');
+  const url=(sessionFull[entry.id]&&sessionFull[entry.id].url)||entry.thumb;
+  const ps=photosOf(getBien(currentBienId),entry.room);
+  $('scoreBody').innerHTML=`
+    <div style="text-align:center;margin-bottom:6px"><span style="background:var(--green-l);color:var(--green);font-weight:700;font-size:12px;padding:4px 11px;border-radius:999px">📍 ${DATA[entry.room].name}</span></div>
+    <div class="thumb-wrap"><img class="thumb" id="scoreImg" src="${url}" alt=""><canvas id="ovCanvas" style="display:none"></canvas></div>
+    <div class="ov-toggle"><button id="ovPhoto" aria-pressed="true">Photo</button><button id="ovDef">🔎 Voir les défauts</button></div>
+    <div class="score-hero"><div class="gauge"><svg width="160" height="160" viewBox="0 0 160 160"><circle cx="80" cy="80" r="${R}" fill="none" stroke="#eceef3" stroke-width="12"/><circle cx="80" cy="80" r="${R}" fill="none" stroke="${v.c}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${off}"/></svg><div class="val"><div class="num" style="color:${v.c}">${o}</div><div class="den">/ 100</div></div></div>
+    <div class="verdict" style="color:${v.c}">${v.t}</div><div class="verdict-sub">${v.s}</div></div>
+    ${prio}${mh}
+    <button class="btn btn-green" id="keepBtn" style="width:100%;margin-top:6px">${entry.kept?'✓ Photo retenue':'✅ Retenir cette photo'}</button>
+    <div class="score-actions">
+      <button id="retakeBtn">📷 Reprendre</button>
+      <button id="rotateBtn">🔄 Pivoter</button>
+      ${ps.length>1?`<button id="cmpBtn">⚖️ Comparer (${ps.length})</button>`:''}
+    </div>
+    <button class="btn btn-ghost" id="saveImgBtn" style="width:100%;margin-top:4px">📥 Enregistrer la photo</button>`;
+  const ring=$('scoreBody').querySelector('circle:last-of-type');ring.style.transition='none';ring.setAttribute('stroke-dashoffset',C);
+  requestAnimationFrame(()=>{ring.style.transition='stroke-dashoffset 1s ease';ring.setAttribute('stroke-dashoffset',off);});
+  $('ovPhoto').onclick=()=>setOverlay(false);
+  $('ovDef').onclick=()=>setOverlay(true,url);
+  $('retakeBtn').onclick=()=>{closeScreen('scoreScreen');openCam(entry.room);};
+  $('rotateBtn').onclick=()=>rotatePhoto(entry);
+  $('keepBtn').onclick=()=>{const willKeep=keepPhoto(entry.room,entry.id);entry.kept=willKeep;$('keepBtn').textContent=willKeep?'✓ Photo retenue':'✅ Retenir cette photo';toast(willKeep?'Photo retenue pour '+DATA[entry.room].name:'Sélection annulée');};
+  const cb=$('cmpBtn');if(cb)cb.onclick=()=>{closeScreen('scoreScreen');openCompare(entry.room);};
+  $('saveImgBtn').onclick=()=>saveImage(entry);
+  openScreen('scoreScreen');
+  // Corriger l'orientation de l'aperçu si le fichier a une rotation EXIF (ex: prise en paysage sur iOS)
+  const sf=sessionFull[entry.id];
+  if(sf&&sf.file) fixThumbOrientation($('scoreImg'), sf.file);
+}
+function setOverlay(on,url){
+  const img=$('scoreImg'),cv=$('ovCanvas');
+  $('ovPhoto').setAttribute('aria-pressed',!on);$('ovDef').setAttribute('aria-pressed',on);
+  if(!on){cv.style.display='none';return;}
+  const im=new Image();im.onload=()=>{
+    const W=im.naturalWidth,H=im.naturalHeight;cv.width=W;cv.height=H;
+    const g=cv.getContext('2d');g.drawImage(im,0,0);
+    const d=g.getImageData(0,0,W,H),px=d.data;
+    for(let i=0,p=0;i<W*H;i++,p+=4){const l=0.299*px[p]+0.587*px[p+1]+0.114*px[p+2];if(l>=248){px[p]=255;px[p+1]=40;px[p+2]=40;px[p+3]=170;}else{px[p+3]=0;}}
+    g.putImageData(d,0,0);
+    // grille des tiers
+    g.strokeStyle='rgba(255,255,255,.5)';g.lineWidth=Math.max(1,W/400);
+    for(let k=1;k<3;k++){g.beginPath();g.moveTo(W*k/3,0);g.lineTo(W*k/3,H);g.stroke();g.beginPath();g.moveTo(0,H*k/3);g.lineTo(W,H*k/3);g.stroke();}
+    cv.style.display='block';
+  };im.src=url;
+}
+function keepPhoto(room,id){const b=getBien(currentBienId);const cur=b.photos.find(p=>p.room===room&&p.id===id);const willKeep=!(cur&&cur.kept);b.photos.forEach(p=>{if(p.room===room)p.kept=willKeep&&(p.id===id);});const l=loadBiens();l[l.findIndex(x=>x.id===currentBienId)]=b;saveBiens(l);return willKeep;}
+async function saveImage(entry){
+  const sf=sessionFull[entry.id];const name='Laforet-'+safeName(DATA[entry.room].name)+'-'+entry.score+'.jpg';
+  try{
+    if(sf&&sf.file&&navigator.canShare&&navigator.canShare({files:[sf.file]})){await navigator.share({files:[new File([sf.file],name,{type:'image/jpeg'})],title:name});return;}
+  }catch(e){if(e&&e.name==='AbortError')return;}
+  const a=document.createElement('a');a.href=(sf&&sf.url)||entry.thumb;a.download=name;document.body.appendChild(a);a.click();a.remove();
+}
+
+/* ============================ COMPARER ============================ */
+function openCompare(room){
+  const b=getBien(currentBienId),ps=photosOf(b,room).slice().sort((a,c)=>c.score-a.score);
+  if(!ps.length)return;
+  $('cmpTitle').textContent='Comparer · '+DATA[room].name;
+  const best=ps[0].score;
+  $('cmpBody').innerHTML='<div class="footer-note" style="margin:0 0 12px">Le meilleur angle est mis en avant. Tapez sur la photo à publier pour la retenir.</div><div class="cmp-grid">'+
+    ps.map(p=>{const bd=band(p.score),isBest=p.score===best;
+      return `<div class="cmp-card ${p.kept?'kept':(isBest?'best':'')}" data-pid="${p.id}">
+        <img src="${(sessionFull[p.id]&&sessionFull[p.id].url)||p.thumb}" alt="">
+        <div class="cmp-info"><div class="cmp-score" style="color:${bd==='ok'?'#0f6b3f':bd==='mid'?'#b07d12':'#9a3b2e'}">${p.score}<span style="font-size:13px;color:#aab">/100</span> ${isBest?'⭐':''}</div>
+        <div class="cmp-state">${p.kept?'✓ Retenue':'Tapez pour retenir'}</div></div></div>`;}).join('')+'</div>';
+  $('cmpBody').onclick=e=>{
+    const c=e.target.closest('[data-pid]');if(c){const willKeep=keepPhoto(room,c.dataset.pid);openCompare(room);renderBien();toast(willKeep?'Angle retenu':'Sélection annulée');}
+  };
+  openScreen('cmpScreen');
+}
+
+/* ============================ EXPORT PDF (100% LOCAL) ============================ */
+/* Aucune dépendance externe : on construit une fiche imprimable et on laisse le
+   navigateur l'« Enregistrer au format PDF ». Rien ne quitte l'appareil. */
+function exportBien(id){
+  const b=getBien(id);if(!b||!(b.photos||[]).length){toast('Aucune photo à exporter');return;}
+  const {req,extra}=roomsForBien(b);const order=req.concat(extra);
+  let cells='';
+  order.forEach(k=>{
+    const ps=photosOf(b,k);if(!ps.length)return;
+    const pick=ps.find(p=>p.kept)||ps.slice().sort((a,c)=>c.score-a.score)[0];
+    const src=(sessionFull[pick.id]&&sessionFull[pick.id].url)||pick.thumb;
+    cells+=`<figure><img src="${src}" alt=""><figcaption>${esc(DATA[k].name)} — ${pick.score}/100</figcaption></figure>`;
+  });
+  $('printArea').innerHTML=`<div class="pa-head"><h2>PhotoImmo — ${esc(b.address)}</h2>`+
+    `<div class="pa-sub">${b.type==='appartement'?'Appartement':'Maison'} · ${fmtDate(b.created)} · Laforêt Pithiviers</div></div>`+
+    `<div class="pa-grid">${cells}</div>`;
+  toast('Choisissez « Enregistrer au format PDF » dans l’impression');
+  setTimeout(()=>window.print(),350);
+}
+
+/* ============================ PWA ============================ */
+if('serviceWorker' in navigator && location.protocol==='https:'){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+let deferredPrompt=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;$('installBtn').style.display='inline-block';});
+$('installBtn').onclick=async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;$('installBtn').style.display='none';};
+
+/* init */
+renderHome();
+</script>
+</body>
+</html>

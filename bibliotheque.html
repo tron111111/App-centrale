@@ -1,0 +1,2973 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!--
+  Content-Security-Policy : limite ce que le navigateur autorise à exécuter/charger.
+  - default-src 'self' : par défaut, rien d'externe.
+  - script-src 'self' 'unsafe-inline' : nécessaire car le code utilise des attributs
+    onclick="..." inline générés dynamiquement (grille de prompts, biens sauvegardés,
+    etc.). 'unsafe-inline' n'empêche pas l'exécution de scripts injectés via innerHTML,
+    mais bloque le chargement de scripts depuis un domaine tiers (script src="https://...").
+    Passer à une CSP sans 'unsafe-inline' demanderait de remplacer tous les onclick="..."
+    par des addEventListener, voir la documentation_bibliotheque_prompts_v6_8.html.
+  - connect-src : domaines externes contactés par le site, pour la génération directe
+    de réponses Claude et Gemini via clé API.
+  - img-src 'self' data: : les icônes SVG inline utilisent parfois des data URI.
+  - style-src 'self' 'unsafe-inline' : styles inline utilisés partout dans le JS généré.
+  - object-src 'none', base-uri 'self', form-action 'none' : durcissement standard,
+    sans impact sur les fonctionnalités existantes (pas de <form>, pas d'objet/plugin).
+-->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://api.anthropic.com https://generativelanguage.googleapis.com; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'self'">
+<title>Bibliothèque de prompts — Laforêt Pithiviers</title>
+<link rel="icon" type="image/png" href="logo_laforet.png">
+<link rel="icon" type="image/png" href="logo_laforet.png">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f5f4f0; --surface: #fff; --border: #e5e5e5; --border2: #ccc;
+  --text: #1a1a1a; --text2: #555; --text3: #888; --text4: #aaa;
+  --blue: #2563eb; --blue-bg: #eff6ff; --blue-border: #93c5fd; --blue-dark: #1d4ed8;
+  --input-bg: #fafafa; --result-bg: #f0f4ff; --radius: 12px;
+  /* catégories */
+  --c-ann: #2563eb; --c-ann-bg: #eff6ff; --c-ann-border: #bfdbfe;
+  --c-email: #dc2626; --c-email-bg: #fef2f2; --c-email-border: #fecaca;
+  --c-social: #9333ea; --c-social-bg: #faf5ff; --c-social-border: #e9d5ff;
+  --c-prosp: #d97706; --c-prosp-bg: #fffbeb; --c-prosp-border: #fde68a;
+  --c-admin: #059669; --c-admin-bg: #ecfdf5; --c-admin-border: #a7f3d0;
+}
+[data-theme="dark"] {
+  --bg: #111; --surface: #1c1c1e; --border: #2c2c2e; --border2: #48484a;
+  --text: #f2f2f7; --text2: #aeaeb2; --text3: #636366; --text4: #48484a;
+  --blue: #3b82f6; --blue-bg: #1e2d4a; --blue-border: #2d4a7a; --blue-dark: #60a5fa;
+  --input-bg: #2c2c2e; --result-bg: #1a2340;
+  --c-ann: #60a5fa; --c-ann-bg: #1e2d4a; --c-ann-border: #2d4a7a;
+  --c-email: #f87171; --c-email-bg: #2d1010; --c-email-border: #6e1f1f;
+  --c-social: #c084fc; --c-social-bg: #2d1a45; --c-social-border: #6b21a8;
+  --c-prosp: #fbbf24; --c-prosp-bg: #2d2010; --c-prosp-border: #7a5a10;
+  --c-admin: #34d399; --c-admin-bg: #0a2e20; --c-admin-border: #0f5a3a;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; transition: background .2s, color .2s; }
+
+/* HEADER */
+header { background: linear-gradient(135deg, #0f1b50, #16266b); border-bottom: none; box-shadow: 0 2px 16px rgba(15,27,80,.3); padding: .85rem 1.25rem; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 100; }
+.back-home { background: rgba(255,255,255,.16); border: none; color: #fff; font-size: 13px; font-weight: 700; padding: 7px 13px; border-radius: 999px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; white-space: nowrap; }
+header .header-info h1 { color: #fff !important; }
+.header-logo { width: 46px; height: 46px; border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,.18); flex-shrink: 0; background: #fff; }
+.header-logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.header-info h1 { font-size: 18px; font-weight: 800; color: var(--text); line-height: 1.2; letter-spacing: .2px; }
+.header-info span { font-size: 12px; color: var(--text3); opacity: .85; }
+.header-right { margin-left: auto; }
+.theme-toggle { background: var(--input-bg); border: 1px solid var(--border); border-radius: 20px; padding: 5px 12px; font-size: 12px; color: var(--text2); cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.theme-toggle:hover { background: var(--border); }
+
+/* SEARCH */
+.header-search { flex: 1; max-width: 320px; position: relative; }
+.header-search input { width: 100%; background: var(--input-bg); border: 1px solid var(--border); border-radius: 20px; padding: 6px 12px 6px 32px; font-size: 13px; color: var(--text); font-family: inherit; outline: none; transition: border-color .15s; }
+.header-search input:focus { border-color: var(--blue); }
+.header-search input::placeholder { color: var(--text4); }
+.header-search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text4); pointer-events: none; }
+.header-search-clear { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text3); cursor: pointer; padding: 0; display: none; line-height: 1; }
+.header-search-clear:hover { color: var(--text); }
+
+.container { max-width: 1100px; margin: 0 auto; padding: 1.25rem 1rem; }
+
+/* CATS */
+.cats-wrap { overflow-x: auto; scrollbar-width: none; margin-bottom: 1.25rem; }
+.cats-wrap::-webkit-scrollbar { display: none; }
+.cats { display: flex; gap: 7px; width: max-content; }
+.cat-btn { background: var(--surface); border: 1.5px solid var(--border); border-radius: 20px; padding: 7px 14px; font-size: 12px; font-weight: 500; color: var(--text2); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; transition: all .15s; }
+.cat-btn:hover { border-color: var(--border2); color: var(--text); }
+.cat-btn.active { font-weight: 600; }
+.cat-btn[data-cat="Tous"].active         { background: var(--blue-bg); border-color: var(--blue-border); color: var(--blue); }
+.cat-btn[data-cat="Annonces"].active     { background: var(--c-ann-bg); border-color: var(--c-ann-border); color: var(--c-ann); }
+.cat-btn[data-cat="Emails clients"].active { background: var(--c-email-bg); border-color: var(--c-email-border); color: var(--c-email); }
+.cat-btn[data-cat="Réseaux sociaux"].active { background: var(--c-social-bg); border-color: var(--c-social-border); color: var(--c-social); }
+.cat-btn[data-cat="Prospection"].active  { background: var(--c-prosp-bg); border-color: var(--c-prosp-border); color: var(--c-prosp); }
+.cat-btn[data-cat="Administratif"].active { background: var(--c-admin-bg); border-color: var(--c-admin-border); color: var(--c-admin); }
+.cat-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.cat-dot.ann   { background: var(--c-ann); }
+.cat-dot.email { background: var(--c-email); }
+.cat-dot.social { background: var(--c-social); }
+.cat-dot.prosp { background: var(--c-prosp); }
+.cat-dot.admin { background: var(--c-admin); }
+
+/* SEARCH */
+#search-input { width: 100%; padding: 6px 28px 6px 30px; border-radius: 20px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text); font-size: 13px; font-family: inherit; outline: none; transition: border-color .15s; }
+#search-input:focus { border-color: var(--blue); }
+#search-input::placeholder { color: var(--text4); }
+.search-empty { text-align: center; padding: 2.5rem 1rem; color: var(--text3); font-size: 13px; grid-column: 1/-1; }
+
+/* GRID */
+.prompt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin-bottom: 1.25rem; }
+.prompt-card { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); padding: .9rem 1rem; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+.prompt-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.07); }
+.prompt-card.selected { border-width: 2px; }
+.prompt-card[data-cat="Annonces"]:hover, .prompt-card[data-cat="Annonces"].selected     { border-color: var(--c-ann); }
+.prompt-card[data-cat="Emails clients"]:hover, .prompt-card[data-cat="Emails clients"].selected { border-color: var(--c-email); }
+.prompt-card[data-cat="Réseaux sociaux"]:hover, .prompt-card[data-cat="Réseaux sociaux"].selected { border-color: var(--c-social); }
+.prompt-card[data-cat="Prospection"]:hover, .prompt-card[data-cat="Prospection"].selected { border-color: var(--c-prosp); }
+.prompt-card[data-cat="Administratif"]:hover, .prompt-card[data-cat="Administratif"].selected { border-color: var(--c-admin); }
+.prompt-card[data-cat="Annonces"].selected     { background: var(--c-ann-bg); }
+.prompt-card[data-cat="Emails clients"].selected { background: var(--c-email-bg); }
+.prompt-card[data-cat="Réseaux sociaux"].selected { background: var(--c-social-bg); }
+.prompt-card[data-cat="Prospection"].selected  { background: var(--c-prosp-bg); }
+.prompt-card[data-cat="Administratif"].selected { background: var(--c-admin-bg); }
+.card-cat-row { display: flex; align-items: center; gap: 5px; margin-bottom: 5px; }
+.card-cat-label { font-size: 10px; color: var(--text4); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+.card-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+.card-desc { font-size: 11px; color: var(--text2); line-height: 1.45; }
+
+/* HUB */
+.hub { border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1.25rem; border: 1.5px solid var(--c-ann-border); background: var(--surface); }
+.hub-header { display: flex; align-items: center; gap: 10px; margin-bottom: 3px; cursor: pointer; user-select: none; }
+.hub-icon { width: 28px; height: 28px; border-radius: 8px; background: var(--c-ann-bg); border: 1px solid var(--c-ann-border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.hub-icon svg { color: var(--c-ann); }
+.hub-title { font-size: 14px; font-weight: 700; color: var(--text); }
+.hub-chevron { margin-left: auto; color: var(--text3); transition: transform .25s ease; flex-shrink: 0; }
+.hub.collapsed .hub-chevron { transform: rotate(-90deg); }
+.hub-body { overflow: hidden; transition: max-height .35s ease, opacity .25s ease; max-height: 5000px; opacity: 1; }
+.hub.collapsed .hub-body { max-height: 0; opacity: 0; }
+.hub-subtitle { font-size: 11px; color: var(--text3); margin-bottom: 1.25rem; margin-left: 38px; }
+.hub-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; margin-bottom: 1rem; }
+.hub-field label { display: block; font-size: 11px; font-weight: 600; color: var(--text2); margin-bottom: 4px; text-transform: uppercase; letter-spacing: .04em; }
+.hub-field input, .hub-field textarea, .hub-field select { width: 100%; font-size: 13px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text); outline: none; font-family: inherit; resize: vertical; transition: border-color .15s; }
+.hub-field input:focus, .hub-field textarea:focus, .hub-field select:focus { border-color: var(--c-ann); background: var(--surface); }
+.hub-field.full { grid-column: 1 / -1; }
+
+/* Toggle Vente / Location */
+.mode-toggle { grid-column: 1 / -1; display: flex; border: 1.5px solid var(--border); border-radius: 10px; overflow: hidden; }
+.mode-btn { flex: 1; padding: 9px 14px; font-size: 13px; font-weight: 600; background: var(--surface); color: var(--text3); border: none; cursor: pointer; transition: all .15s; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.mode-btn:first-child { border-right: 1.5px solid var(--border); }
+.mode-btn.active { background: var(--c-ann-bg); color: var(--c-ann); }
+.mode-btn.active.loc { background: var(--c-prosp-bg); color: var(--c-prosp); }
+
+/* Hub action buttons */
+.hub-actions { border-top: 1px solid var(--border); padding-top: 1rem; margin-top: .5rem; }
+.hub-actions-label { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+.hub-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.ann-btn { background: var(--surface); border: 1.5px solid var(--border); border-radius: 10px; padding: 10px 14px; font-size: 13px; font-weight: 500; color: var(--text); cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all .15s; flex: 1; min-width: 200px; }
+.ann-btn:hover, .ann-btn.active { border-color: var(--c-ann); background: var(--c-ann-bg); color: var(--c-ann); }
+.ann-btn .sub { font-size: 10px; color: var(--text3); font-weight: 400; display: block; margin-top: 2px; }
+.ann-btn:hover .sub, .ann-btn.active .sub { color: var(--c-ann); opacity: .7; }
+
+/* Styles spécifiques pour le bouton rubrique réseaux sociaux */
+.ann-btn#btn-social:hover, .ann-btn#btn-social.active { border-color: var(--c-social); background: var(--c-social-bg); color: var(--c-social); }
+.ann-btn#btn-social:hover .sub, .ann-btn#btn-social.active .sub { color: var(--c-social); }
+
+/* Hub result */
+.hub-result { margin-top: 1.25rem; display: none; }
+.hub-result-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.hub-result-label { font-size: 12px; font-weight: 700; color: var(--c-ann); text-transform: uppercase; letter-spacing: .05em; }
+.hub-result.social-active .hub-result-label { color: var(--c-social); }
+
+/* EDITOR */
+.editor { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 1.5rem; display: none; margin-bottom: 1rem; }
+.editor-header { display: flex; align-items: center; gap: 8px; margin-bottom: 1.25rem; }
+.editor-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.editor-title-text { font-size: 15px; font-weight: 600; color: var(--text); }
+.fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-bottom: 1.25rem; }
+.field-group label { display: block; font-size: 11px; font-weight: 600; color: var(--text2); margin-bottom: 4px; text-transform: uppercase; letter-spacing: .04em; }
+.field-group input, .field-group textarea, .field-group select { width: 100%; font-size: 13px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text); outline: none; font-family: inherit; resize: vertical; transition: border-color .15s; }
+.field-group input:focus, .field-group textarea:focus { border-color: var(--blue); background: var(--surface); }
+.field-full { grid-column: 1 / -1; }
+.result-label { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; }
+.result-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.btn-toggle-result { display: inline-flex; align-items: center; gap: 5px; background: none; border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; font-size: 11px; color: var(--text3); cursor: pointer; font-family: inherit; transition: color .15s, border-color .15s; }
+.btn-toggle-result:hover { color: var(--text); border-color: var(--text3); }
+.result-box { background: var(--result-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; font-size: 13px; color: var(--text); line-height: 1.75; white-space: pre-wrap; margin-bottom: 1rem; min-height: 80px; }
+.result-editable {
+  width: 100%; box-sizing: border-box;
+  resize: vertical;
+  font-family: inherit;
+  outline: none;
+  transition: border-color .15s;
+  cursor: text;
+  min-height: 120px;
+}
+.result-editable:focus { border-color: var(--c-ann); }
+.result-editable::placeholder { color: var(--text4); font-style: italic; }
+
+/* BUTTONS */
+.btn-copy { border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 600; color: #fff; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; border: none; transition: opacity .15s; margin-top: .75rem; }
+.btn-copy:hover { opacity: .88; }
+.btn-copy.ann    { background: var(--c-ann); }
+.btn-copy.email  { background: var(--c-email); }
+.btn-copy.social { background: var(--c-social); }
+.btn-copy.prosp  { background: var(--c-prosp); }
+.btn-copy.admin  { background: var(--c-admin); }
+
+
+
+footer { text-align: center; padding: 2rem; font-size: 12px; color: var(--text4); }
+
+/* CASE VITRINE */
+.vitrine-check-wrap { display: inline-flex; align-items: center; gap: 8px; margin-top: 10px; padding: 9px 14px; border: 1.5px dashed var(--c-ann-border); border-radius: 10px; cursor: pointer; font-size: 13px; color: var(--text); background: var(--surface); transition: background .15s, border-color .15s; user-select: none; }
+.vitrine-check-wrap:hover { background: var(--c-ann-bg); border-color: var(--c-ann); }
+.vitrine-check-wrap input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--c-ann); cursor: pointer; flex-shrink: 0; }
+
+/* CHAMPS SUPPLÉMENTAIRES RÉSEAUX SOCIAUX */
+.social-extra {
+  grid-column: 1 / -1;
+  display: none;
+  background: var(--c-social-bg); border: 1.5px solid var(--c-social-border);
+  border-radius: 10px; padding: 12px 14px;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  margin-top: 10px;
+}
+.social-extra.open { display: grid; }
+.social-extra-title {
+  grid-column: 1 / -1; font-size: 11px; font-weight: 700;
+  color: var(--c-social); text-transform: uppercase; letter-spacing: .06em;
+  margin-bottom: 2px;
+}
+
+/* SAUVEGARDE DES BIENS */
+.save-bien-wrap {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1.5px dashed var(--c-admin-border);
+  border-radius: 10px;
+  background: var(--surface);
+  transition: background .15s, border-color .15s;
+}
+.save-bien-title {
+  font-size: 11px; font-weight: 700; color: var(--c-admin);
+  text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px;
+  display: flex; align-items: center; gap: 5px;
+}
+.save-bien-row {
+  display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+}
+.save-bien-input {
+  flex: 1; min-width: 140px; font-size: 12px; padding: 7px 10px;
+  border-radius: 8px; border: 1px solid var(--border);
+  background: var(--input-bg); color: var(--text);
+  font-family: inherit; outline: none; transition: border-color .15s;
+}
+.save-bien-input:focus { border-color: var(--c-admin); }
+.save-bien-input::placeholder { color: var(--text4); }
+.btn-save-bien {
+  background: var(--c-admin); color: #fff; border: none;
+  border-radius: 8px; padding: 7px 13px; font-size: 12px;
+  font-weight: 600; cursor: pointer; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 5px;
+  transition: opacity .15s;
+}
+.btn-save-bien:hover { opacity: .88; }
+.saved-bien-list { margin-top: 10px; display: flex; flex-direction: column; gap: 5px; }
+.saved-bien-item {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--c-admin-bg); border: 1px solid var(--c-admin-border);
+  border-radius: 8px; padding: 7px 10px;
+}
+.saved-bien-name {
+  flex: 1; font-size: 12px; font-weight: 600; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.saved-bien-date { font-size: 10px; color: var(--text3); white-space: nowrap; }
+.btn-load-bien, .btn-del-bien {
+  border: none; border-radius: 6px; cursor: pointer; padding: 4px 8px;
+  font-size: 11px; font-weight: 600; display: inline-flex; align-items: center;
+  gap: 4px; transition: opacity .15s; white-space: nowrap;
+}
+.btn-load-bien { background: var(--c-ann-bg); color: var(--c-ann); border: 1px solid var(--c-ann-border); }
+.btn-load-bien:hover { opacity: .8; }
+.btn-del-bien { background: var(--c-email-bg); color: var(--c-email); border: 1px solid var(--c-email-border); }
+.btn-del-bien:hover { opacity: .8; }
+.btn-rename-bien {
+  border: none; border-radius: 6px; cursor: pointer; padding: 4px 8px;
+  font-size: 11px; font-weight: 600; display: inline-flex; align-items: center;
+  gap: 4px; transition: opacity .15s; white-space: nowrap;
+  background: var(--surface); color: var(--text3); border: 1px solid var(--border);
+}
+.btn-rename-bien:hover { opacity: .8; }
+.rename-bien-input {
+  flex: 1; font-size: 13px; font-weight: 600; padding: 4px 8px;
+  border-radius: 7px; border: 1.5px solid var(--c-admin);
+  background: var(--input-bg); color: var(--text); font-family: inherit;
+  outline: none; min-width: 0;
+}
+.btn-rename-confirm {
+  background: var(--c-admin); color: #fff; border: none;
+  border-radius: 6px; padding: 5px 10px; font-size: 12px; font-weight: 600;
+  cursor: pointer; white-space: nowrap; transition: opacity .15s;
+}
+.btn-rename-confirm:hover { opacity: .85; }
+.btn-rename-cancel {
+  background: none; color: var(--text3); border: 1px solid var(--border);
+  border-radius: 6px; padding: 5px 8px; font-size: 12px; cursor: pointer;
+  transition: opacity .15s;
+}
+.btn-rename-cancel:hover { opacity: .8; }
+.save-bien-toast {
+  display: none; margin-top: 7px; padding: 7px 10px;
+  background: var(--c-admin-bg); border: 1px solid var(--c-admin-border);
+  border-radius: 8px; font-size: 11px; color: var(--c-admin);
+}
+
+/* PANNEAU RÉPONSE IA (Claude / Gemini) — accent dynamique via --ai-accent */
+.ai-api-panel {
+  display: none;
+  margin-top: 12px;
+  border: 1.5px solid var(--ai-accent-border, #f0e0d8);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface);
+  --ai-accent: #d97757;
+  --ai-accent-bg: #fdf6f3;
+  --ai-accent-border: #f0e0d8;
+}
+.ai-api-panel.model-gemini {
+  --ai-accent: #1a73e8;
+  --ai-accent-bg: #f3f8ff;
+  --ai-accent-border: #d2e3fc;
+}
+[data-theme="dark"] .ai-api-panel { --ai-accent-bg: #2a1a12; --ai-accent-border: #5a3020; }
+[data-theme="dark"] .ai-api-panel.model-gemini { --ai-accent-bg: #15233a; --ai-accent-border: #2d4a7a; }
+.ai-api-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px;
+  background: var(--ai-accent-bg);
+  border-bottom: 1px solid var(--ai-accent-border);
+}
+.ai-model-select {
+  flex: 1; font-size: 12px; font-weight: 700; color: var(--ai-accent);
+  text-transform: uppercase; letter-spacing: .04em;
+  background: var(--surface); border: 1.5px solid var(--ai-accent-border);
+  border-radius: 8px; padding: 7px 10px; cursor: pointer; outline: none;
+  font-family: inherit; transition: border-color .15s;
+}
+.ai-model-select:focus { border-color: var(--ai-accent); }
+.ai-api-key-wrap { display: flex; gap: 6px; padding: 10px 14px; border-bottom: 1px solid var(--ai-accent-border); align-items: center; }
+.ai-api-key-wrap input {
+  flex: 1; font-size: 12px; padding: 7px 10px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--input-bg); color: var(--text);
+  font-family: monospace; outline: none; transition: border-color .15s;
+}
+.ai-api-key-wrap input:focus { border-color: var(--ai-accent); }
+.ai-api-key-wrap input::placeholder { font-family: inherit; color: var(--text4); }
+.btn-run-ai {
+  background: var(--ai-accent); color: #fff; border: none; border-radius: 8px;
+  padding: 7px 14px; font-size: 12px; font-weight: 700; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  transition: opacity .15s;
+}
+.btn-run-ai:hover { opacity: .88; }
+.btn-run-ai:disabled { opacity: .5; cursor: not-allowed; }
+.ai-response-wrap { padding: 12px 14px; }
+.ai-response-box {
+  background: var(--result-bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: 1rem; font-size: 13px; color: var(--text); line-height: 1.8;
+  white-space: pre-wrap; min-height: 60px;
+}
+.ai-response-box.streaming::after {
+  content: '▌'; animation: blink .7s step-end infinite; color: var(--ai-accent);
+}
+@keyframes blink { 50% { opacity: 0; } }
+.ai-response-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.ai-error { color: #ef4444; font-size: 12px; margin-top: 6px; display: none; padding: 8px 10px; background: #fef2f2; border-radius: 8px; border: 1px solid #fecaca; }
+[data-theme="dark"] .ai-error { background: #2d1010; border-color: #6e1f1f; color: #f87171; }
+.api-key-save-hint { font-size: 10px; color: var(--text3); margin-top: 4px; padding: 0 14px 8px; }
+.tip-wrap { position: relative; display: inline-flex; align-items: center; gap: 4px; }
+.tip-icon { width: 13px; height: 13px; border-radius: 50%; background: var(--border2); color: var(--text3); font-size: 9px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; cursor: default; flex-shrink: 0; line-height: 1; user-select: none; }
+.tip-icon:hover { background: var(--blue); color: #fff; }
+.tip-box { display: none; position: absolute; bottom: calc(100% + 6px); left: 0; background: var(--text); color: var(--surface); font-size: 11px; font-weight: 400; line-height: 1.5; padding: 7px 10px; border-radius: 8px; width: 220px; z-index: 200; text-transform: none; letter-spacing: 0; pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+.tip-box::after { content:''; position: absolute; top: 100%; left: 12px; border: 5px solid transparent; border-top-color: var(--text); }
+.tip-wrap:hover .tip-box { display: block; }
+
+/* MENU ⋯ */
+.more-menu { position: relative; }
+.more-btn { background: var(--input-bg); border: 1px solid var(--border); border-radius: 20px; padding: 5px 12px; font-size: 15px; color: var(--text2); cursor: pointer; line-height: 1; letter-spacing: 2px; transition: background .15s; }
+.more-btn:hover { background: var(--border); }
+.more-dropdown { display: none; position: absolute; top: calc(100% + 6px); right: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,.1); min-width: 160px; z-index: 200; overflow: hidden; }
+.more-dropdown.open { display: block; }
+.more-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 14px; font-size: 13px; color: var(--text2); background: none; border: none; cursor: pointer; text-decoration: none; transition: background .12s; font-family: inherit; }
+.more-item:hover { background: var(--input-bg); color: var(--text); }
+
+/* ── WIZARD ───────────────────────────────────────────────────────────────── */
+.wiz-nav { display: flex; align-items: center; gap: 0; margin-bottom: 1.25rem; padding: .75rem 0 .85rem; border-bottom: 1px solid var(--border); }
+.wiz-step { display: flex; align-items: center; gap: 7px; cursor: pointer; padding: 5px 8px; border-radius: 8px; transition: background .15s; }
+.wiz-step:hover { background: var(--input-bg); }
+.wiz-num { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--border2); background: var(--surface); color: var(--text3); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all .2s; }
+.wiz-label { font-size: 12px; font-weight: 500; color: var(--text3); white-space: nowrap; transition: color .2s; }
+.wiz-step.active .wiz-num { background: var(--c-ann); border-color: var(--c-ann); color: #fff; }
+.wiz-step.active .wiz-label { color: var(--c-ann); font-weight: 600; }
+.wiz-step.done .wiz-num { background: var(--c-admin-bg); border-color: var(--c-admin); color: var(--c-admin); }
+.wiz-step.done .wiz-label { color: var(--c-admin); }
+.wiz-sep { flex: 1; height: 1.5px; background: var(--border); margin: 0 4px; min-width: 12px; max-width: 40px; }
+.wiz-panel { }
+.wiz-footer { display: flex; justify-content: space-between; align-items: center; padding-top: 1rem; margin-top: .75rem; border-top: 1px solid var(--border); }
+.wiz-btn-next { background: var(--c-ann); color: #fff; border: none; border-radius: 10px; padding: 9px 18px; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity .15s; }
+.wiz-btn-next:hover { opacity: .88; }
+.wiz-btn-back { background: var(--surface); color: var(--text2); border: 1px solid var(--border); border-radius: 10px; padding: 9px 14px; font-size: 13px; font-weight: 500; cursor: pointer; transition: background .15s; }
+.wiz-btn-back:hover { background: var(--input-bg); }
+.wiz-radio-card { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border: 1.5px solid var(--border); border-radius: 10px; cursor: pointer; transition: border-color .15s, background .15s; }
+.wiz-radio-card:has(input:checked) { border-color: var(--c-ann); background: var(--c-ann-bg); }
+.wiz-radio-card input[type="radio"] { accent-color: var(--c-ann); flex-shrink: 0; }
+.wiz-radio-icon { font-size: 18px; flex-shrink: 0; }
+.wiz-radio-body { display: flex; flex-direction: column; gap: 1px; }
+.wiz-radio-body b { font-size: 13px; color: var(--text); }
+.wiz-radio-sub { font-size: 11px; color: var(--text3); }
+
+/* ── TABLETTE (≤ 768px) ───────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .hub-grid { grid-template-columns: repeat(2, 1fr); }
+  .prompt-grid { grid-template-columns: repeat(2, 1fr); }
+  .fields { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ── MOBILE (≤ 640px) ─────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+
+  /* HEADER — 2 lignes : logo+titre / search+thème */
+  header {
+    flex-wrap: wrap;
+    padding: .6rem .85rem;
+    gap: 6px;
+    row-gap: 8px;
+  }
+  .header-logo { width: 26px; height: 26px; border-radius: 6px; flex-shrink: 0; }
+  .header-logo img { width: 26px; height: 26px; }
+  .header-info { flex: 1; min-width: 0; }
+  .header-info h1 { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .header-info span { display: none; }
+  .header-right { order: 3; flex-shrink: 0; }
+  .theme-toggle { padding: 6px 9px; }
+  .theme-toggle span { display: none; }
+  /* Barre de recherche sur sa propre ligne */
+  .header-search {
+    order: 4;
+    flex: 0 0 100%;
+    max-width: 100%;
+    width: 100%;
+  }
+  .header-search input { font-size: 15px; padding: 8px 12px 8px 32px; border-radius: 10px; }
+
+  /* LAYOUT */
+  .container { padding: .85rem .75rem; }
+  .cats-wrap { margin-bottom: .85rem; }
+  .cat-btn { padding: 7px 11px; font-size: 12px; }
+
+  /* GRILLE PROMPTS */
+  .prompt-grid { grid-template-columns: 1fr; gap: 7px; }
+  .prompt-card { padding: .85rem .9rem; }
+  .card-title { font-size: 13px; }
+  .card-desc { font-size: 11px; }
+
+  /* HUB */
+  .hub { padding: .9rem; }
+  .hub-title { font-size: 13px; }
+  .hub-subtitle { margin-left: 0; margin-top: 5px; font-size: 11px; }
+  .hub-grid { grid-template-columns: 1fr !important; gap: 9px; }
+  .hub-field.full,
+  .mode-toggle,
+  .social-extra { grid-column: 1 / -1; }
+
+  /* Inputs 16px = pas de zoom iOS */
+  .hub-field input,
+  .hub-field textarea,
+  .hub-field select,
+  .field-group input,
+  .field-group textarea,
+  .field-group select { font-size: 16px !important; padding: 11px 12px; border-radius: 9px; }
+
+  /* Toggle Vente / Location */
+  .mode-toggle { border-radius: 9px; }
+  .mode-btn { padding: 13px 10px; font-size: 13px; }
+
+  /* Boutons rubriques */
+  .hub-actions-label { font-size: 12px; }
+  .hub-btns { flex-direction: column; gap: 8px; }
+  .ann-btn { width: 100%; justify-content: flex-start; padding: 13px 14px; font-size: 13px; min-width: unset; }
+  .ann-btn .sub { font-size: 11px; }
+
+  /* Case vitrine */
+  .vitrine-check-wrap { width: 100%; box-sizing: border-box; font-size: 13px; padding: 11px 13px; }
+
+  /* Bloc sauvegarde */
+  .save-bien-wrap { padding: 11px 12px; }
+  .save-bien-row { flex-direction: column; gap: 8px; }
+  .save-bien-input { width: 100%; font-size: 16px !important; padding: 11px 12px; }
+  .btn-save-bien { width: 100%; justify-content: center; padding: 12px; font-size: 13px; }
+  .saved-bien-item { flex-wrap: wrap; gap: 6px; padding: 9px 11px; }
+  .saved-bien-name { width: 100%; font-size: 13px; }
+  .saved-bien-date { font-size: 11px; flex: 1; }
+  .btn-load-bien { flex: 2; justify-content: center; padding: 9px; font-size: 12px; }
+  .btn-del-bien { flex: 1; justify-content: center; padding: 9px; font-size: 12px; }
+  .rename-bien-input { font-size: 16px !important; width: 100%; }
+  .btn-rename-confirm, .btn-rename-cancel { padding: 9px 12px; font-size: 13px; }
+
+  /* Résultat hub */
+  .hub-result { margin-top: 1rem; }
+  .hub-result-bar { flex-wrap: wrap; gap: 7px; }
+  .hub-result-bar > div { width: 100%; display: flex; flex-wrap: wrap; gap: 6px; }
+  .btn-toggle-result { font-size: 11px; }
+  #hub-copy-btn, #hub-claude-btn { flex: 1; justify-content: center; font-size: 12px; padding: 10px; }
+
+  /* Zone résultat */
+  .result-box { font-size: 12px; padding: .85rem; line-height: 1.65; }
+  .claude-response-box { font-size: 12px; padding: .85rem; }
+
+  /* Panneau API Claude */
+  .claude-api-key-wrap { flex-direction: column; gap: 8px; }
+  .claude-api-key-wrap input { font-size: 15px; width: 100%; }
+  .btn-run-ai { width: 100%; justify-content: center; padding: 12px; font-size: 13px; }
+  .claude-response-actions { flex-direction: column; }
+  .claude-response-actions .btn-copy { width: 100%; justify-content: center; padding: 12px; font-size: 13px; }
+
+  /* ÉDITEUR */
+  .editor { padding: .9rem; }
+  .fields { grid-template-columns: 1fr !important; gap: 9px; }
+  .field-full { grid-column: 1 / -1; }
+  .result-bar { flex-wrap: wrap; gap: 7px; }
+  .btn-copy { width: 100%; justify-content: center; padding: 13px; font-size: 14px; border-radius: 10px; }
+
+  /* Tooltips */
+  .tip-box { left: auto; right: 0; width: 185px; }
+  .tip-box::after { left: auto; right: 12px; }
+
+  /* Réseaux sociaux extra */
+  .social-extra { grid-template-columns: 1fr; }
+
+  /* Hub body — limiter la hauteur et rendre scrollable si besoin */
+  .hub-body { max-height: none; }
+  .hub.collapsed .hub-body { max-height: 0; }
+
+  /* Toast Claude */
+  #claude-toast { font-size: 12px; }
+}
+</style>
+</head>
+<body>
+<header>
+  <a class="back-home" href="index.html" title="Retour à l'accueil">← Accueil</a>
+  <div class="header-logo">
+    <img src="logo_laforet.png" alt="Laforêt" width="50" height="50">
+  </div>
+  <div class="header-info">
+    <h1>Bibliothèque de prompts</h1>
+    <span>Laforêt Pithiviers — Agent immobilier résidentiel</span>
+  </div>
+  <div class="header-search">
+    <svg class="header-search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input type="text" id="search-input" placeholder="Rechercher un prompt…" oninput="handleSearch(this.value)" autocomplete="off">
+    <button class="header-search-clear" id="search-clear" onclick="clearSearch()" title="Réinitialiser">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="header-right" style="display:flex;gap:8px;align-items:center;">
+    <button class="theme-toggle" onclick="toggleTheme()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="theme-icon"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      <span id="theme-label">Mode sombre</span>
+    </button>
+    <div class="more-menu" id="more-menu">
+      <button class="more-btn" onclick="toggleMoreMenu(event)" title="Plus d'options">⋯</button>
+      <div class="more-dropdown" id="more-dropdown">
+        <button class="more-item" onclick="tutoOpen();closeMoreMenu()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Aide
+        </button>
+        <a class="more-item" href="documentation_bibliotheque_prompts_v6_8.html" target="_blank" onclick="closeMoreMenu()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          Documentation
+        </a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+  <div class="cats-wrap">
+    <div class="cats" id="cats"></div>
+  </div>
+
+  <div class="hub collapsed" id="hub">
+    <div class="hub-header" onclick="toggleHub()">
+      <div class="hub-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
+      <div class="hub-title">Générateur d'annonces centralisé</div>
+      <button id="hub-clear-btn" onclick="event.stopPropagation();hubClear()" title="Réinitialiser tous les champs" style="display:none;background:none;border:1px solid var(--border);border-radius:8px;padding:4px 10px;font-size:11px;color:var(--text3);cursor:pointer;align-items:center;gap:5px;">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        Réinitialiser
+      </button>
+      <svg class="hub-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <div class="hub-body" id="hub-body">
+
+      <!-- WIZARD STEPS NAV -->
+      <div class="wiz-nav" id="wiz-nav">
+        <div class="wiz-step active" id="wiz-tab-1" onclick="wizGo(1)">
+          <span class="wiz-num">1</span>
+          <span class="wiz-label">Le bien</span>
+        </div>
+        <div class="wiz-sep"></div>
+        <div class="wiz-step" id="wiz-tab-2" onclick="wizGo(2)">
+          <span class="wiz-num">2</span>
+          <span class="wiz-label">Format & mentions</span>
+        </div>
+        <div class="wiz-sep"></div>
+        <div class="wiz-step" id="wiz-tab-3" onclick="wizGo(3)">
+          <span class="wiz-num">3</span>
+          <span class="wiz-label">Générer</span>
+        </div>
+      </div>
+
+      <!-- ÉTAPE 1 : LE BIEN -->
+      <div class="wiz-panel" id="wiz-panel-1">
+        <div class="hub-grid">
+          <div class="hub-field"><label>Type de bien</label><input type="text" id="h-type" placeholder="Maison, Appartement…" oninput="hubReset()"></div>
+          <div class="hub-field"><label>Ville / quartier</label><input type="text" id="h-ville" placeholder="Pithiviers, Malesherbes…" oninput="hubReset()"></div>
+          <div class="hub-field"><label>Nombre de pièces</label><input type="text" id="h-pieces" placeholder="4" oninput="hubReset()"></div>
+          <div class="hub-field"><label>Nombre de chambres</label><input type="text" id="h-chambres" placeholder="3" oninput="hubReset()"></div>
+          <div class="hub-field"><label>Surface habitable (m²)</label><input type="text" id="h-surface" placeholder="100" oninput="hubReset()"></div>
+          <div class="hub-field full"><label>Description des pièces — listez chaque pièce avec sa surface ou ses caractéristiques</label><textarea id="h-pieces-desc" rows="3" placeholder="ex: Entrée, salon-séjour 35m², cuisine ouverte équipée, chambre 1 (14m²), chambre 2 (12m²)…" oninput="hubReset()"></textarea></div>
+          <div class="hub-field full"><label>Équipements — listez tout (terrasse, parking, cuisine équipée, marques…)</label><textarea id="h-equip" rows="3" placeholder="ex: Terrasse 20m², garage double, cuisine Schmidt équipée, chaudière gaz 2021…" oninput="hubReset()"></textarea></div>
+          <div class="hub-field full"><label>Adjectifs / qualités — uniquement ceux que vous pouvez affirmer</label><textarea id="h-adj" rows="2" placeholder="ex: calme, sans vis-à-vis, traversant, rénové 2022, exposition sud…" oninput="hubReset()"></textarea></div>
+          <div class="hub-field full"><label>Détails intérieurs (matériaux, finitions, marques…)</label><textarea id="h-details" rows="2" placeholder="ex: parquet chêne massif, double vitrage PVC, carrelage grès cérame…" oninput="hubReset()"></textarea></div>
+        </div>
+
+        <!-- SAUVEGARDE DES BIENS -->
+        <div class="save-bien-wrap" id="save-bien-section" style="margin-top:1rem;">
+          <div class="save-bien-title">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Sauvegarder / Charger un bien
+          </div>
+          <div class="save-bien-row">
+            <input type="text" class="save-bien-input" id="save-bien-name" placeholder="Nom du bien (ex: Maison Pithiviers 4p)" maxlength="60">
+            <button class="btn-save-bien" onclick="saveBien()">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              Sauvegarder
+            </button>
+          </div>
+          <div class="save-bien-toast" id="save-bien-toast"></div>
+          <div class="saved-bien-list" id="saved-bien-list"></div>
+        </div>
+
+        <div class="wiz-footer">
+          <div></div>
+          <button class="wiz-btn-next" onclick="wizGo(2)">Étape suivante →</button>
+        </div>
+      </div>
+
+      <!-- ÉTAPE 2 : FORMAT & MENTIONS -->
+      <div class="wiz-panel" id="wiz-panel-2" style="display:none;">
+
+        <!-- Vente / Location -->
+        <div style="margin-bottom:1rem;">
+          <div class="hub-actions-label" style="margin-bottom:.5rem;">Type de transaction</div>
+          <div class="mode-toggle">
+            <button class="mode-btn active" id="mode-vente" onclick="setMode('vente')">🏷️ Vente</button>
+            <button class="mode-btn loc" id="mode-location" onclick="setMode('location')">🔑 Location</button>
+          </div>
+        </div>
+
+        <!-- Format de l'annonce -->
+        <div style="margin-bottom:1rem;">
+          <div class="hub-actions-label" style="margin-bottom:.5rem;">Format de l'annonce</div>
+          <div style="display:flex;flex-direction:column;gap:8px;" id="format-choice">
+            <label class="wiz-radio-card" id="rc-internet">
+              <input type="radio" name="hub-format" value="internet" checked onchange="wizFormatChange(this.value)">
+              <span class="wiz-radio-icon">📄</span>
+              <span class="wiz-radio-body"><b>Annonce Internet</b><span class="wiz-radio-sub">Standard portails (SeLoger, Leboncoin…) — sans prix ni DPE</span></span>
+            </label>
+            <label class="wiz-radio-card" id="rc-social">
+              <input type="radio" name="hub-format" value="social" onchange="wizFormatChange(this.value)">
+              <span class="wiz-radio-icon">📱</span>
+              <span class="wiz-radio-body"><b>Réseaux Sociaux</b><span class="wiz-radio-sub">Avec mentions légales obligatoires</span></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Option vitrine (Internet seulement) -->
+        <div id="vitrine-check-row" style="margin-bottom:1rem;">
+          <label class="vitrine-check-wrap">
+            <input type="checkbox" id="include-vitrine">
+            <span class="vitrine-check-label">🪟 Générer aussi une <b>annonce vitrine</b> <span style="color:var(--text3);font-weight:400;">(≤ 300 caractères)</span></span>
+          </label>
+        </div>
+
+        <!-- Mentions légales (visibles si Réseaux Sociaux) -->
+        <div id="wiz-mentions-wrap" style="display:none;">
+          <div class="hub-actions-label" style="margin-bottom:.5rem;">Mentions légales obligatoires</div>
+
+          <!-- Plateforme -->
+          <div class="hub-grid" style="margin-bottom:.75rem;">
+            <div class="hub-field"><label>Plateforme cible</label>
+              <select id="h-plateforme" onchange="hubReset()">
+                <option value="Facebook">Facebook</option>
+                <option value="Instagram">Instagram</option>
+                <option value="TikTok">TikTok</option>
+                <option value="YouTube">YouTube</option>
+                <option value="LinkedIn">LinkedIn</option>
+                <option value="Google My Business">Google My Business</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Mentions vente -->
+          <div id="social-mentions-vente" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;">
+            <div class="hub-field"><label>Prix de vente (€)</label><input type="text" id="h-prix" placeholder="189000" oninput="hubReset()"></div>
+            <div class="hub-field" id="f-prix-hai"><label><span class="tip-wrap">Prix HAI (€)<span class="tip-icon">i</span><span class="tip-box">Prix Honoraires d'Agence Inclus — si honoraires à la charge de l'acquéreur.</span></span></label><input type="text" id="h-prix-hhi" placeholder="ex: 180952" oninput="hubReset()"></div>
+            <div class="hub-field"><label><span class="tip-wrap">Honoraires TTC<span class="tip-icon">i</span><span class="tip-box">Pourcentage ou montant TTC.</span></span></label><input type="text" id="h-hono-pct" placeholder="ex: 4,5% ou 8000 €" oninput="hubReset()"></div>
+            <div class="hub-field"><label><span class="tip-wrap">Charge honoraires<span class="tip-icon">i</span><span class="tip-box">Qui règle les honoraires.</span></span></label>
+              <select id="h-hono-charge" onchange="toggleHaiField(); hubReset()">
+                <option value="acquéreur">Acquéreur</option>
+                <option value="vendeur">Vendeur</option>
+              </select>
+            </div>
+            <div class="hub-field"><label>DPE</label>
+              <select id="h-dpe" onchange="hubReset()">
+                <option value="">— —</option>
+                <option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option>
+              </select>
+            </div>
+            <div class="hub-field"><label><span class="tip-wrap">Énergie (€/an)<span class="tip-icon">i</span><span class="tip-box">Ex : "1200 à 1650 €".</span></span></label><input type="text" id="h-energie" placeholder="ex: 1200 à 1650" oninput="hubReset()"></div>
+            <div class="hub-field"><label><span class="tip-wrap">Année réf. DPE<span class="tip-icon">i</span><span class="tip-box">Année de référence des prix de l'énergie.</span></span></label><input type="text" id="h-energie-annee" placeholder="2021" oninput="hubReset()"></div>
+            <div class="hub-field"><label>Copropriété ?</label>
+              <select id="h-copro" onchange="toggleCoproFields()">
+                <option value="non">Non</option>
+                <option value="oui">Oui</option>
+              </select>
+            </div>
+            <div class="hub-field" id="f-copro-lots" style="display:none;"><label>Nb de lots</label><input type="text" id="h-copro-lots" placeholder="24" oninput="hubReset()"></div>
+            <div class="hub-field" id="f-copro-charges" style="display:none;"><label>Charges (€/an)</label><input type="text" id="h-copro-charges" placeholder="1200" oninput="hubReset()"></div>
+          </div>
+
+          <!-- Mentions location -->
+          <div id="social-mentions-loc" style="display:none;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;">
+            <div class="hub-field"><label>Loyer CC (€/mois)</label><input type="text" id="h-loyer-cc" placeholder="750" oninput="hubReset()"></div>
+            <div class="hub-field"><label>Charges (€/mois)</label><input type="text" id="h-loyer-charges" placeholder="50" oninput="hubReset()"></div>
+            <div class="hub-field"><label><span class="tip-wrap">Meublé ?<span class="tip-icon">i</span><span class="tip-box">Mention obligatoire.</span></span></label>
+              <select id="h-meuble" onchange="hubReset()">
+                <option value="non">Non (vide)</option>
+                <option value="oui">Oui (meublé)</option>
+              </select>
+            </div>
+            <div class="hub-field"><label><span class="tip-wrap">Dépôt de garantie (€)<span class="tip-icon">i</span><span class="tip-box">Mettre 0 ou laisser vide si bail mobilité.</span></span></label><input type="text" id="h-depot" placeholder="ex: 700" oninput="hubReset()"></div>
+            <div class="hub-field"><label><span class="tip-wrap">Hono. Bail (€)<span class="tip-icon">i</span><span class="tip-box">TTC charge locataire pour visite, dossier et bail.</span></span></label><input type="text" id="h-hono-loc" placeholder="ex: 350" oninput="hubReset()"></div>
+            <div class="hub-field"><label><span class="tip-wrap">Hono. EDL (€)<span class="tip-icon">i</span><span class="tip-box">TTC part locataire pour l'état des lieux.</span></span></label><input type="text" id="h-hono-edl" placeholder="ex: 120" oninput="hubReset()"></div>
+            <div class="hub-field"><label>DPE</label>
+              <select id="h-dpe-loc" onchange="hubReset()">
+                <option value="">— —</option>
+                <option>A</option><option>B</option><option>C</option><option>D</option><option>E</option><option>F</option><option>G</option>
+              </select>
+            </div>
+            <div class="hub-field"><label><span class="tip-wrap">Énergie (€/an)<span class="tip-icon">i</span><span class="tip-box">Ex : "800 à 1100 €".</span></span></label><input type="text" id="h-energie-loc" placeholder="ex: 800 à 1100" oninput="hubReset()"></div>
+            <div class="hub-field"><label><span class="tip-wrap">Année réf. DPE<span class="tip-icon">i</span><span class="tip-box">Année de référence des prix de l'énergie.</span></span></label><input type="text" id="h-energie-annee-loc" placeholder="2021" oninput="hubReset()"></div>
+            <div class="hub-field"><label>Encadrement ?</label>
+              <select id="h-encadrement" onchange="toggleEncadrementFields()">
+                <option value="non">Non</option>
+                <option value="oui">Oui</option>
+              </select>
+            </div>
+            <div class="hub-field" id="f-loyer-ref" style="display:none;"><label>Loyer réf majoré</label><input type="text" id="h-loyer-ref" placeholder="800" oninput="hubReset()"></div>
+            <div class="hub-field" id="f-loyer-base" style="display:none;"><label>Loyer de base</label><input type="text" id="h-loyer-base" placeholder="700" oninput="hubReset()"></div>
+            <div class="hub-field" id="f-complement-loyer" style="display:none;"><label><span class="tip-wrap">Complément de loyer (€)<span class="tip-icon">i</span><span class="tip-box">Si applicable, en zone d'encadrement uniquement.</span></span></label><input type="text" id="h-complement-loyer" placeholder="ex: 50" oninput="hubReset()"></div>
+          </div>
+        </div>
+
+        <div class="wiz-footer">
+          <button class="wiz-btn-back" onclick="wizGo(1)">← Retour</button>
+          <button class="wiz-btn-next" onclick="wizGoGenerate()">Générer le prompt →</button>
+        </div>
+      </div>
+
+      <!-- ÉTAPE 3 : RÉSULTAT -->
+      <div class="wiz-panel" id="wiz-panel-3" style="display:none;">
+        <div class="wiz-footer" style="margin-bottom:0;">
+          <button class="wiz-btn-back" onclick="wizGo(2)">← Modifier</button>
+          <div></div>
+        </div>
+      </div>
+
+      <div class="hub-result" id="hub-result" style="display:none;">
+        <div class="hub-result-bar">
+          <button class="btn-toggle-result" id="toggle-hub-btn" onclick="toggleHubResult()" title="Masquer le prompt">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="toggle-hub-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            <span id="toggle-hub-label">Masquer</span>
+          </button>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <span class="hub-result-label" id="hub-result-label">Prompt généré</span>
+            <button class="btn-copy ann" id="hub-copy-btn" onclick="hubCopy()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copier le prompt
+            </button>
+            <button class="btn-copy" id="hub-claude-btn" onclick="sendToClaudeHub()" style="background:#d97757;" title="Copie le prompt et ouvre Claude.ai">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              Envoyer à Claude
+            </button>
+          </div>
+        </div>
+        <div id="hub-result-wrap">
+          <textarea class="result-box result-editable" id="hub-result-box" spellcheck="false" placeholder="Le prompt généré apparaîtra ici — vous pouvez le modifier avant de copier."></textarea>
+        </div>
+        <div id="claude-toast" style="display:none;margin-top:8px;padding:9px 13px;background:var(--c-social-bg);border:1px solid var(--c-social-border);border-radius:8px;font-size:12px;color:var(--c-social);line-height:1.5;">
+          ✅ <b>Prompt copié dans le presse-papiers.</b> Claude.ai s'ouvre — colle le prompt avec <b>Ctrl+V</b> (ou ⌘V sur Mac).
+        </div>
+
+        <!-- PANNEAU RÉPONSE IA — HUB (sélecteur Claude / Gemini) -->
+        <div class="ai-api-panel" id="hub-api-panel">
+          <div class="ai-api-header">
+            <select class="ai-model-select" id="hub-model-select" onchange="hubModelChange()">
+              <option value="claude">🟠 Générer avec Claude</option>
+              <option value="gemini">🔵 Générer avec Gemini</option>
+            </select>
+          </div>
+          <div class="ai-api-key-wrap">
+            <input type="password" id="hub-api-key" placeholder="Clé API" autocomplete="off">
+            <button class="btn-run-ai" id="hub-run-btn" onclick="runAiHub()">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              Générer
+            </button>
+          </div>
+          <div class="api-key-save-hint">🔒 La clé reste dans votre navigateur, elle n'est pas stockée.</div>
+          <div class="ai-error" id="hub-api-error"></div>
+          <div class="ai-response-wrap" id="hub-response-wrap" style="display:none;">
+            <div class="ai-response-box" id="hub-response-box"></div>
+            <div class="ai-response-actions">
+              <button class="btn-copy ann" onclick="copyClaudeResponse('hub-response-box', this)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                Copier la réponse
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <div class="prompt-grid" id="grid"></div>
+  <div class="search-empty" id="search-empty" style="display:none;">Aucun prompt ne correspond à votre recherche.</div>
+
+  <div class="editor" id="editor">
+    <div class="editor-header">
+      <div class="editor-dot" id="editor-dot"></div>
+      <div class="editor-title-text" id="editor-title">Modèle de prompt sélectionné</div>
+    </div>
+    <div class="fields" id="fields"></div>
+    <div class="result-section">
+      <div class="result-bar">
+        <button class="btn-toggle-result" id="toggle-result-btn" onclick="toggleEditorResult()" title="Masquer le prompt">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="toggle-result-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          <span id="toggle-result-label">Masquer</span>
+        </button>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <div class="result-label">Votre prompt personnalisé prêt à copier :</div>
+          <button class="btn-copy" id="copy-btn" onclick="copyResult()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copier le prompt
+          </button>
+          <button class="btn-copy" id="editor-claude-btn" onclick="sendToClaudeEditor()" style="background:#d97757;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            Envoyer à Claude
+          </button>
+        </div>
+      </div>
+      <div id="result-wrap">
+        <textarea class="result-box result-editable" id="result" spellcheck="false" placeholder="Le prompt apparaîtra ici — vous pouvez le modifier avant de copier."></textarea>
+      </div>
+      <div id="editor-claude-toast" style="display:none;margin-top:8px;padding:9px 13px;background:var(--c-social-bg);border:1px solid var(--c-social-border);border-radius:8px;font-size:12px;color:var(--c-social);line-height:1.5;">
+        ✅ <b>Prompt copié dans le presse-papiers.</b> Claude.ai s'ouvre — colle le prompt avec <b>Ctrl+V</b> (ou ⌘V sur Mac).
+      </div>
+
+      <!-- PANNEAU RÉPONSE IA — ÉDITEUR (sélecteur Claude / Gemini) -->
+      <div class="ai-api-panel" id="editor-api-panel" style="margin-top:12px;">
+        <div class="ai-api-header">
+          <select class="ai-model-select" id="editor-model-select" onchange="editorModelChange()">
+            <option value="claude">🟠 Générer avec Claude</option>
+            <option value="gemini">🔵 Générer avec Gemini</option>
+          </select>
+        </div>
+        <div class="ai-api-key-wrap">
+          <input type="password" id="editor-api-key" placeholder="Clé API" autocomplete="off">
+          <button class="btn-run-ai" id="editor-run-btn" onclick="runAiEditor()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Générer
+          </button>
+        </div>
+        <div class="api-key-save-hint">🔒 La clé reste dans votre navigateur, elle n'est pas stockée.</div>
+        <div class="ai-error" id="editor-api-error"></div>
+        <div class="ai-response-wrap" id="editor-response-wrap" style="display:none;">
+          <div class="ai-response-box" id="editor-response-box"></div>
+          <div class="ai-response-actions">
+            <button class="btn-copy ann" onclick="copyClaudeResponse('editor-response-box', this)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copier la réponse
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  Laforêt Pithiviers
+</footer>
+
+<script>
+// DATASET DES CATEGORIES ET PROMPTS
+const categories = ["Tous", "Annonces", "Emails clients", "Réseaux sociaux", "Prospection", "Administratif"];
+const CAT_CLS = { "Annonces": "ann", "Emails clients": "email", "Réseaux sociaux": "social", "Prospection": "prosp", "Administratif": "admin" };
+
+const prompts = [
+
+  // ── ANNONCES ─────────────────────────────────────────────────────────────────
+
+  {
+    id: 2,
+    cat: "Annonces",
+    title: "Générateur d'accroches de fiches",
+    desc: "Produit 5 options de titres percutants et d'introductions marquantes pour booster le taux de clic.",
+    fields: ["Type de bien","Ville","Arguments forts"],
+    ft: {"Arguments forts":"ta"},
+    tmpl: `Tu es expert en copywriting immobilier. Rédige 5 propositions de titres accrocheurs différents ainsi que 3 lignes d'introduction à fort impact pour le bien suivant : un(e) [Type de bien] à [Ville]. Points clés : [Arguments forts].
+
+Règle de sécurité : si une donnée obligatoire est absente, vide ou laissée sous forme de placeholder, écris exactement [INFORMATION OBLIGATOIRE NON RENSEIGNEE] à l'endroit concerné. N'invente jamais de fait, de nom ni de circonstance qui ne figure pas dans les données fournies.
+Consignes : Ton courtois, professionnel et humain. Phrases claires et directes. Pas de formules creuses ni de point d'exclamation. Aucun émoji.
+CHAQUE PROMPT EST INDEPENDANT DONC NE PREND PAS EN COMPTE LES PROMPTS PRECEDENTS , NE LES GARDE PAS NON PLUS EN MEMOIRE`
+  },
+
+  {
+    id: 102,
+    cat: "Annonces",
+    title: "Reformulation d'annonce",
+    desc: "Réécrire une annonce existante en conservant tous les faits — contrôle des mentions légales manquantes en fin de sortie.",
+    fields: ["Annonce existante à réécrire","Nom de l'agence","N° carte professionnelle","Type de bien concerné"],
+    ft: {"Annonce existante à réécrire":"ta","Type de bien concerné":"ta"},
+    tmpl: `Tu es agent immobilier chez Laforêt Pithiviers. On te fournit une annonce déjà rédigée à réécrire.
+
+Annonce source à réécrire :
+[Annonce existante à réécrire]
+
+Type de bien concerné : [Type de bien concerné].
+
+MISSION
+Produis une version réécrite de cette annonce, en prose continue, avec un ton humain et professionnel.
+
+RÈGLES DE RÉÉCRITURE (strictes)
+- Conserve tous les faits, chiffres, surfaces, équipements, prix et localisations présents dans l'annonce source.
+- Supprime uniquement les formules marketing creuses, les répétitions et le jargon publicitaire.
+- N'ajoute AUCUNE information absente du texte original.
+- Si une donnée présente dans le source est ambiguë, garde-la telle quelle sans l'interpréter.
+
+RÈGLE DE SÉCURITÉ (anti-invention)
+Tu ne dois jamais inventer ni compléter une donnée absente. Toute donnée obligatoire absente doit être restituée sous la forme exacte [INFORMATION OBLIGATOIRE NON RENSEIGNEE].
+
+Consignes de rédaction impératives :
+- Ton courtois, professionnel et humain.
+- Pas de formules marketing creuses.
+- Pas de point d'exclamation.
+- Aucun émoji.
+
+CONTRÔLE DE CONFORMITÉ (obligatoire, en fin de sortie)
+À la fin, contrôler la présence dans l'annonce source des mentions obligatoires et afficher : [MENTIONS LEGALES MANQUANTES A COMPLETER AVANT DIFFUSION] suivie de la liste des mentions absentes détectées.
+
+CHAQUE PROMPT EST INDEPENDANT DONC NE PREND PAS EN COMPTE LES PROMPTS PRECEDENTS , NE LES GARDE PAS NON PLUS EN MEMOIRE
+`
+  },
+
+  // ── EMAILS CLIENTS ────────────────────────────────────────────────────────────
+  {
+    id: 3,
+    cat: "Emails clients",
+    title: "Relance suite à Avis de Valeur",
+    desc: "Email attentionné pour reprendre contact proprement avec un propriétaire 7 jours après la remise du dossier.",
+    fields: ["Nom du propriétaire","Adresse du bien","Prénom et nom de l'agent","Téléphone de l'agent"],
+    ft: {},
+    tmpl: `Tu es un conseiller immobilier de confiance chez Laforêt Pithiviers. Rédige un email de relance professionnel et chaleureux destiné à [Nom du propriétaire]. Vous lui avez transmis son Avis de Valeur pour son bien à [Adresse du bien] il y a une semaine. L'objectif est de s'assurer qu'il en a bien pris connaissance et de fixer un rendez-vous pour lui présenter notre plan d'action de vente.
+
+Agent : [Prénom et nom de l'agent] — Tél. [Téléphone de l'agent]
+
+Règle de sécurité : si une donnée obligatoire est absente, vide ou laissée sous forme de placeholder, écris exactement [INFORMATION OBLIGATOIRE NON RENSEIGNEE] à l'endroit concerné. N'invente jamais de fait, de nom ni de circonstance qui ne figure pas dans les données fournies.
+Consignes : Ton courtois, professionnel et humain. Phrases claires et directes. Pas de formules creuses ni de point d'exclamation. Aucun émoji.
+CHAQUE PROMPT EST INDEPENDANT DONC NE PREND PAS EN COMPTE LES PROMPTS PRECEDENTS , NE LES GARDE PAS NON PLUS EN MEMOIRE`
+  },
+  {
+    id: 4,
+    cat: "Emails clients",
+    title: "Compte-rendu de visite vendeur",
+    desc: "Modèle de débrief transparent et pro à envoyer au propriétaire après la visite d'un acquéreur.",
+    fields: ["Nom du vendeur","Points positifs","Freins constatés","Suivi","Prénom et nom de l'agent","Téléphone de l'agent"],
+    ft: {"Points positifs":"ta","Freins constatés":"ta"},
+    tmpl: `Tu es agent immobilier chez Laforêt Pithiviers. Rédige un email de compte-rendu complet destiné au vendeur, [Nom du vendeur], à la suite de la visite effectuée aujourd'hui.
+
+Points très appréciés par les clients : [Points positifs]
+Remarques ou freins soulevés lors de la visite : [Freins constatés]
+Prochaine étape envisagée : [Suivi]
+Agent : [Prénom et nom de l'agent] — Tél. [Téléphone de l'agent]
+
+Règle de sécurité : si une donnée obligatoire est absente, vide ou laissée sous forme de placeholder, écris exactement [INFORMATION OBLIGATOIRE NON RENSEIGNEE] à l'endroit concerné. N'invente jamais de fait, de nom ni de circonstance qui ne figure pas dans les données fournies.
+Consignes : Ton courtois, professionnel et humain. Phrases claires et directes. Pas de formules creuses ni de point d'exclamation. Aucun émoji.
+CHAQUE PROMPT EST INDEPENDANT DONC NE PREND PAS EN COMPTE LES PROMPTS PRECEDENTS , NE LES GARDE PAS NON PLUS EN MEMOIRE`
+  },
+  {
+    id: 201,
+    cat: "Emails clients",
+    title: "Qualification de l'acquéreur",
+    desc: "Premier contact pour vérifier l'intérêt réel, la situation et la capacité de financement avant toute visite.",
+    fields: ["Prénom du prospect","Bien concerné","Prénom et nom de l'agent","Téléphone de l'agent","Nom de l'agence"],
+    ft: {},
+    tmpl: `Tu es agent immobilier chez Laforêt Pithiviers. Rédige un email de premier contact à un prospect qui a manifesté de l'intérêt pour un bien.
+
+Destinataire : [Prénom du prospect]
+Bien concerné : [Bien concerné]
+Agent : [Prénom et nom de l'agent] — Tél. [Téléphone de l'agent]
+Agence : [Nom de l'agence]
+
+Objectif de cet email : qualifier le prospect avant de lui proposer une visite. Il doit permettre de vérifier :
+1. Que l'intérêt pour le bien est confirmé et que le bien correspond à sa recherche.
+2. Que la situation personnelle est compatible (primo-accédant, déjà propriétaire, locataire actuel…).
+3. Que le financement est en place ou en cours (apport, accord de principe bancaire, capacité d'emprunt estimée).
+4. Qu'il n'y a pas de condition bloquante (bien à vendre avant d'acheter, délai incompatible…).
+
+Structure de l'email :
+- Commence par accuser réception de la demande et confirmer que le bien est toujours disponible.
+- Explique brièvement que pour organiser une visite dans les meilleures conditions, quelques questions sont nécessaires.
+- Pose les questions de qualification de façon naturelle et non intrusive, sans donner l'impression d'un interrogatoire.
+- Termine par une invitation à répondre par email ou à rappeler directement l'agent.
+- Longueur : 10 à 12 lignes. Ton conversationnel, pas administratif.
+
+Règle de sécurité : si une donnée obligatoire est absente, vide ou laissée sous forme de placeholder, écris exactement [INFORMATION OBLIGATOIRE NON RENSEIGNEE] à l'endroit concerné. N'invente jamais de fait, de nom ni de circonstance qui ne figure pas dans les données fournies.
+Consignes : Ton courtois, professionnel et humain. Phrases claires et directes. Pas de formules creuses ni de point d'exclamation. Aucun émoji.
+
+CHAQUE PROMPT EST INDEPENDANT DONC NE PREND PAS EN COMPTE LES PROMPTS PRECEDENTS , NE LES GARDE PAS NON PLUS EN MEMOIRE
+`
+  },
+  {
+    id: 208,
+    cat: "Emails clients",
+    title: "Proposition de créneaux de visite",
+    desc: "Email de suivi après qualification — propose 3 créneaux à un acquéreur confirmé et financement vérifié.",
+    fields: ["Prénom du prospect","Bien concerné","Créneau 1","Créneau 2","Créneau 3","Durée estimée de la visite","Prénom et nom de l'agent","Téléphone de l'agent"],
+    ft: {},
+    tmpl: `Tu es agent immobilier chez Laforêt Pithiviers. Rédige un email pour proposer des créneaux de visite à un prospect dont la situation et le financement ont été vérifiés.
+
+Destinataire : [Prénom du prospect]
+Bien concerné : [Bien concerné]
+Créneaux proposés :
+  - [Créneau 1]
+  - [Créneau 2]
+  - [Créneau 3]
+Durée de la visite : [Durée estimée de la visite]
+Agent : [Prénom et nom de l'agent] — Tél. [Téléphone de l'agent]
+
+Structure de l'email :
+- Commence par remercier le prospect pour ses réponses et confirmer que le dossier est compatible avec le bien.
+- Annonce que la visite peut être organisée et propose les 3 créneaux clairement, un par ligne.
+- Mentionne la durée estimée de la visite.
+- Demande au prospect de confirmer le créneau qui lui convient ou de proposer une autre disponibilité.
+- Termine par une formule sincère et la signature de l'agent.
+- Longueur : 8 à 10 lignes.
+
+Règle de sécurité : si une donnée obligatoire est absente, vide ou laissée sous forme de placeholder, écris exactement [INFORMATION OBLIGATOIRE NON RENSEIGNEE] à l'endroit concerné. N'invente jamais de fait, de nom ni de circonstance qui ne figure pas dans les données fournies.
+Consignes : Ton courtois, professionnel et humain. Phrases claires et directes. Pas de formules creuses ni de point d'exclamation. Aucun émoji.
+
+CHAQUE PROMPT EST INDEPENDANT DONC NE PREND PAS EN COMPTE LES PROMPTS PRECEDENTS , NE LES GARDE PAS NON PLUS EN MEMOIRE
+`
+  },
+  {
+    id: 202,
+    cat: "Emails clients",
+    title: "Relance après visite sans retour",
+    desc: "Relance sobre, sans pression ni présupposition.",
+    fields: ["Prénom du prospect","Bien visité","Nombre de jours depuis la visite","Prénom et nom de l'agent","Téléphone de l'agent","Nom de l'agence"],
+    ft: {},
+    tmpl: `Tu es agent immobilier chez Laforêt Pithiviers. Rédige un email de relance après une visite restée sans retour.
+
+Destinataire : [Prénom du prospect]
+Bien visité : [Bien visité]
+Délai : [Nombre de jours depuis la visite] jours sans retour
+Agent : [Prénom et nom de l'agent] — Tél. [Téléphone de l'agent]
+Agence : [Nom de l'agence]
+
+Structure :
+- Rappelle brièvement la visite du bien [Bien visité].
+- Demande si des questions ou des réserves subsistent.
+- Ne présuppose ni intérêt ni désintérêt du prospect.
+- Propose un échange simple pour répondre aux questions.
+- Termine par la signature complète.
+- Longueur : 6 à 8 lignes.
+
+Règle de sécurité : si une donnée obligatoire est absente, vide ou laissée sous forme de placeholder, écris exactement [INFORMATION OBLIGATOIRE NON RENSEIGNEE] à l'endroit concerné. N'invente jamais de fait, de nom ni de circonstance qui ne figure pas dans les données fournies.
+Consignes : Ton courtois, professionnel et humain. Phrases claires et directes. Pas de formules creuses ni de point d'exclamation. Aucun émoji.
+
+CHAQUE PROMPT EST INDEPENDANT DONC NE PREND PAS EN COMPTE LES PROMPTS PRECEDENTS , NE LES GARDE PAS NON PLUS EN MEMOIRE
+`
+  },
+  {
+    id: 203,
+    cat: "Emails clients",
+    title: "Présentation d'un nouveau bien",
+    desc: "Email personnalisé à un acquéreur en recherche active.",
+    fields: ["Prénom du client","Description du bien à présenter","Critères de recherche du client","Lien / référence (optionnel)","Prénom et nom de l'agent","Téléphone de l'agent","Nom de l'agence"],
+    ft: {"Description du bien à présenter":"ta","Critères de recherche du client":"ta"},
+    tmpl: `Tu es agent immobilier chez Laforêt Pithiviers. Rédige un email pour présenter un nouveau bien à un client en recherche active.
+
+Destinataire : [Prénom du client]
+Bien : [Description du bien à présenter]
+Critères client : [Critères de recherche du client]
+Lien : [Lien / référence (optionnel)]
+Agent : [Prénom et nom de l'agent] — Tél. [Téléphone de l'agent]
+Agence : [Nom de l'agence]
+
+Structure :
+- Commence par "J'ai le plaisir de vous présenter…" ou formule équivalente.
+- Explique en quoi ce bien correspond aux critères du client.
+- Propose un créneau de visite ou un appel.
+- Termine par une formule sincère et une signature complète.
+- Longueur : 8 à 10 lignes.
+
+Règle de sécurité : toute donnée absente → [INFORMATION OBLIGATOIRE NON RENSEIGNEE]. N'ajoute aucun adjectif absent de la description fournie.
+Consignes : Ton courtois, professionnel et humain. Phrases claires et directes. Pas de formules creuses ni de point d'exclamation. Aucun émoji.
+
+CHAQUE PROMPT EST INDEPENDANT DONC NE PREND PAS EN COMPTE LES PROMPTS PRECEDENTS , NE LES GARDE PAS NON PLUS EN MEMOIRE
+`
+  },
+  {
+    id: 204,
+    cat: "Emails clients",
+    title: "Suivi post-offre refusée",
+    desc: "Annonce du refus avec tact et proposition de deux options de suite.",
+    fields: ["Prénom du client","Bien concerné","Montant de l'offre (€)","Prix affiché (€)","Prénom et nom de l'agent","Téléphone de l'agent"],
+    ft: {},
+    tmpl: `Tu es agent immobilier chez Laforêt Pithiviers. Rédige un email pour informer un client que son offre a été refusée par le vendeur.
+
+Destinataire : [Prénom du client]
+Bien : [Bien concerné]
+Offre soumise : [Montant de l'offre (€)] € — Prix affiché : [Prix affiché (€)] €
+Agent : [Prénom et nom de l'agent] — Tél. [Téléphone de l'agent]
+
+Structure :
+- Commence par "J'ai bien reçu votre offre…".
+- Annonce le refus clairement, sans détour.
+- Explique la position du vendeur de façon factuelle, sans la commenter ni la juger.
+- Propose deux options concrètes pour la suite.
+- Garde une posture de médiation professionnelle.
+- Longueur : 8 à 10 lignes.
+
+Règle de sécurité : toute donnée absente → [INFORMATION OBLIGATOIRE NON RENSEIGNEE].
+Consignes : Ton courtois, professionnel et humain. Phrases claires et directes. Pas de formules creuses ni de point d'exclamation. Aucun émoji.
+
+CHAQUE PROMPT EST INDEPENDANT DONC NE PREND PAS EN COMPTE LES PROMPTS PRECEDENTS , NE LES GARDE PAS NON PLUS EN MEMOIRE
+`
+  },
+  {
+    id: 205,
+    cat: "Emails clients",
+    title: "Bilan de mandat au vendeur",
+    desc: "Point factuel après X semaines : chiffres bruts, retours honnêtes, pistes concrètes.",
+    fields: ["Prénom du propriétaire","Semaines de commercialisation","Nombre de visites","Retours des visiteurs","Prénom et nom de l'agent","Téléphone de l'agent"],
+    ft: {"Retours des visiteurs":"ta"},
+    tmpl: `Tu es agent immobilier chez Laforêt Pithiviers. Rédige un email de bilan de mandat adressé au propriétaire.
+
+Destinataire : [Prénom du propriétaire]
+Durée de commercialisation : [Semaines de commercialisation] semaines
+Nombre de visites : [Nombre de visites]
+Retours des visiteurs : [Retours des visiteurs]
+Agent signataire : [Prénom et nom de l'agent] — Téléphone : [Téléphone de l'agent]
+
+Structure imposée :
+- Commence par exactement : "Je vous contacte pour faire le point sur la commercialisation de votre bien."
+- Présente les chiffres tels quels, sans les arrondir ni les embellir.
+- Analyse les retours des visiteurs sans les enjoliver.
+- Propose une ou deux pistes concrètes pour la suite.
+- Termine par une formule sincère et la signature.
+- Longueur : 10 à 12 lignes.
+
+Règle de sécurité : toute donnée absente → [INFORMATION OBLIGATOIRE NON RENSEIGNEE].
+Consignes : Ton courtois, professionnel et humain. Phrases claires et directes. Pas de formules creuses ni de point d'exclamation. Aucun émoji.
+
+CHAQUE PROMPT EST INDEPENDANT DONC NE PREND PAS EN COMPTE LES PROMPTS PRECEDENTS , NE LES GARDE PAS NON PLUS EN MEMOIRE
+`
+  },
+  {
+    id: 206,
+    cat: "Emails clients",
+    title: "Félicitations post-signature",
+    desc: "Message sobre après compromis ou acte définitif — mentionne la prochaine étape si renseignée.",
+    fields: ["Prénom du client","Type d'acte","Bien concerné","Prochaine étape (optionnel)","Prénom et nom de l'agent","Nom de l'agence"],
+    ft: {},
+    tmpl: `Tu es agent immobilier chez Laforêt Pithiviers. Rédige un email de félicitations à un client après une signature.
+
+Destinataire : [Prénom du client]
+Acte signé : [Type d'acte]
+Bien concerné : [Bien concerné]
+Prochaine étape : [Prochaine étape (optionnel)]
+Agent signataire : [Prénom et nom de l'agent]
+Agence : [Nom de l'agence]
+
+Cadre de rédaction :
+- Email sobre et sincère, 4 à 6 lignes maximum.
+- Félicite le client pour la signature.
+- Mentionne la prochaine étape uniquement si elle est renseignée. Sinon, n'évoque aucune suite.
+- Pas de formule exubérante ni de superlatif.
+- Termine par la signature : prénom et nom de l'agent, puis le nom de l'agence.
+
+Règle de sécurité : toute donnée absente → [INFORMATION OBLIGATOIRE NON RENSEIGNEE].
+Consignes : Ton courtois, professionnel et humain. Phrases claires et directes. Pas de formules creuses ni de point d'exclamation. Aucun émoji.
+
+CHAQUE PROMPT EST INDEPENDANT DONC NE PREND PAS EN COMPTE LES PROMPTS PRECEDENTS , NE LES GARDE PAS NON PLUS EN MEMOIRE
+`
+  },
+
+
+  // ── RÉSEAUX SOCIAUX ───────────────────────────────────────────────────────────
+  {
+    id: 5,
+    cat: "Réseaux sociaux",
+    title: "Script Story — Teasing Nouveau Bien",
+    desc: "Trame courte et mystérieuse pour créer de la curiosité sur Facebook et Instagram avant la mise en ligne.",
+    fields: ["Type de bien","Ville ou Secteur","Atout secret"],
+    ft: {},
+    tmpl: `Tu es community manager immobilier. Rédige le contenu textuel d'une Story captivante en 3 parties pour teaser l'arrivée imminente sur le marché d'une nouveauté exclusive.
+
+Bien : [Type de bien]
+Localisation géographique : [Ville ou Secteur]
+Élément coup de cœur : [Atout secret]
+
+Règle de sécurité : si une donnée obligatoire est absente, vide ou laissée sous forme de placeholder, écris exactement [INFORMATION OBLIGATOIRE NON RENSEIGNEE] à l'endroit concerné. N'invente jamais de fait, de nom ni de circonstance qui ne figure pas dans les données fournies.
+Consignes : Ton courtois, professionnel et humain. Phrases claires et directes. Pas de formules creuses ni de point d'exclamation.
+CHAQUE PROMPT EST INDEPENDANT DONC NE PREND PAS EN COMPTE LES PROMPTS PRECEDENTS , NE LES GARDE PAS NON PLUS EN MEMOIRE`
+  },
+  {
+    id: 301,
+    cat: "Réseaux sociaux",
+    title: "Post vente réussie",
+    desc: "Annonce de transaction conclue — sans prix ni noms, bloc légal obligatoire.",
+    fields: ["Type de bien","Ville","Délai de vente (semaines)","Plateforme","Nom de l'agence","N° carte professionnelle"],
+    ft: {},
+    tmpl: `Tu es agent immobilier chez Laforêt Pithiviers. Rédige un post pour annoncer une vente réussie.
+
+Bien : [Type de bien] à [Ville] — Délai : [Délai de vente (semaines)] semaines
+Plateforme : [Plateforme]
+
+Objectif : mettre en avant le sérieux et l'accompagnement de l'agence. Pas de prix, pas de noms, aucune donnée rendant le bien identifiable. Appel à l'action sobre. 4 à 6 lignes.
+
+Termine OBLIGATOIREMENT par (mot pour mot) :
+"[Nom de l'agence] — Agent immobilier, carte professionnelle n° [N° carte professionnelle]. Informations non contractuelles."
+
+Règle de sécurité : toute donnée absente → [INFORMATION OBLIGATOIRE NON RENSEIGNEE].
+Consignes : Ton courtois, professionnel et humain. Phrases claires et directes. Pas de formules creuses ni de point d'exclamation. Pas de hashtags génériques.
+
+CHAQUE PROMPT EST INDEPENDANT DONC NE PREND PAS EN COMPTE LES PROMPTS PRECEDENTS , NE LES GARDE PAS NON PLUS EN MEMOIRE
+`
+  },
+  {
+    id: 302,
+    cat: "Réseaux sociaux",
+    title: "Post conseil acheteur / vendeur",
+    desc: "Contenu pédagogique et concret pour engager la communauté — bloc légal obligatoire.",
+    fields: ["Thème du conseil","Plateforme","Nom de l'agence","N° carte professionnelle"],
+    ft: {},
+    tmpl: `Tu es agent immobilier chez Laforêt Pithiviers. Rédige un post [Plateforme] de conseil pratique immobilier.
+
+Thème : [Thème du conseil]
+
+Objectif : apporter un conseil général et utile à la communauté, sans présenter de bien précis ni faire de promesse personnalisée. Ton pédagogique et concret. Pas de jargon non expliqué. 6 à 10 lignes.
+
+Précise que ce conseil est général et que chaque situation doit être vérifiée au cas par cas.
+
+Termine OBLIGATOIREMENT par (mot pour mot) :
+"[Nom de l'agence] — Agent immobilier, carte professionnelle n° [N° carte professionnelle]. Informations non contractuelles."
+
+Règle de sécurité : toute donnée absente → [INFORMATION OBLIGATOIRE NON RENSEIGNEE].
+Consignes : Ton courtois, professionnel et humain. Phrases claires et directes. Pas de formules creuses ni de point d'exclamation. Pas de hashtags génériques.
+
+CHAQUE PROMPT EST INDEPENDANT DONC NE PREND PAS EN COMPTE LES PROMPTS PRECEDENTS , NE LES GARDE PAS NON PLUS EN MEMOIRE
+`
+  },
+
+  {
+    id: 303,
+    cat: "Réseaux sociaux",
+    title: "Post Google My Business",
+    desc: "Annonce de bien optimisée pour la fiche Google My Business — format court, bloc légal obligatoire.",
+    fields: ["Type de bien","Ville","Nombre de pièces","Surface (m²)","Atout principal","Nom de l'agence","N° carte professionnelle"],
+    ft: {},
+    tmpl: `Tu es agent immobilier chez Laforêt Pithiviers. Rédige une publication "Nouveautés" pour la fiche Google My Business de l'agence, afin de promouvoir un bien en vente.
+
+Bien : [Type de bien] de [Nombre de pièces] pièces, [Surface (m²)] m², à [Ville]
+Atout principal à mettre en avant : [Atout principal]
+
+Cadre de rédaction :
+- Format court adapté à Google My Business : 2 à 4 phrases maximum (1500 caractères max), texte allant à l'essentiel.
+- Première phrase accrocheuse mentionnant le type de bien et la ville.
+- Met en avant l'atout principal de façon concrète, sans superlatif excessif.
+- Termine par un appel à l'action sobre invitant à contacter l'agence ou à se rendre sur la fiche pour plus d'informations.
+- Pas de prix, pas de noms de propriétaires, aucune donnée rendant le bien identifiable au-delà de ce qui est fourni.
+- Pas de hashtags, pas d'émojis.
+
+Termine OBLIGATOIREMENT par (mot pour mot) :
+"[Nom de l'agence] — Agent immobilier, carte professionnelle n° [N° carte professionnelle]. Informations non contractuelles."
+
+Règle de sécurité : toute donnée absente → [INFORMATION OBLIGATOIRE NON RENSEIGNEE].
+Consignes : Ton courtois, professionnel et humain. Phrases claires et directes. Pas de formules creuses ni de point d'exclamation.
+
+CHAQUE PROMPT EST INDEPENDANT DONC NE PREND PAS EN COMPTE LES PROMPTS PRECEDENTS , NE LES GARDE PAS NON PLUS EN MEMOIRE
+`
+  },
+
+  // ── PROSPECTION ───────────────────────────────────────────────────────────────
+
+  {
+    id: 401,
+    cat: "Prospection",
+    title: "Courrier de prospection secteur",
+    desc: "Lettre aux propriétaires d'un secteur ciblé — bloc légal carte pro inclus.",
+    fields: ["Ville / quartier ciblé","Nom de l'agence","Argument principal","Prénom et nom de l'agent","Téléphone de l'agent","N° carte professionnelle"],
+    ft: {},
+    tmpl: `Tu es agent immobilier chez Laforêt Pithiviers. Rédige un courrier de prospection adressé aux propriétaires d'un secteur.
+
+Secteur : [Ville / quartier ciblé]
+Agence : [Nom de l'agence]
+Argument : [Argument principal]
+Agent : [Prénom et nom de l'agent] — Téléphone : [Téléphone de l'agent]
+
+Structure imposée :
+- Accroche directe sur le marché local ou l'argument fourni.
+- Corps : 3 à 4 phrases sur la valeur ajoutée de l'agence (pas de superlatif vide).
+- Appel à l'action concret : estimer son bien, prendre contact.
+- Signature complète avec numéro de carte professionnelle.
+- Longueur totale : 12 à 15 lignes.
+
+Termine par (mot pour mot) :
+"[Nom de l'agence] — Agent immobilier, carte professionnelle n° [N° carte professionnelle]."
+
+Règle de sécurité : toute donnée absente → [INFORMATION OBLIGATOIRE NON RENSEIGNEE].
+Consignes : Ton courtois, professionnel et humain. Phrases claires et directes. Pas de formules creuses ni de point d'exclamation. Aucun émoji.
+
+CHAQUE PROMPT EST INDEPENDANT DONC NE PREND PAS EN COMPTE LES PROMPTS PRECEDENTS , NE LES GARDE PAS NON PLUS EN MEMOIRE
+`
+  },
+  {
+    id: 402,
+    cat: "Prospection",
+    title: "Script d'appel sortant",
+    desc: "Trame d'appel en 5 étapes — ton naturel, comme une note personnelle avant l'appel.",
+    fields: ["Prénom du prospect","Type de bien / contexte","Objectif de l'appel","Prénom et nom de l'agent","Téléphone de l'agent"],
+    ft: {},
+    tmpl: `Tu es agent immobilier chez Laforêt Pithiviers. Rédige une trame d'appel sortant à destination de [Prénom du prospect].
+
+Contexte : [Type de bien / contexte]
+Objectif : [Objectif de l'appel]
+Agent : [Prénom et nom de l'agent] — Tél. [Téléphone de l'agent]
+
+Structure en 5 étapes :
+1. Accroche et présentation (2-3 phrases).
+2. Vérification du bon interlocuteur.
+3. Exposé de la raison de l'appel (factuel, sans survente).
+4. Question ouverte pour engager l'échange.
+5. Proposition concrète de suite (rendez-vous, envoi d'info).
+
+Format : note personnelle pour l'agent, pas un script robotique. Les formulations doivent sonner naturel à l'oral.
+
+Règle de sécurité : toute donnée absente → [INFORMATION OBLIGATOIRE NON RENSEIGNEE].
+Consignes : Ton courtois, professionnel et humain. Phrases claires et directes. Pas de formules creuses ni de point d'exclamation. Aucun émoji.
+
+CHAQUE PROMPT EST INDEPENDANT DONC NE PREND PAS EN COMPTE LES PROMPTS PRECEDENTS , NE LES GARDE PAS NON PLUS EN MEMOIRE
+`
+  },
+  {
+    id: 403,
+    cat: "Prospection",
+    title: "SMS de prise de contact",
+    desc: "3 lignes max — direct, signé avec le numéro de l'agent.",
+    fields: ["Prénom du prospect","Contexte / raison du contact","Prénom et nom de l'agent","Téléphone de l'agent"],
+    ft: {},
+    tmpl: `Tu es agent immobilier chez Laforêt Pithiviers. Rédige un SMS de prise de contact.
+
+Destinataire : [Prénom du prospect]
+Contexte : [Contexte / raison du contact]
+Agent : [Prénom et nom de l'agent] — Tél. [Téléphone de l'agent]
+
+Contraintes strictes :
+- 3 lignes maximum, espaces compris.
+- Direct, non intrusif, clairement signé.
+- Pas de formule creuse ni de superlatif.
+- Termine par le prénom de l'agent et son numéro.
+
+Règle de sécurité : toute donnée absente → [INFORMATION OBLIGATOIRE NON RENSEIGNEE].
+Consignes : Ton courtois, professionnel et humain. Phrases claires et directes. Pas de formules creuses ni de point d'exclamation. Aucun émoji.
+
+CHAQUE PROMPT EST INDEPENDANT DONC NE PREND PAS EN COMPTE LES PROMPTS PRECEDENTS , NE LES GARDE PAS NON PLUS EN MEMOIRE
+`
+  },
+
+  // ── ADMINISTRATIF ─────────────────────────────────────────────────────────────
+  {
+    id: 7,
+    cat: "Administratif",
+    title: "Relance pièces indispensables",
+    desc: "Email diplomate mais clair pour solliciter les documents juridiques ou techniques manquants pour un dossier.",
+    fields: ["Nom du client","Pièces requises","Prénom et nom de l'agent","Téléphone de l'agent"],
+    ft: {"Pièces requises":"ta"},
+    tmpl: `Tu es conseiller chez Laforêt Pithiviers. Rédige un courriel professionnel à [Nom du client] afin de collecter les pièces nécessaires à la conformité réglementaire de son dossier de mise en vente. Documents à transmettre urgemment : [Pièces requises]. Explique de manière rassurante pourquoi ces documents le protègent légalement.
+
+Agent : [Prénom et nom de l'agent] — Tél. [Téléphone de l'agent]
+
+Règle de sécurité : si une donnée obligatoire est absente, vide ou laissée sous forme de placeholder, écris exactement [INFORMATION OBLIGATOIRE NON RENSEIGNEE] à l'endroit concerné. N'invente jamais de fait, de nom ni de circonstance qui ne figure pas dans les données fournies.
+Consignes : Ton courtois, professionnel et humain. Phrases claires et directes. Pas de formules creuses ni de point d'exclamation. Aucun émoji.
+CHAQUE PROMPT EST INDEPENDANT DONC NE PREND PAS EN COMPTE LES PROMPTS PRECEDENTS , NE LES GARDE PAS NON PLUS EN MEMOIRE`
+  },
+  {
+    id: 501,
+    cat: "Administratif",
+    title: "Compte-rendu de visite",
+    desc: "Résumé factuel et structuré — transmissible en interne ou au vendeur.",
+    fields: ["Bien visité","Date de la visite","Profil du visiteur (situation, projet, financement)","Retours et réactions exprimés","Suite envisagée"],
+    ft: {"Retours et réactions exprimés":"ta"},
+    tmpl: `Tu es agent immobilier chez Laforêt Pithiviers. Rédige un compte-rendu de visite factuel et structuré.
+
+Bien : [Bien visité]
+Date : [Date de la visite]
+Profil : [Profil du visiteur (situation, projet, financement)]
+Retours : [Retours et réactions exprimés]
+Suite : [Suite envisagée]
+
+Consignes :
+- Prose continue, 6 à 8 lignes.
+- Strictement factuel : rapporte ce qui s'est dit et observé, sans interprétation.
+- Aucun commentaire personnel ni jugement de valeur sur le visiteur.
+- Texte utilisable en interne (dossier, CRM) ou transmissible au vendeur.
+
+Règle de sécurité : toute donnée absente → [INFORMATION OBLIGATOIRE NON RENSEIGNEE].
+Consignes : Ton courtois, professionnel et humain. Phrases claires et directes. Pas de formules creuses ni de point d'exclamation. Aucun émoji.
+
+CHAQUE PROMPT EST INDEPENDANT DONC NE PREND PAS EN COMPTE LES PROMPTS PRECEDENTS , NE LES GARDE PAS NON PLUS EN MEMOIRE
+`
+  },
+  {
+    id: 502,
+    cat: "Administratif",
+    title: "Réponse avis négatif Google",
+    desc: "Réponse publique sobre — accuse réception, reconnaît le ressenti, invite au contact direct.",
+    fields: ["Contenu intégral de l'avis négatif","Nom de l'agence","Prénom et nom du responsable"],
+    ft: {"Contenu intégral de l'avis négatif":"ta"},
+    tmpl: `Tu es responsable d'agence immobilière. Rédige une réponse publique à cet avis Google négatif.
+
+Avis : [Contenu intégral de l'avis négatif]
+Agence : [Nom de l'agence] — Signé par : [Prénom et nom du responsable]
+
+Structure :
+- Remercie pour le retour.
+- Reconnais le ressenti du client sans te justifier excessivement.
+- Rappelle les faits sobrement si nécessaire.
+- Invite le client à prendre contact directement avec l'agence.
+- Pas d'excuse générique, pas de ton défensif.
+- Longueur : 5 à 7 lignes.
+- Termine par la signature : [Prénom et nom du responsable], [Nom de l'agence].
+
+Règle de sécurité : toute donnée absente → [INFORMATION OBLIGATOIRE NON RENSEIGNEE].
+Consignes : Ton courtois, professionnel et humain. Phrases claires et directes. Pas de formules creuses ni de point d'exclamation. Aucun émoji.
+
+CHAQUE PROMPT EST INDEPENDANT DONC NE PREND PAS EN COMPTE LES PROMPTS PRECEDENTS , NE LES GARDE PAS NON PLUS EN MEMOIRE
+`
+  },
+  {
+    id: 503,
+    cat: "Administratif",
+    title: "Adapter le registre client",
+    desc: "Réécriture stylistique d'un message — faits conservés à l'identique, seul le registre change.",
+    fields: ["Message original à réécrire","Profil du client et registre attendu"],
+    ft: {"Message original à réécrire":"ta","Profil du client et registre attendu":"ta"},
+    tmpl: `Tu es agent immobilier chez Laforêt Pithiviers. Tu réécris un message en adaptant le registre au profil du client. Tu ne changes rien au fond.
+
+Profil du client : [Profil du client et registre attendu]
+Message original : [Message original à réécrire]
+
+Règles de réécriture :
+- Conserve à l'identique toutes les informations factuelles : dates, prix, surfaces, montants, noms, adresses, références, conditions, délais.
+- Adapte uniquement le vocabulaire, le rythme, les tournures et le niveau de langage.
+- Pas de changement de fond, pas de promesse nouvelle, pas d'argument inventé.
+- Si une information est ambiguë, garde-la telle quelle.
+
+Règle de sécurité : toute donnée absente → [INFORMATION OBLIGATOIRE NON RENSEIGNEE].
+Consignes : Ton courtois, professionnel et humain. Phrases claires et directes. Pas de formules creuses ni de point d'exclamation. Aucun émoji.
+Rends uniquement le message réécrit, prêt à être envoyé.
+
+CHAQUE PROMPT EST INDEPENDANT DONC NE PREND PAS EN COMPTE LES PROMPTS PRECEDENTS , NE LES GARDE PAS NON PLUS EN MEMOIRE
+`
+  },
+  {
+    id: 504,
+    cat: "Administratif",
+    title: "Note de synthèse acquéreur",
+    desc: "Fiche interne opérationnelle — profil, budget, financement, critères, prête à classer au dossier.",
+    fields: ["Prénom et nom de l'acquéreur","Budget global (€)","Type de bien recherché","Critères impératifs","Critères secondaires (optionnel)","Situation de l'acquéreur","Financement (apport, prêt, accord bancaire)"],
+    ft: {"Critères impératifs":"ta","Critères secondaires (optionnel)":"ta"},
+    tmpl: `Tu es agent immobilier chez Laforêt Pithiviers. Rédige une note de synthèse pour dossier acquéreur, à usage interne uniquement.
+
+Acquéreur : [Prénom et nom de l'acquéreur] — Budget : [Budget global (€)] €
+Recherche : [Type de bien recherché]
+Critères impératifs : [Critères impératifs]
+Critères secondaires : [Critères secondaires (optionnel)]
+Situation : [Situation de l'acquéreur] — Financement : [Financement (apport, prêt, accord bancaire)]
+
+Rédige une prose structurée de 8 à 10 lignes, claire et directe. Couvre dans l'ordre : le profil et la situation de l'acquéreur, le budget et l'état du financement, le bien recherché, les critères impératifs, puis les critères secondaires.
+
+Règle de sécurité : toute donnée absente → [INFORMATION OBLIGATOIRE NON RENSEIGNEE]. Décris uniquement ce qui est fourni, sans déduction ni embellissement.
+Consignes : Ton courtois, professionnel et humain. Phrases claires et directes. Pas de formules creuses ni de point d'exclamation. Aucun émoji.
+
+CHAQUE PROMPT EST INDEPENDANT DONC NE PREND PAS EN COMPTE LES PROMPTS PRECEDENTS , NE LES GARDE PAS NON PLUS EN MEMOIRE
+`
+  }
+];
+
+// LOGIQUE D'INITIALISATION
+let currentCat = "Tous";
+let selectedId = null;
+let currentMode = "vente";
+let currentHubFormat = "internet";
+
+window.onload = function() {
+  initTheme();
+  // Hub caché par défaut (visible uniquement sur Annonces / Tous)
+  document.getElementById('hub').style.display = (currentCat === 'Annonces' || currentCat === 'Tous') ? 'block' : 'none';
+  // Sur mobile, replier le hub par défaut pour que les cartes soient visibles
+  if (window.innerWidth <= 640) {
+    document.getElementById('hub').classList.add('collapsed');
+  }
+  hubLoad();
+  renderCats();
+  renderGrid();
+  renderBienList();
+  // Case vitrine : régénère le prompt uniquement si on est déjà à l'étape 3
+  document.getElementById('include-vitrine').addEventListener('change', function() {
+    if (currentHubFormat === 'internet' && currentWizStep === 3) hubGen('internet');
+  });
+};
+
+// MENU ⋯
+function toggleMoreMenu(e) {
+  e.stopPropagation();
+  document.getElementById('more-dropdown').classList.toggle('open');
+}
+function closeMoreMenu() {
+  document.getElementById('more-dropdown').classList.remove('open');
+}
+document.addEventListener('click', function() { closeMoreMenu(); });
+
+// GESTION DU THEME SOMBRE
+function initTheme() {
+  const saved = localStorage.getItem('theme') || 'light';
+  document.documentElement.setAttribute('data-theme', saved);
+  updateThemeUI(saved);
+}
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'light';
+  const next = current === 'light' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+  updateThemeUI(next);
+}
+function updateThemeUI(theme) {
+  const icon = document.getElementById('theme-icon');
+  const label = document.getElementById('theme-label');
+  if (theme === 'dark') {
+    icon.innerHTML = `<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>`;
+    label.textContent = "Mode clair";
+  } else {
+    icon.innerHTML = `<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>`;
+    label.textContent = "Mode sombre";
+  }
+}
+
+// RENDU DES CATEGORIES
+function renderCats() {
+  const wrap = document.getElementById('cats');
+  wrap.innerHTML = categories.map(c => {
+    const cls = c === currentCat ? 'cat-btn active' : 'cat-btn';
+    let dot = '';
+    if(c === "Annonces") dot = '<span class="cat-dot ann"></span>';
+    if(c === "Emails clients") dot = '<span class="cat-dot email"></span>';
+    if(c === "Réseaux sociaux") dot = '<span class="cat-dot social"></span>';
+    if(c === "Prospection") dot = '<span class="cat-dot prosp"></span>';
+    if(c === "Administratif") dot = '<span class="cat-dot admin"></span>';
+    return `<button class="${cls}" data-cat="${c}" onclick="setCat('${c}')">${dot}${c}</button>`;
+  }).join('');
+}
+function setCat(cat) {
+  currentCat = cat;
+  // Ferme l'éditeur au changement de catégorie
+  selectedId = null;
+  document.getElementById('editor').style.display = 'none';
+  // Hub visible uniquement sur Annonces
+  document.getElementById('hub').style.display = (cat === 'Annonces' || cat === 'Tous') ? 'block' : 'none';
+  renderCats();
+  renderGrid();
+}
+
+// RENDU DE LA GRILLE DE PROMPTS
+function renderGrid() {
+  const grid = document.getElementById('grid');
+  const q = document.getElementById('search-input').value.toLowerCase().trim();
+  
+  let filtered = prompts;
+  if (currentCat !== "Tous") filtered = filtered.filter(p => p.cat === currentCat);
+  if (q) filtered = filtered.filter(p => p.title.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q));
+  
+  document.getElementById('search-empty').style.display = filtered.length === 0 ? 'block' : 'none';
+  
+  grid.innerHTML = filtered.map(p => {
+    const isSel = p.id === selectedId ? 'selected' : '';
+    const labelCls = CAT_CLS[p.cat] || 'blue';
+    return `
+      <div class="prompt-card ${isSel}" data-cat="${p.cat}" onclick="selectPrompt(${p.id})">
+        <div class="card-cat-row">
+          <span class="cat-dot ${labelCls}"></span>
+          <span class="card-cat-label">${p.cat}</span>
+        </div>
+        <div class="card-title">${p.title}</div>
+        <div class="card-desc">${p.desc}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+// FILTRAGE ET RECHERCHE
+function handleSearch(val) {
+  document.getElementById('search-clear').style.display = val.trim() ? 'block' : 'none';
+  renderGrid();
+}
+function clearSearch() {
+  document.getElementById('search-input').value = '';
+  document.getElementById('search-clear').style.display = 'none';
+  renderGrid();
+}
+
+// GESTION DU GENERATEUR HUB CENTRALISÉ
+function toggleHub() {
+  const hub = document.getElementById('hub');
+  const isCollapsed = hub.classList.contains('collapsed');
+  hub.classList.toggle('collapsed');
+  // Si on ouvre le générateur, fermer le prompt ouvert
+  if (isCollapsed) {
+    selectedId = null;
+    document.querySelectorAll('.prompt-card').forEach(c => c.classList.remove('selected'));
+    document.getElementById('editor').style.display = 'none';
+    document.getElementById('result-wrap').style.display = 'none';
+  }
+}
+
+// ── WIZARD ────────────────────────────────────────────────────────────────────
+let currentWizStep = 1;
+
+function wizGo(step) {
+  // Scroll pour voir le titre "Générateur d'annonces centralisé"
+  const hub = document.getElementById('hub');
+  const headerH = document.querySelector('header').offsetHeight;
+  const top = hub.getBoundingClientRect().top + window.scrollY - headerH - 12;
+  window.scrollTo({ top, behavior: 'smooth' });
+
+  // Masquer tous les panels
+  [1,2,3].forEach(i => {
+    document.getElementById('wiz-panel-' + i).style.display = 'none';
+    const tab = document.getElementById('wiz-tab-' + i);
+    tab.classList.remove('active','done');
+    if (i < step) tab.classList.add('done');
+    if (i === step) tab.classList.add('active');
+  });
+  document.getElementById('wiz-panel-' + step).style.display = 'block';
+  currentWizStep = step;
+
+  // Si on arrive à l'étape 3 : déplacer hub-result dans le panel 3
+  const panel3 = document.getElementById('wiz-panel-3');
+  const hubResult = document.getElementById('hub-result');
+  if (step === 3) {
+    panel3.appendChild(hubResult);
+    hubResult.style.display = 'block';
+  }
+}
+
+function wizGoGenerate() {
+  // Lire le format sélectionné
+  const fmt = document.querySelector('input[name="hub-format"]:checked').value;
+  currentHubFormat = fmt;
+  hubGen(fmt);
+  wizGo(3);
+}
+
+function wizFormatChange(val) {
+  const mentionsWrap = document.getElementById('wiz-mentions-wrap');
+  const vitrineRow = document.getElementById('vitrine-check-row');
+  if (val === 'social') {
+    mentionsWrap.style.display = 'block';
+    vitrineRow.style.display = 'none';
+  } else {
+    mentionsWrap.style.display = 'none';
+    vitrineRow.style.display = 'block';
+  }
+}
+
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById('mode-vente').classList.toggle('active', mode === 'vente');
+  document.getElementById('mode-location').classList.toggle('active', mode === 'location');
+  
+  document.getElementById('social-mentions-vente').style.display = mode === 'vente' ? 'grid' : 'none';
+  document.getElementById('social-mentions-loc').style.display = mode === 'location' ? 'grid' : 'none';
+  
+  hubReset();
+}
+function toggleCoproFields() {
+  const isCopro = document.getElementById('h-copro').value === 'oui';
+  document.getElementById('f-copro-lots').style.display = isCopro ? 'block' : 'none';
+  document.getElementById('f-copro-charges').style.display = isCopro ? 'block' : 'none';
+  hubReset();
+}
+function toggleHaiField() {
+  const isAcquereur = document.getElementById('h-hono-charge').value === 'acquéreur';
+  document.getElementById('f-prix-hai').style.display = isAcquereur ? 'block' : 'none';
+}
+function toggleEncadrementFields() {
+  const isEncadre = document.getElementById('h-encadrement').value === 'oui';
+  document.getElementById('f-loyer-ref').style.display = isEncadre ? 'block' : 'none';
+  document.getElementById('f-loyer-base').style.display = isEncadre ? 'block' : 'none';
+  document.getElementById('f-complement-loyer').style.display = isEncadre ? 'block' : 'none';
+  hubReset();
+}
+
+// GENERATION DANS LE HUB AVEC LA CONFIGURATION DE LA RUBRIQUE RESEAUX SOCIAUX
+function hubGen(format) {
+  currentHubFormat = format;
+  
+  const resultContainer = document.getElementById('hub-result');
+  
+  // Changement de couleur dynamique du titre du résultat si Réseaux Sociaux est actif
+  resultContainer.classList.toggle('social-active', format === 'social');
+
+  // Extraction des valeurs globales
+  const type = document.getElementById('h-type').value.trim() || '[Maison/Appartement]';
+  const ville = document.getElementById('h-ville').value.trim() || '[Ville/Secteur]';
+  const pieces = document.getElementById('h-pieces').value.trim() || '[X]';
+  const chambres = document.getElementById('h-chambres').value.trim() || '[X]';
+  const surface = document.getElementById('h-surface').value.trim() || '[X]';
+  const piecesDesc = document.getElementById('h-pieces-desc').value.trim() || '(Aucune description des pièces renseignée)';
+  const equip = document.getElementById('h-equip').value.trim() || '(Aucun équipement renseigné)';
+  const adj = document.getElementById('h-adj').value.trim() || '(Aucune qualité renseignée)';
+  const details = document.getElementById('h-details').value.trim() || '(Aucune finition technique renseignée)';
+  
+  let text = "";
+  
+  if (format === 'internet') {
+    const avecVitrine = document.getElementById('include-vitrine').checked;
+    document.getElementById('hub-result-label').textContent = avecVitrine
+      ? "Prompt généré — Annonce Internet + Vitrine"
+      : "Prompt généré — Annonce Internet";
+
+    text = `Tu es un conseiller immobilier expert de l'agence Laforêt Pithiviers. Rédige une annonce immobilière complète destinée aux portails en ligne (SeLoger, Leboncoin, Bien'Ici) pour un bien proposé en ${currentMode}.\n\n` +
+           `Données du bien :\n` +
+           `- Type : ${type}\n` +
+           `- Localisation : ${ville}\n` +
+           `- Nombre de pièces : ${pieces} pièces\n` +
+           `- Nombre de chambres : ${chambres}\n` +
+           `- Surface habitable : ${surface} m²\n` +
+           `- Description des pièces : ${piecesDesc}\n` +
+           `- Équipements : ${equip}\n` +
+           `- Qualités / adjectifs : ${adj}\n` +
+           `- Finitions et éléments intérieurs : ${details}\n\n` +
+           `STRUCTURE IMPOSÉE — respecte impérativement cet ordre :\n` +
+           `1. TITRE au format : ${type} ${pieces} pièces — ${chambres} chambre(s) — ${surface} m² — ${ville}\n` +
+           `2. CHIFFRES CLÉS (à mentionner obligatoirement et explicitement dans le corps du texte) :\n` +
+           `   → Nombre de pièces : ${pieces}\n` +
+           `   → Nombre de chambres : ${chambres}\n` +
+           `   → Surface habitable : ${surface} m²\n` +
+           `3. DESCRIPTION DES PIÈCES : présente le bien pièce par pièce dans l'ordre du parcours de visite, en t'appuyant sur la description fournie.\n` +
+           `4. ÉQUIPEMENTS ET FINITIONS : valorise les équipements et finitions listés.\n` +
+           `5. QUALITÉS DU BIEN : intègre les adjectifs fournis, sans en inventer d'autres.\n` +
+           `6. APPEL À L'ACTION : invite sobrement à contacter l'agence Laforêt Pithiviers pour une visite.\n\n` +
+           `Consignes impératives :\n` +
+           `- Les chiffres (pièces, chambres, surface) doivent apparaître clairement dans le texte, pas seulement dans le titre.\n` +
+           `- N'invente aucun adjectif, aucune caractéristique absente des données fournies.\n` +
+           `- Prose fluide, ton courtois et professionnel. Pas de bullet points dans l'annonce rédigée.\n` +
+           `- Ne mentionne ni prix ni DPE (gérés séparément sur les portails).\n\n` +
+           `Règle de sécurité : si une donnée obligatoire est absente, vide ou laissée sous forme de placeholder, écris exactement [INFORMATION OBLIGATOIRE NON RENSEIGNEE] à l'endroit concerné. N'invente jamais de fait, de nom ni de circonstance qui ne figure pas dans les données fournies.\n` +
+           `Consignes : Ton courtois, professionnel et humain. Phrases claires et directes. Pas de formules creuses ni de point d'exclamation. Aucun émoji.\n` +
+           `CHAQUE PROMPT EST INDEPENDANT DONC NE PREND PAS EN COMPTE LES PROMPTS PRECEDENTS , NE LES GARDE PAS NON PLUS EN MEMOIRE`;
+
+    if (avecVitrine) {
+      text += `\n\n---\n\n` +
+              `Une fois l'annonce internet rédigée, génère également une ANNONCE VITRINE séparée avec le titre : "📋 ANNONCE VITRINE"\n\n` +
+              `Cette annonce vitrine doit respecter les contraintes suivantes :\n` +
+              `- Destinée à être affichée en vitrine d'agence physique, en format court.\n` +
+              `- Longueur impérative : moins de 300 caractères (espaces compris).\n` +
+              `- Mots-clés denses et percutants sur les points forts du bien.\n` +
+              `- Termine par un appel à l'action court invitant à entrer en agence.`;
+    }
+  } 
+  else if (format === 'social') {
+    const plate = document.getElementById('h-plateforme').value;
+    document.getElementById('hub-result-label').textContent = `Prompt généré — Réseaux Sociaux (${plate})`;
+    
+    text = `Tu es community manager de l'agence Laforêt Pithiviers. Rédige une publication pour la plateforme ${plate} pour un bien proposé en ${currentMode}.\n\n` +
+           `Données du bien :\n` +
+           `- Type de bien : ${type}\n` +
+           `- Ville : ${ville}\n` +
+           `- Nombre de pièces : ${pieces} pièces\n` +
+           `- Nombre de chambres : ${chambres}\n` +
+           `- Surface habitable : ${surface} m²\n` +
+           `- Description des pièces : ${piecesDesc}\n` +
+           `- Équipements : ${equip}\n` +
+           `- Qualités / adjectifs : ${adj}\n` +
+           `- Finitions : ${details}\n\n` +
+           `STRUCTURE IMPOSÉE — respecte impérativement cet ordre :\n` +
+           `1. ACCROCHE : une phrase d'accroche courte avec émojis adaptés à ${plate}.\n` +
+           `2. CHIFFRES CLÉS (obligatoires, à mentionner explicitement) :\n` +
+           `   → ${pieces} pièces — ${chambres} chambre(s) — ${surface} m² — ${ville}\n` +
+           `3. DESCRIPTION : présente le bien pièce par pièce, puis les équipements et qualités fournis. N'invente rien.\n` +
+           `4. APPEL À L'ACTION : invite à contacter l'agence ou envoyer un message.\n` +
+           `5. MENTIONS LÉGALES : bloc séparé, mot pour mot, tel que fourni ci-dessous — aucune modification, aucune omission.\n\n`;
+           
+    if (currentMode === 'vente') {
+      const prix = document.getElementById('h-prix').value.trim() || '[Prix Indéterminé]';
+      const prixHhi = document.getElementById('h-prix-hhi').value.trim() || '[HAI Indéterminé]';
+      const pct = document.getElementById('h-hono-pct').value.trim() || '[X% ou X€]';
+      const charge = document.getElementById('h-hono-charge').value;
+      const dpe = document.getElementById('h-dpe').value || '[DPE non communiqué]';
+      const nrg = document.getElementById('h-energie').value.trim() || '[Non communiqué]';
+      const annee = document.getElementById('h-energie-annee').value.trim() || '2021';
+      const isCopro = document.getElementById('h-copro').value === 'oui';
+      
+      text += `MENTIONS LÉGALES OBLIGATOIRES (vente) — à recopier mot pour mot dans le post, sans modification :\n` +
+              `Prix de vente : ${prix} €` + (charge === 'acquéreur' ? ` HAI (honoraires d'agence inclus)\n` : ` (honoraires à la charge du vendeur)\n`) +
+              (charge === 'acquéreur' ? `Prix hors honoraires (net vendeur) : ${prixHhi} €\n` : '') +
+              `Honoraires TTC : ${pct} à la charge de l'${charge}\n` +
+              `DPE : classe ${dpe} | Dépenses énergétiques annuelles estimées : ${nrg} € (réf. ${annee})\n`;
+      
+      if (dpe === 'F' || dpe === 'G') {
+        text += `Logement à consommation énergétique excessive : classe ${dpe}\n`;
+      }
+              
+      if (isCopro) {
+        const lots = document.getElementById('h-copro-lots').value.trim() || '[X]';
+        const ch = document.getElementById('h-copro-charges').value.trim() || '[X]';
+        text += `Bien en copropriété : ${lots} lots — Charges annuelles moyennes : ${ch} €/an\n`;
+      }
+      text += `Les informations sur les risques auxquels ce bien est exposé sont disponibles sur le site Géorisques : www.georisques.gouv.fr\n` +
+              `Informations non contractuelles.\n`;
+    } else {
+      // Mode location
+      const loyer = document.getElementById('h-loyer-cc').value.trim() || '[Loyer]';
+      const charges = document.getElementById('h-loyer-charges').value.trim() || '[Charges]';
+      const meuble = document.getElementById('h-meuble').value === 'oui';
+      const depot = document.getElementById('h-depot').value.trim();
+      const hLoc = document.getElementById('h-hono-loc').value.trim() || '[Hono Loc]';
+      const hEdl = document.getElementById('h-hono-edl').value.trim() || '[Hono EDL]';
+      const dpeLoc = document.getElementById('h-dpe-loc').value || '[DPE non communiqué]';
+      const nrgLoc = document.getElementById('h-energie-loc').value.trim() || '[Non communiqué]';
+      const anneeLoc = document.getElementById('h-energie-annee-loc').value.trim() || '2021';
+      const isEncadre = document.getElementById('h-encadrement').value === 'oui';
+      
+      text += `MENTIONS LÉGALES OBLIGATOIRES (location) — à recopier mot pour mot dans le post, sans modification :\n`;
+      if (meuble) text += `Logement meublé\n`;
+      text += `Loyer mensuel : ${loyer} € charges comprises (dont ${charges} € de provisions sur charges)\n`;
+      if (depot) text += `Dépôt de garantie : ${depot} €\n`;
+      text += `Honoraires TTC à la charge du locataire — visite, dossier, bail : ${hLoc} €\n` +
+              `Honoraires TTC à la charge du locataire — état des lieux : ${hEdl} €\n` +
+              `DPE : classe ${dpeLoc} | Dépenses énergétiques annuelles estimées : ${nrgLoc} € (réf. ${anneeLoc})\n`;
+      
+      if (dpeLoc === 'F' || dpeLoc === 'G') {
+        text += `Logement à consommation énergétique excessive : classe ${dpeLoc}\n`;
+      }
+              
+      if (isEncadre) {
+        const refMaj = document.getElementById('h-loyer-ref').value.trim() || '[X]';
+        const base = document.getElementById('h-loyer-base').value.trim() || '[X]';
+        const complement = document.getElementById('h-complement-loyer').value.trim();
+        text += `Zone soumise à encadrement des loyers\n` +
+                `Loyer de référence majoré : ${refMaj} €/mois | Loyer de base : ${base} €/mois\n`;
+        if (complement) text += `Complément de loyer : ${complement} €\n`;
+      }
+      text += `Les informations sur les risques auxquels ce bien est exposé sont disponibles sur le site Géorisques : www.georisques.gouv.fr\n` +
+              `Informations non contractuelles.\n`;
+    }
+    
+    text += `\nRègle de sécurité : si une donnée obligatoire est absente, vide ou laissée sous forme de placeholder, écris exactement [INFORMATION OBLIGATOIRE NON RENSEIGNEE] à l'endroit concerné. N'invente jamais de fait, de nom ni de circonstance qui ne figure pas dans les données fournies.\n` +
+            `Consignes : Ton courtois, professionnel et humain. Phrases claires et directes. Pas de formules creuses ni de point d'exclamation.\n` +
+            `CHAQUE PROMPT EST INDEPENDANT DONC NE PREND PAS EN COMPTE LES PROMPTS PRECEDENTS , NE LES GARDE PAS NON PLUS EN MEMOIRE`;
+  }
+  
+  document.getElementById('hub-result-box').value = text;
+  resultContainer.style.display = 'block';
+  document.getElementById('hub-clear-btn').style.display = 'inline-flex';
+
+  // Afficher le panneau IA et réinitialiser la réponse précédente
+  const apiPanel = document.getElementById('hub-api-panel');
+  apiPanel.style.display = 'block';
+  document.getElementById('hub-response-wrap').style.display = 'none';
+  document.getElementById('hub-response-box').textContent = '';
+  document.getElementById('hub-api-error').style.display = 'none';
+  // Synchroniser le modèle sélectionné et la clé si déjà saisis dans l'éditeur
+  const editorModel = document.getElementById('editor-model-select').value;
+  document.getElementById('hub-model-select').value = editorModel;
+  hubModelChange();
+  const editorKey = document.getElementById('editor-api-key').value;
+  if (editorKey && !document.getElementById('hub-api-key').value) {
+    document.getElementById('hub-api-key').value = editorKey;
+  }
+}
+
+
+// ── PERSISTANCE DU HUB ────────────────────────────────────────────────────────
+const HUB_IDS = [
+  'h-type','h-ville','h-pieces','h-chambres','h-surface','h-pieces-desc','h-equip','h-adj','h-details',
+  'h-plateforme',
+  'h-prix','h-prix-hhi','h-hono-pct','h-hono-charge','h-dpe','h-energie','h-energie-annee',
+  'h-copro-lots','h-copro-charges',
+  'h-loyer-cc','h-loyer-charges','h-meuble','h-depot','h-hono-loc','h-hono-edl',
+  'h-dpe-loc','h-energie-loc','h-energie-annee-loc',
+  'h-loyer-ref','h-loyer-base','h-complement-loyer'
+];
+
+function hubSave() {
+  const data = {};
+  HUB_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) data[id] = el.value;
+  });
+  data['__mode'] = currentMode;
+  localStorage.setItem('hub_data', JSON.stringify(data));
+}
+
+function hubLoad() {
+  const raw = localStorage.getItem('hub_data');
+  if (!raw) return;
+  try {
+    const data = JSON.parse(raw);
+    // Restaurer le mode vente/location avant de remplir les champs
+    if (data['__mode'] && data['__mode'] !== currentMode) {
+      setMode(data['__mode']);
+    }
+    HUB_IDS.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && data[id] !== undefined) el.value = data[id];
+    });
+    toggleHaiField();
+    updateClearBtn();
+  } catch(e) {}
+}
+
+function updateClearBtn() {
+  const hasData = HUB_IDS.some(id => {
+    const el = document.getElementById(id);
+    if (!el) return false;
+    if (el.tagName === 'SELECT') return el.selectedIndex > 0;
+    return el.value.trim() !== '';
+  });
+  document.getElementById('hub-clear-btn').style.display = hasData ? 'inline-flex' : 'none';
+}
+
+function hubReset() {
+  hubSave();
+  updateClearBtn();
+  if (document.getElementById('hub-result').style.display === 'block') {
+    hubGen(currentHubFormat);
+  }
+}
+
+function hubClear() {
+  localStorage.removeItem('hub_data');
+  document.querySelectorAll('.hub-field input, .hub-field textarea').forEach(el => el.value = '');
+  document.querySelectorAll('.hub-field select').forEach(s => s.selectedIndex = 0);
+  document.getElementById('hub-result').style.display = 'none';
+  document.getElementById('hub-clear-btn').style.display = 'none';
+  document.getElementById('f-copro-lots').style.display = 'none';
+  document.getElementById('f-copro-charges').style.display = 'none';
+  document.getElementById('f-loyer-ref').style.display = 'none';
+  document.getElementById('f-loyer-base').style.display = 'none';
+  document.getElementById('f-complement-loyer').style.display = 'none';
+  // Retour à l'étape 1
+  wizGo(1);
+}
+
+function hubCopy() {
+  const txt = document.getElementById('hub-result-box').value;
+  const btn = document.getElementById('hub-copy-btn');
+  navigator.clipboard.writeText(txt).then(() => {
+    const old = btn.innerHTML;
+    btn.innerHTML = `✓ Copié !`;
+    setTimeout(() => btn.innerHTML = old, 2000);
+  });
+}
+
+function sendToClaudeHub() {
+  const txt = document.getElementById('hub-result-box').value;
+  const btn = document.getElementById('hub-claude-btn');
+  const toast = document.getElementById('claude-toast');
+  navigator.clipboard.writeText(txt).then(() => {
+    const old = btn.innerHTML;
+    btn.innerHTML = `✓ Ouverture…`;
+    toast.style.display = 'block';
+    setTimeout(() => { btn.innerHTML = old; }, 3000);
+    setTimeout(() => { toast.style.display = 'none'; }, 6000);
+    window.open('https://claude.ai/new', '_blank');
+  });
+}
+
+function sendToClaudeEditor() {
+  const txt = document.getElementById('result').value;
+  const btn = document.getElementById('editor-claude-btn');
+  const toast = document.getElementById('editor-claude-toast');
+  navigator.clipboard.writeText(txt).then(() => {
+    const old = btn.innerHTML;
+    btn.innerHTML = `✓ Ouverture…`;
+    toast.style.display = 'block';
+    setTimeout(() => { btn.innerHTML = old; }, 3000);
+    setTimeout(() => { toast.style.display = 'none'; }, 6000);
+    window.open('https://claude.ai/new', '_blank');
+  });
+}
+
+// GESTION DE LA SELECTION D'UN PROMPT INDIVIDUEL DE LA BIBLIOTHÈQUE
+function selectPrompt(id) {
+  if (selectedId === id) {
+    selectedId = null;
+    document.querySelectorAll('.prompt-card').forEach(c => c.classList.remove('selected'));
+    renderGrid();
+    document.getElementById('editor').style.display = 'none';
+    document.getElementById('result-wrap').style.display = 'none';
+    return;
+  }
+
+  selectedId = id;
+  document.querySelectorAll('.prompt-card').forEach(c => c.classList.remove('selected'));
+  renderGrid();
+
+  // Fermer le générateur d'annonces si ouvert
+  document.getElementById('hub').classList.add('collapsed');
+
+  const p = prompts.find(x => x.id === id);
+  if(!p) return;
+  
+  const editor = document.getElementById('editor');
+  const fieldsWrap = document.getElementById('fields');
+  const dot = document.getElementById('editor-dot');
+  
+  dot.className = `editor-dot ${CAT_CLS[p.cat] || 'blue'}`;
+  document.getElementById('editor-title').textContent = p.title;
+  
+  // Analyse des champs entre crochets [champ]
+  const matches = p.tmpl.match(/\[(.*?)\]/g) || [];
+  const uniqueFields = [...new Set(
+    matches
+      .map(m => m.replace('[', '').replace(']', ''))
+      .filter(f => f !== 'INFORMATION OBLIGATOIRE NON RENSEIGNEE')
+  )];
+  
+  fieldsWrap.innerHTML = uniqueFields.map(f => {
+    return `
+      <div class="field-group ${f.toLowerCase().includes('brute') || f.toLowerCase().includes('liste') ? 'field-full' : ''}">
+        <label>${f}</label>
+        ${f.toLowerCase().includes('brute') || f.toLowerCase().includes('liste') || f.toLowerCase().includes('pièces requises')
+          ? `<textarea data-field="${f}" rows="3" placeholder="Saisissez ici..." oninput="updateResult(${p.id})"></textarea>`
+          : `<input type="text" data-field="${f}" placeholder="Saisissez..." oninput="updateResult(${p.id})">`
+        }
+      </div>
+    `;
+  }).join('');
+  
+  editorResultVisible = true;
+  document.getElementById('result-wrap').style.display = 'block';
+  const trl = document.getElementById('toggle-result-label'); if(trl) trl.textContent = 'Masquer';
+  const tri = document.getElementById('toggle-result-icon'); if(tri) tri.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+  editor.style.display = 'block';
+
+  // Afficher le panneau IA éditeur et réinitialiser
+  const editorApiPanel = document.getElementById('editor-api-panel');
+  editorApiPanel.style.display = 'block';
+  document.getElementById('editor-response-wrap').style.display = 'none';
+  document.getElementById('editor-response-box').textContent = '';
+  document.getElementById('editor-api-error').style.display = 'none';
+  // Synchroniser le modèle sélectionné et la clé si déjà saisis dans le hub
+  const hubModel = document.getElementById('hub-model-select').value;
+  document.getElementById('editor-model-select').value = hubModel;
+  editorModelChange();
+  const hubKey = document.getElementById('hub-api-key').value;
+  if (hubKey && !document.getElementById('editor-api-key').value) {
+    document.getElementById('editor-api-key').value = hubKey;
+  }
+
+  updateResult(p.id);
+  editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function updateResult(id) {
+  const p = prompts.find(x => x.id === id);
+  if(!p) return;
+  let text = p.tmpl;
+  
+  document.querySelectorAll('#fields [data-field]').forEach(inp => {
+    const val = inp.value.trim() || '[' + inp.dataset.field + ']';
+    text = text.split('[' + inp.dataset.field + ']').join(val);
+  });
+  
+  document.getElementById('result').value = text;
+  resetCopyBtn();
+}
+
+function resetCopyBtn() {
+  const p = prompts.find(x => x.id === selectedId);
+  if(!p) return;
+  const cls = CAT_CLS[p.cat] || 'blue';
+  const btn = document.getElementById('copy-btn');
+  btn.className = `btn-copy ${cls}`;
+  btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copier le prompt`;
+}
+
+
+// ── GÉNÉRATION DIRECTE — CLAUDE / GEMINI (sélecteur unique) ──────────────────
+
+// Garde en mémoire le modèle sélectionné par panneau (persiste le choix entre panneaux hub/éditeur)
+function hubModelChange() {
+  const model = document.getElementById('hub-model-select').value;
+  document.getElementById('hub-api-panel').classList.toggle('model-gemini', model === 'gemini');
+  document.getElementById('hub-api-key').placeholder = model === 'claude' ? 'Clé API Anthropic' : 'Clé API Gemini';
+}
+
+function editorModelChange() {
+  const model = document.getElementById('editor-model-select').value;
+  document.getElementById('editor-api-panel').classList.toggle('model-gemini', model === 'gemini');
+  document.getElementById('editor-api-key').placeholder = model === 'claude' ? 'Clé API Anthropic' : 'Clé API Gemini';
+}
+
+async function runAiHub() {
+  const model = document.getElementById('hub-model-select').value;
+  const prompt = document.getElementById('hub-result-box').value;
+  const apiKey = document.getElementById('hub-api-key').value.trim();
+  await runAi(model, prompt, apiKey, 'hub-run-btn', 'hub-api-error', 'hub-response-wrap', 'hub-response-box');
+}
+
+async function runAiEditor() {
+  const model = document.getElementById('editor-model-select').value;
+  const prompt = document.getElementById('result').value;
+  const apiKey = document.getElementById('editor-api-key').value.trim();
+  await runAi(model, prompt, apiKey, 'editor-run-btn', 'editor-api-error', 'editor-response-wrap', 'editor-response-box');
+}
+
+async function runAi(model, prompt, apiKey, btnId, errorId, wrapId, boxId) {
+  const btn = document.getElementById(btnId);
+  const errorEl = document.getElementById(errorId);
+  const wrapEl = document.getElementById(wrapId);
+  const boxEl = document.getElementById(boxId);
+
+  // Validation clé
+  if (!apiKey) {
+    showApiError(errorEl, model === 'claude' ? 'Veuillez saisir votre clé API Anthropic.' : 'Veuillez saisir votre clé API Gemini.');
+    return;
+  }
+
+  // Reset UI
+  errorEl.style.display = 'none';
+  btn.disabled = true;
+  btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> Génération…`;
+  wrapEl.style.display = 'block';
+  boxEl.textContent = '';
+  boxEl.classList.add('streaming');
+
+  try {
+    if (model === 'claude') {
+      await streamClaude(prompt, apiKey, boxEl);
+    } else {
+      await streamGemini(prompt, apiKey, boxEl);
+    }
+  } catch (err) {
+    wrapEl.style.display = 'none';
+    let msg = err.message || 'Erreur inconnue.';
+    if (msg.includes('401') || msg.includes('403') || msg.includes('authentication') || msg.includes('API_KEY_INVALID')) msg = 'Clé API invalide ou expirée.';
+    if (msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED')) msg = 'Limite de requêtes atteinte — réessayez dans quelques secondes.';
+    if (msg.includes('fetch') || msg.includes('network')) msg = 'Erreur réseau — vérifiez votre connexion.';
+    showApiError(errorEl, msg);
+  } finally {
+    boxEl.classList.remove('streaming');
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Générer`;
+  }
+}
+
+async function streamClaude(prompt, apiKey, boxEl) {
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 2000,
+      stream: true,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `Erreur ${response.status}`);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop();
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const data = line.slice(6).trim();
+      if (data === '[DONE]') continue;
+      try {
+        const json = JSON.parse(data);
+        if (json.type === 'content_block_delta' && json.delta?.text) {
+          boxEl.textContent += json.delta.text;
+        }
+      } catch {}
+    }
+  }
+}
+
+async function streamGemini(prompt, apiKey, boxEl) {
+  const model = 'gemini-2.5-flash';
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey,
+    },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }]
+    })
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `Erreur ${response.status}`);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop();
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const data = line.slice(6).trim();
+      if (!data) continue;
+      try {
+        const json = JSON.parse(data);
+        const parts = json?.candidates?.[0]?.content?.parts || [];
+        for (const part of parts) {
+          if (part.text) boxEl.textContent += part.text;
+        }
+      } catch {}
+    }
+  }
+}
+
+// ── SAUVEGARDE / CHARGEMENT DES BIENS ────────────────────────────────────────
+const BIENS_KEY = 'laforet_biens_saved';
+
+// Échappement HTML générique : neutralise <, >, &, ", ' avant toute insertion
+// dans innerHTML. À utiliser pour TOUTE donnée saisie par l'utilisateur
+// (noms de biens, etc.) avant de l'injecter dans un template HTML.
+function escapeHTML(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getBiens() {
+  try { return JSON.parse(localStorage.getItem(BIENS_KEY) || '[]'); } catch { return []; }
+}
+function setBiens(list) {
+  localStorage.setItem(BIENS_KEY, JSON.stringify(list));
+}
+
+function saveBien() {
+  const nameEl = document.getElementById('save-bien-name');
+  const name = nameEl.value.trim();
+  if (!name) {
+    showSaveToast('⚠️ Donnez un nom au bien avant de sauvegarder.', false);
+    return;
+  }
+  // Collecte les valeurs actuelles du hub
+  const data = {};
+  HUB_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) data[id] = el.value;
+  });
+  data['__mode'] = currentMode;
+
+  const biens = getBiens();
+  // Remplace si même nom existe
+  const idx = biens.findIndex(b => b.name === name);
+  const entry = {
+    name,
+    data,
+    savedAt: new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })
+  };
+  if (idx >= 0) {
+    biens[idx] = entry;
+    showSaveToast('✅ Bien "' + name + '" mis à jour.', true);
+  } else {
+    biens.unshift(entry);
+    showSaveToast('✅ Bien "' + name + '" sauvegardé.', true);
+  }
+  setBiens(biens);
+  nameEl.value = '';
+  renderBienList();
+}
+
+function loadBien(idx) {
+  const biens = getBiens();
+  const entry = biens[idx];
+  if (!entry) return;
+  // Restaure le mode vente/location d'abord
+  if (entry.data['__mode'] && entry.data['__mode'] !== currentMode) {
+    setMode(entry.data['__mode']);
+  }
+  HUB_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el && entry.data[id] !== undefined) el.value = entry.data[id];
+  });
+  toggleHaiField();
+  toggleCoproFields();
+  toggleEncadrementFields();
+  updateClearBtn();
+  // Scroll vers le haut du hub
+  document.getElementById('hub').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  showSaveToast('📂 Bien "' + entry.name + '" chargé.', true);
+  // Regénère le prompt si déjà affiché
+  if (document.getElementById('hub-result').style.display === 'block') {
+    hubGen(currentHubFormat);
+  }
+}
+
+function deleteBien(idx) {
+  const biens = getBiens();
+  const entry = biens[idx];
+  if (!entry) return;
+  if (!confirm('Supprimer le bien "' + entry.name + '" ?')) return;
+  biens.splice(idx, 1);
+  setBiens(biens);
+  showSaveToast('🗑️ Bien "' + entry.name + '" supprimé.', true);
+  renderBienList();
+}
+
+function renderBienList() {
+  const list = document.getElementById('saved-bien-list');
+  const biens = getBiens();
+  if (!biens.length) {
+    list.innerHTML = '<div class="save-bien-empty">Aucun bien sauvegardé pour le moment.</div>';
+    return;
+  }
+  list.innerHTML = biens.map((b, i) => `
+    <div class="saved-bien-item" id="bien-item-${i}">
+      <span class="saved-bien-name" title="${escapeHTML(b.name)}">🏠 ${escapeHTML(b.name)}</span>
+      <span class="saved-bien-date">${escapeHTML(b.savedAt)}</span>
+      <button class="btn-rename-bien" onclick="renameBien(${i})" title="Renommer">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      </button>
+      <button class="btn-load-bien" onclick="loadBien(${i})">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Charger
+      </button>
+      <button class="btn-del-bien" onclick="deleteBien(${i})" title="Supprimer">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+      </button>
+    </div>
+  `).join('');
+}
+
+function renameBien(idx) {
+  const biens = getBiens();
+  const entry = biens[idx];
+  if (!entry) return;
+  const item = document.getElementById('bien-item-' + idx);
+  // Remplace le contenu de l'item par un champ inline
+  item.innerHTML = `
+    <input class="rename-bien-input" id="rename-input-${idx}" type="text" value="${escapeHTML(entry.name)}" maxlength="60">
+    <button class="btn-rename-confirm" onclick="confirmRename(${idx})">✓ OK</button>
+    <button class="btn-rename-cancel" onclick="renderBienList()">✕</button>
+  `;
+  const inp = document.getElementById('rename-input-' + idx);
+  inp.focus();
+  inp.select();
+  // Valider avec Entrée
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') confirmRename(idx);
+    if (e.key === 'Escape') renderBienList();
+  });
+}
+
+function confirmRename(idx) {
+  const inp = document.getElementById('rename-input-' + idx);
+  if (!inp) return;
+  const newName = inp.value.trim();
+  if (!newName) { showSaveToast('⚠️ Le nom ne peut pas être vide.', false); return; }
+  const biens = getBiens();
+  if (!biens[idx]) return;
+  const oldName = biens[idx].name;
+  biens[idx].name = newName;
+  setBiens(biens);
+  renderBienList();
+  showSaveToast('✏️ "' + oldName + '" renommé en "' + newName + '".', true);
+}
+
+function showSaveToast(msg, success) {
+  const t = document.getElementById('save-bien-toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  t.style.color = success ? 'var(--c-admin)' : '#ef4444';
+  t.style.background = success ? 'var(--c-admin-bg)' : '#fef2f2';
+  t.style.borderColor = success ? 'var(--c-admin-border)' : '#fecaca';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.style.display = 'none', 3000);
+}
+
+function showApiError(el, msg) {
+  el.textContent = '⚠️ ' + msg;
+  el.style.display = 'block';
+}
+
+function copyClaudeResponse(boxId, btn) {
+  const txt = document.getElementById(boxId).textContent;
+  navigator.clipboard.writeText(txt).then(() => {
+    const old = btn.innerHTML;
+    btn.innerHTML = '✓ Copié !';
+    setTimeout(() => btn.innerHTML = old, 2000);
+  });
+}
+
+// ── TOGGLE MASQUER/AFFICHER RÉSULTATS ─────────────────────────────────────────
+let editorResultVisible = true;
+let hubResultVisible = true;
+
+function toggleEditorResult() {
+  editorResultVisible = !editorResultVisible;
+  document.getElementById('result-wrap').style.display = editorResultVisible ? 'block' : 'none';
+  const icon = document.getElementById('toggle-result-icon');
+  const label = document.getElementById('toggle-result-label');
+  if (editorResultVisible) {
+    icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+    label.textContent = 'Masquer';
+  } else {
+    icon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>';
+    label.textContent = 'Afficher';
+  }
+}
+
+function toggleHubResult() {
+  hubResultVisible = !hubResultVisible;
+  document.getElementById('hub-result-wrap').style.display = hubResultVisible ? 'block' : 'none';
+  const icon = document.getElementById('toggle-hub-icon');
+  const label = document.getElementById('toggle-hub-label');
+  if (hubResultVisible) {
+    icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+    label.textContent = 'Masquer';
+  } else {
+    icon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>';
+    label.textContent = 'Afficher';
+  }
+}
+
+function copyResult() {
+  const txt = document.getElementById('result').value;
+  const btn = document.getElementById('copy-btn');
+  navigator.clipboard.writeText(txt).then(() => {
+    btn.innerHTML = `✓ Copié dans le presse-papiers !`;
+    setTimeout(resetCopyBtn, 2000);
+  });
+}
+</script>
+<!-- ── TUTO PREMIÈRE OUVERTURE ─────────────────────────────────────────────── -->
+<style>
+/* ── TUTORIEL OVERLAY ──────────────────────────────────────────────────────── */
+#tuto-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  align-items: flex-end; /* mobile-first : slide depuis le bas */
+  justify-content: center;
+  padding: 0;
+}
+@media (min-width: 560px) {
+  #tuto-overlay { align-items: center; padding: 1.25rem; }
+}
+
+#tuto-box {
+  background: var(--surface);
+  border-radius: 20px 20px 0 0;
+  width: 100%;
+  max-height: 92dvh;
+  max-height: 92vh; /* fallback */
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 -8px 40px rgba(0,0,0,.18);
+  position: relative;
+  overflow: hidden;
+}
+@media (min-width: 560px) {
+  #tuto-box {
+    max-width: 540px;
+    border-radius: 18px;
+    max-height: 90vh;
+    box-shadow: 0 24px 60px rgba(0,0,0,.25);
+  }
+}
+
+/* Barre de progression */
+#tuto-progress-track {
+  height: 3px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+#tuto-progress {
+  height: 100%;
+  background: var(--blue);
+  transition: width .3s ease;
+  border-radius: 3px;
+}
+
+/* Poignée mobile (drag handle) */
+#tuto-handle {
+  display: flex;
+  justify-content: center;
+  padding: 10px 0 4px;
+  flex-shrink: 0;
+}
+#tuto-handle span {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border2);
+  display: block;
+}
+@media (min-width: 560px) {
+  #tuto-handle { display: none; }
+}
+
+/* Zone de contenu scrollable */
+#tuto-scroll {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 1.25rem 1.25rem .5rem;
+}
+@media (min-width: 560px) {
+  #tuto-scroll { padding: 1.6rem 1.75rem .75rem; }
+}
+
+/* En-tête étape */
+#tuto-step-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 1rem;
+}
+#tuto-step-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+#tuto-step-num {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin-bottom: 2px;
+}
+#tuto-step-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.25;
+}
+@media (min-width: 560px) {
+  #tuto-step-title { font-size: 17px; }
+}
+
+/* Corps texte */
+#tuto-step-body {
+  font-size: 14px;
+  color: var(--text2);
+  line-height: 1.7;
+  margin-bottom: 1rem;
+}
+
+/* Zone visuelle */
+#tuto-step-visual {
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: .85rem;
+  font-size: 13px;
+  color: var(--text);
+  margin-bottom: .75rem;
+  display: none;
+  overflow-x: auto;
+}
+
+/* Navigation */
+#tuto-nav {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  padding: .75rem 1.25rem calc(.75rem + env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+@media (min-width: 560px) {
+  #tuto-nav {
+    padding: .75rem 1.75rem 1.25rem;
+    grid-template-columns: auto 1fr auto auto;
+    gap: 8px;
+  }
+}
+
+#tuto-prev {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text2);
+  cursor: pointer;
+  white-space: nowrap;
+  min-height: 44px;
+}
+#tuto-prev:disabled, #tuto-prev[style*="opacity: .35"], #tuto-prev[style*="opacity:.35"] {
+  opacity: .35;
+  pointer-events: none;
+}
+
+#tuto-dots {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+}
+.tuto-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background .2s, transform .15s;
+  min-width: 7px;
+  /* zone de tap élargie */
+  padding: 6px;
+  margin: -6px;
+  box-sizing: content-box;
+  background-clip: content-box;
+  background-color: var(--border);
+}
+.tuto-dot.active { background-color: var(--blue); transform: scale(1.2); }
+
+/* Lien documentation — masqué sur mobile, visible desktop */
+#tuto-doc-link {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text3);
+  text-decoration: none;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  white-space: nowrap;
+  min-height: 44px;
+}
+@media (min-width: 560px) {
+  #tuto-doc-link { display: flex; }
+}
+
+#tuto-next {
+  background: var(--blue);
+  border: none;
+  border-radius: 10px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  white-space: nowrap;
+  min-height: 44px;
+  transition: background .2s;
+}
+
+/* Bouton fermer */
+#tuto-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text3);
+  font-size: 16px;
+  line-height: 1;
+  transition: background .15s;
+  z-index: 2;
+}
+#tuto-close:hover { background: var(--border); color: var(--text); }
+@media (min-width: 560px) {
+  #tuto-close { top: 14px; right: 14px; }
+}
+</style>
+
+<div id="tuto-overlay">
+  <div id="tuto-box">
+
+    <!-- Poignée mobile -->
+    <div id="tuto-handle"><span></span></div>
+
+    <!-- Barre de progression -->
+    <div id="tuto-progress-track">
+      <div id="tuto-progress" style="width:14%;"></div>
+    </div>
+
+    <!-- Contenu scrollable -->
+    <div id="tuto-scroll">
+      <div id="tuto-step-header">
+        <div id="tuto-step-icon"></div>
+        <div>
+          <div id="tuto-step-num"></div>
+          <div id="tuto-step-title"></div>
+        </div>
+      </div>
+      <div id="tuto-step-body"></div>
+      <div id="tuto-step-visual"></div>
+    </div>
+
+    <!-- Navigation fixe en bas -->
+    <div id="tuto-nav">
+      <button id="tuto-prev" onclick="tutoNav(-1)">← Précédent</button>
+      <div id="tuto-dots"></div>
+      <a id="tuto-doc-link" href="documentation_bibliotheque_prompts_v6_8.html" target="_blank" title="Ouvrir la documentation complète">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        Documentation
+      </a>
+      <button id="tuto-next" onclick="tutoNav(1)">Suivant →</button>
+    </div>
+
+    <!-- Bouton fermer -->
+    <button id="tuto-close" onclick="tutoClose()" title="Fermer le tutoriel">✕</button>
+  </div>
+</div>
+
+<script>
+// ── TUTORIEL ──────────────────────────────────────────────────────────────────
+const TUTO_KEY = 'laforet_tuto_done_v1';
+
+const TUTO_STEPS = [
+  {
+    icon: '👋',
+    iconBg: '#eff6ff',
+    title: 'Bienvenue dans la bibliothèque de prompts',
+    body: 'Cet outil a été conçu pour <strong>Laforêt Pithiviers</strong> afin de gagner du temps sur toutes les tâches rédactionnelles : annonces, emails, réseaux sociaux, prospection et documents administratifs.<br><br>Ce tutoriel vous guide en <strong>7 étapes</strong> pour maîtriser toutes les fonctionnalités.',
+    visual: null
+  },
+  {
+    icon: '🗂️',
+    iconBg: '#faf5ff',
+    title: 'Les 5 catégories de prompts',
+    body: 'Les prompts sont organisés en <strong>5 catégories</strong> accessibles via les onglets en haut de page. Cliquez sur une catégorie pour filtrer l\'affichage.',
+    visual: `<div style="display:flex;flex-wrap:wrap;gap:7px;">
+      <span style="background:#eff6ff;border:1px solid #bfdbfe;color:#2563eb;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;">🏠 Annonces</span>
+      <span style="background:#fef2f2;border:1px solid #fecaca;color:#dc2626;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;">📧 Emails clients</span>
+      <span style="background:#faf5ff;border:1px solid #e9d5ff;color:#9333ea;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;">📱 Réseaux sociaux</span>
+      <span style="background:#fffbeb;border:1px solid #fde68a;color:#d97706;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;">📞 Prospection</span>
+      <span style="background:#ecfdf5;border:1px solid #a7f3d0;color:#059669;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;">📋 Administratif</span>
+    </div>`
+  },
+  {
+    icon: '🏗️',
+    iconBg: '#eff6ff',
+    title: 'Le générateur d\'annonces centralisé',
+    body: 'En haut de page, le <strong>générateur d\'annonces</strong> est le cœur de l\'outil. Remplissez les champs une seule fois (type de bien, pièces, surface, équipements…) puis cliquez sur le format souhaité.',
+    visual: `<div style="display:flex;flex-wrap:wrap;gap:8px;">
+      <span style="background:#fff;border:1.5px solid #e5e5e5;border-radius:8px;padding:8px 12px;font-size:12px;">📄 Annonce Internet<br><span style="color:#aaa;font-size:11px;">~150 mots · sans prix</span></span>
+      <span style="background:#fff;border:1.5px solid #e5e5e5;border-radius:8px;padding:8px 12px;font-size:12px;">🪟 Annonce vitrine<br><span style="color:#aaa;font-size:11px;">≤ 300 caractères</span></span>
+      <span style="background:#fff;border:1.5px solid #e5e5e5;border-radius:8px;padding:8px 12px;font-size:12px;">📱 Post réseaux sociaux<br><span style="color:#aaa;font-size:11px;">Avec mentions légales</span></span>
+      <span style="background:#fff;border:1.5px solid #e5e5e5;border-radius:8px;padding:8px 12px;font-size:12px;">🔑 Annonce locative<br><span style="color:#aaa;font-size:11px;">Avec loyer et charges</span></span>
+    </div>`
+  },
+  {
+    icon: '📋',
+    iconBg: '#ecfdf5',
+    title: 'Les prompts individuels',
+    body: 'Appuyez sur n\'importe quelle carte pour l\'ouvrir. Un formulaire apparaît avec les champs à remplir. Le prompt se génère <strong>en temps réel</strong> au fur et à mesure que vous tapez.<br><br>⚠️ Les champs laissés vides afficheront <code style="background:var(--input-bg);padding:2px 6px;border-radius:4px;font-size:12px;">[INFORMATION OBLIGATOIRE NON RENSEIGNEE]</code> dans le prompt pour vous signaler ce qui manque.',
+    visual: null
+  },
+  {
+    icon: '📤',
+    iconBg: '#fff7ed',
+    title: 'Copier ou envoyer à Claude',
+    body: 'Une fois le prompt généré, vous avez deux options :<br><br><strong>Copier le prompt</strong> — copie dans le presse-papier pour coller dans n\'importe quel outil IA.<br><br><strong>Envoyer à Claude</strong> <span style="display:inline-block;background:#d97757;color:#fff;border-radius:5px;padding:1px 6px;font-size:11px;">→</span> — ouvre directement Claude.ai avec le prompt pré-rempli.',
+    visual: `<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+      <span style="background:#2563eb;color:#fff;border-radius:7px;padding:9px 14px;font-size:13px;font-weight:600;">📋 Copier le prompt</span>
+      <span style="background:#d97757;color:#fff;border-radius:7px;padding:9px 14px;font-size:13px;font-weight:600;">↗ Envoyer à Claude</span>
+    </div>`
+  },
+  {
+    icon: '🔍',
+    iconBg: '#f5f3ff',
+    title: 'La recherche',
+    body: 'La barre de recherche en haut de page permet de retrouver instantanément n\'importe quel prompt par mot-clé : tapez <em>"relance"</em>, <em>"bilan"</em>, <em>"avis"</em>… La grille se filtre en temps réel.',
+    visual: `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:8px;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <span style="color:#aaa;font-size:14px;">Rechercher un prompt…</span>
+    </div>`
+  },
+  {
+    icon: '⚙️',
+    iconBg: '#f5f4f0',
+    title: 'Autres fonctionnalités',
+    body: '<strong>Mode sombre</strong> — bouton en haut à droite du header, bascule l\'interface.<br><br><strong>Sauvegarde automatique</strong> — les champs du générateur d\'annonces sont mémorisés dans votre navigateur.<br><br><strong>Prompt modifiable</strong> — la zone de résultat est un champ de texte : vous pouvez ajuster le prompt à la main avant de le copier.',
+    visual: null
+  }
+];
+
+let tutoStep = 0;
+
+function tutoRender() {
+  const s = TUTO_STEPS[tutoStep];
+  const total = TUTO_STEPS.length;
+
+  // Progression
+  document.getElementById('tuto-progress').style.width = ((tutoStep + 1) / total * 100) + '%';
+
+  // Icône + texte
+  const iconEl = document.getElementById('tuto-step-icon');
+  iconEl.textContent = s.icon;
+  iconEl.style.background = s.iconBg;
+  document.getElementById('tuto-step-num').textContent = `Étape ${tutoStep + 1} sur ${total}`;
+  document.getElementById('tuto-step-title').textContent = s.title;
+  document.getElementById('tuto-step-body').innerHTML = s.body;
+
+  // Visuel
+  const visual = document.getElementById('tuto-step-visual');
+  if (s.visual) {
+    visual.innerHTML = s.visual;
+    visual.style.display = 'block';
+  } else {
+    visual.style.display = 'none';
+  }
+
+  // Scroll en haut à chaque étape
+  const scroll = document.getElementById('tuto-scroll');
+  if (scroll) scroll.scrollTop = 0;
+
+  // Dots
+  document.getElementById('tuto-dots').innerHTML = TUTO_STEPS.map((_, i) =>
+    `<div class="tuto-dot${i === tutoStep ? ' active' : ''}" onclick="tutoGoto(${i})" role="button" aria-label="Étape ${i+1}"></div>`
+  ).join('');
+
+  // Bouton précédent
+  const prev = document.getElementById('tuto-prev');
+  prev.style.opacity = tutoStep === 0 ? '.35' : '1';
+  prev.style.pointerEvents = tutoStep === 0 ? 'none' : 'auto';
+
+  // Bouton suivant
+  const next = document.getElementById('tuto-next');
+  const isLast = tutoStep === total - 1;
+  next.textContent = isLast ? '✓ Commencer' : 'Suivant →';
+  next.style.background = isLast ? '#059669' : 'var(--blue)';
+}
+
+function tutoNav(dir) {
+  const total = TUTO_STEPS.length;
+  if (dir === 1 && tutoStep === total - 1) { tutoClose(); return; }
+  tutoStep = Math.max(0, Math.min(total - 1, tutoStep + dir));
+  tutoRender();
+}
+
+function tutoGoto(i) {
+  tutoStep = i;
+  tutoRender();
+}
+
+function tutoClose() {
+  document.getElementById('tuto-overlay').style.display = 'none';
+  try { localStorage.setItem(TUTO_KEY, '1'); } catch(e) {}
+}
+
+function tutoOpen() {
+  tutoStep = 0;
+  tutoRender();
+  document.getElementById('tuto-overlay').style.display = 'flex';
+}
+
+// ── SWIPE TACTILE ────────────────────────────────────────────────────────────
+(function() {
+  const box = document.getElementById('tuto-box');
+  let startX = 0, startY = 0, dragging = false;
+
+  box.addEventListener('touchstart', e => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    dragging = true;
+  }, { passive: true });
+
+  box.addEventListener('touchend', e => {
+    if (!dragging) return;
+    dragging = false;
+    const dx = e.changedTouches[0].clientX - startX;
+    const dy = e.changedTouches[0].clientY - startY;
+    // Swipe horizontal uniquement (ratio > 1.5 pour éviter les conflits scroll)
+    if (Math.abs(dx) > Math.abs(dy) * 1.5 && Math.abs(dx) > 40) {
+      tutoNav(dx < 0 ? 1 : -1);
+    }
+  }, { passive: true });
+})();
+
+// ── FERMETURE PAR CLIC SUR L'OVERLAY ────────────────────────────────────────
+document.getElementById('tuto-overlay').addEventListener('click', function(e) {
+  if (e.target === this) tutoClose();
+});
+
+// ── LANCER AU PREMIER CHARGEMENT ────────────────────────────────────────────
+(function() {
+  let seen = false;
+  try { seen = localStorage.getItem(TUTO_KEY) === '1'; } catch(e) {}
+  if (!seen) tutoOpen();
+})();
+</script>
+</body>
+</html>
