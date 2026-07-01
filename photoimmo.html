@@ -151,6 +151,15 @@
   .cmp-score{font-size:22px;font-weight:800}
   .cmp-state{width:100%;margin-top:8px;border-radius:9px;padding:9px;font-weight:800;font-size:13px;text-align:center;background:var(--green-l);color:var(--green)}
   .cmp-card.kept .cmp-state{background:var(--ok);color:#fff}
+  .cmp-card img{cursor:zoom-in}
+
+  /* lightbox */
+  #lightbox{position:fixed;inset:0;background:#000;z-index:300;display:none;flex-direction:column}
+  #lightbox.open{display:flex}
+  .lb-top{position:absolute;top:0;left:0;right:0;padding:calc(10px + env(safe-area-inset-top)) 14px 10px;display:flex;align-items:center;z-index:2;background:linear-gradient(#000a,transparent)}
+  .lb-close{background:rgba(255,255,255,.18);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer;margin-left:auto}
+  .lb-stage{flex:1;overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center;touch-action:none}
+  .lb-stage img{max-width:100%;max-height:100%;object-fit:contain;user-select:none;-webkit-user-drag:none;transform-origin:center center;transition:transform .08s linear}
 
   /* guide (room detail) */
   .accroche{background:var(--gold-l);border-left:4px solid var(--gold);border-radius:10px;padding:12px 14px;font-size:14px;margin-bottom:14px;color:#1c3050}
@@ -203,6 +212,12 @@
 <div class="screen" id="scoreScreen"><div class="s-head"><button class="s-back" data-close="scoreScreen">‹ Retour</button><h2 class="s-title">Score de publication</h2></div><div class="s-body" id="scoreBody"></div></div>
 <!-- COMPARE -->
 <div class="screen" id="cmpScreen"><div class="s-head"><button class="s-back" data-close="cmpScreen">‹ Retour</button><h2 class="s-title" id="cmpTitle">Comparer les angles</h2></div><div class="s-body" id="cmpBody"></div></div>
+
+<!-- LIGHTBOX -->
+<div id="lightbox">
+  <div class="lb-top"><button class="lb-close" id="lbClose">✕</button></div>
+  <div class="lb-stage" id="lbStage"><img id="lbImg" src="" alt=""></div>
+</div>
 
 <!-- CAMERA -->
 <div id="camWrap">
@@ -1233,10 +1248,54 @@ function openCompare(room){
         <div class="cmp-info"><div class="cmp-score" style="color:${bd==='ok'?'#0f6b3f':bd==='mid'?'#b07d12':'#9a3b2e'}">${p.score}<span style="font-size:13px;color:#aab">/100</span> ${isBest?'⭐':''}</div>
         <div class="cmp-state">${p.kept?'✓ Retenue':'Tapez pour retenir'}</div></div></div>`;}).join('')+'</div>';
   $('cmpBody').onclick=e=>{
-    const c=e.target.closest('[data-pid]');if(c){const willKeep=keepPhoto(room,c.dataset.pid);openCompare(room);renderBien();toast(willKeep?'Angle retenu':'Sélection annulée');}
+    const c=e.target.closest('[data-pid]');if(!c)return;
+    if(e.target.tagName==='IMG'){openLightbox(e.target.src);return;}
+    const willKeep=keepPhoto(room,c.dataset.pid);openCompare(room);renderBien();toast(willKeep?'Angle retenu':'Sélection annulée');
   };
   openScreen('cmpScreen');
 }
+
+/* ============================ LIGHTBOX (visionneuse plein écran) ============================ */
+let lbScale=1,lbX=0,lbY=0,lbStartDist=0,lbStartScale=1,lbLastTap=0,lbDragging=false,lbDragStartX=0,lbDragStartY=0,lbOrigX=0,lbOrigY=0;
+function lbApply(){$('lbImg').style.transform=`translate(${lbX}px,${lbY}px) scale(${lbScale})`;}
+function lbReset(){lbScale=1;lbX=0;lbY=0;lbApply();}
+function openLightbox(src){
+  $('lbImg').src=src;lbReset();
+  $('lightbox').classList.add('open');
+}
+function closeLightbox(){
+  $('lightbox').classList.remove('open');
+  $('lbImg').src='';
+}
+function lbDist(t){return Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);}
+(function initLightbox(){
+  $('lbClose').onclick=closeLightbox;
+  $('lightbox').addEventListener('click',e=>{if(e.target.id==='lightbox')closeLightbox();});
+  const stage=$('lbStage');
+  stage.addEventListener('touchstart',e=>{
+    if(e.touches.length===2){lbStartDist=lbDist(e.touches);lbStartScale=lbScale;}
+    else if(e.touches.length===1){
+      const now=Date.now();
+      if(now-lbLastTap<300){lbScale=lbScale>1?1:2;lbX=0;lbY=0;lbApply();lbLastTap=0;}
+      else{lbLastTap=now;lbDragging=true;lbDragStartX=e.touches[0].clientX;lbDragStartY=e.touches[0].clientY;lbOrigX=lbX;lbOrigY=lbY;}
+    }
+  },{passive:true});
+  stage.addEventListener('touchmove',e=>{
+    if(e.touches.length===2){
+      e.preventDefault();
+      const d=lbDist(e.touches);
+      lbScale=Math.min(5,Math.max(1,lbStartScale*(d/lbStartDist)));
+      lbApply();
+    }else if(e.touches.length===1&&lbDragging&&lbScale>1){
+      lbX=lbOrigX+(e.touches[0].clientX-lbDragStartX);
+      lbY=lbOrigY+(e.touches[0].clientY-lbDragStartY);
+      lbApply();
+    }
+  },{passive:false});
+  stage.addEventListener('touchend',()=>{lbDragging=false;if(lbScale<=1){lbX=0;lbY=0;lbApply();}});
+  stage.addEventListener('dblclick',()=>{lbScale=lbScale>1?1:2;lbX=0;lbY=0;lbApply();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('lightbox').classList.contains('open'))closeLightbox();});
+})();
 
 /* ============================ EXPORT PDF (100% LOCAL) ============================ */
 /* Aucune dépendance externe : on construit une fiche imprimable et on laisse le
