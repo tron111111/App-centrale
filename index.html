@@ -74,24 +74,11 @@
   }
 
   /* CARDS */
-  .app-card {
-    background: var(--card);
-    border: 1.5px solid var(--line);
-    border-radius: var(--radius);
-    padding: 20px 18px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    cursor: pointer;
-    text-decoration: none;
-    color: inherit;
-    box-shadow: var(--shadow);
-    margin-bottom: 13px;
-    transition: transform .12s, box-shadow .12s;
-    -webkit-user-select: none;
-  }
-  .app-card:active { transform: scale(.98); }
-  .app-card:hover { transform: translateY(-2px); box-shadow: 0 3px 12px rgba(22,38,107,.12), 0 12px 30px rgba(22,38,107,.09); }
+  .app-card{position:relative;background:var(--card);border:1px solid #e4e8f1;border-radius:18px;padding:22px 20px;display:flex;align-items:center;gap:18px;cursor:pointer;text-decoration:none;color:inherit;overflow:hidden;box-shadow:0 4px 10px rgba(22,38,107,.05),0 12px 28px rgba(22,38,107,.05);margin-bottom:16px;transition:transform .25s ease,box-shadow .25s ease,border-color .25s ease;}
+  .app-card::before{content:"";position:absolute;left:0;top:18px;bottom:18px;width:5px;border-radius:20px;background:linear-gradient(180deg,var(--sky),var(--blue));transform:scaleY(.45);transition:.3s;}
+  .app-card:hover{transform:translateY(-6px);border-color:#cfd8ea;box-shadow:0 10px 25px rgba(22,38,107,.10),0 20px 45px rgba(22,38,107,.12);}
+  .app-card:hover::before{transform:scaleY(1);}
+  .app-card:active{transform:scale(.985);}
 
   .app-icon {
     width: 58px;
@@ -145,9 +132,91 @@
     font-size: 11px;
     color: #a8b0c2;
   }
+
+
+/* Premium animations */
+@keyframes fadeUp{
+from{opacity:0;transform:translateY(18px);}
+to{opacity:1;transform:translateY(0);}
+}
+header{
+animation:fadeUp .55s ease both;
+}
+.section-label{
+animation:fadeUp .6s ease .08s both;
+}
+.app-card{
+opacity:0;
+animation:fadeUp .55s ease forwards;
+will-change:transform,opacity;
+transition:
+transform .28s cubic-bezier(.2,.8,.2,1),
+box-shadow .28s cubic-bezier(.2,.8,.2,1),
+border-color .28s ease,
+filter .28s ease;
+}
+.app-card:nth-of-type(1){animation-delay:.15s;}
+.app-card:nth-of-type(2){animation-delay:.28s;}
+.app-card:nth-of-type(3){animation-delay:.41s;}
+.app-card:hover .app-icon{
+transform:translateY(-2px) scale(1.08) rotate(-4deg);
+transition:transform .3s cubic-bezier(.2,.8,.2,1);
+}
+.app-name,.app-desc,.app-arrow{
+transition:all .28s ease;
+}
+body{
+animation:pageIn .35s ease;
+}
+@keyframes pageIn{
+from{opacity:.96}
+to{opacity:1}
+}
+
 </style>
+
+<style>
+#pageTransition{
+position:fixed;
+inset:0;
+background:linear-gradient(135deg,#0f1b50,#16266b);
+display:flex;
+align-items:center;
+justify-content:center;
+z-index:99999;
+opacity:0;
+visibility:hidden;
+transition:opacity .35s ease,visibility .35s;
+}
+#pageTransition.show{
+opacity:1;
+visibility:visible;
+}
+#pageTransition img{
+width:90px;
+height:90px;
+border-radius:20px;
+background:#fff;
+padding:10px;
+box-shadow:0 20px 50px rgba(0,0,0,.35);
+animation:logoPulse .9s ease infinite alternate;
+}
+@keyframes logoPulse{
+from{transform:scale(.92);}
+to{transform:scale(1);}
+}
+body.page-exit{
+overflow:hidden;
+}
+</style>
+
 </head>
 <body>
+
+<div id="pageTransition">
+<img src="logo_laforet.png" alt="">
+</div>
+
 
 <header>
   <div class="logo-wrap">
@@ -182,6 +251,36 @@
 </main>
 
 <footer>Laforêt Pithiviers · Usage interne</footer>
+
+
+<script>
+const overlay=document.getElementById('pageTransition');
+
+document.querySelectorAll('.app-card').forEach(card=>{
+ card.addEventListener('click',function(e){
+   e.preventDefault();
+
+   const href=this.href;
+
+   overlay.classList.add('show');
+   document.body.classList.add('page-exit');
+
+   this.animate([
+      {transform:'scale(1)'},
+      {transform:'scale(1.03)'}
+   ],{
+      duration:180,
+      easing:'ease-out',
+      fill:'forwards'
+   });
+
+   setTimeout(()=>{
+      window.location.href=href;
+   },320);
+
+ });
+});
+</script>
 
 </body>
 </html>
