@@ -174,47 +174,58 @@ to{opacity:1}
 }
 
 </style>
+<script src="https://unpkg.com/lucide@latest"></script>
 
 <style>
-#pageTransition{
-position:fixed;
-inset:0;
+body{
+background:
+radial-gradient(circle at 15% 10%,rgba(41,169,224,.08),transparent 28%),
+radial-gradient(circle at 90% 25%,rgba(22,38,107,.06),transparent 30%),
+linear-gradient(180deg,#eef3fb,#f7f9fc 55%,#fff);
+}
+header{
+backdrop-filter:blur(10px);
+background:linear-gradient(135deg,#101b4d,#16266b,#2340a0);
+box-shadow:0 12px 35px rgba(22,38,107,.18);
+}
+.app-card{
+background:rgba(255,255,255,.88);
+backdrop-filter:blur(10px);
+}
+.app-card:hover{
+box-shadow:0 18px 40px rgba(22,38,107,.16);
+}
+.app-icon{
+width:60px;height:60px;border-radius:18px;
+box-shadow:0 8px 20px rgba(22,38,107,.10);
+}
+.app-icon svg{
+width:30px;height:30px;stroke-width:2.2;
+color:#16266b;
+}
+</style>
+
+<style>
+#laforet-transition{
+position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
 background:linear-gradient(135deg,#0f1b50,#16266b);
-display:flex;
-align-items:center;
-justify-content:center;
-z-index:99999;
-opacity:0;
-visibility:hidden;
-transition:opacity .35s ease,visibility .35s;
+opacity:0;visibility:hidden;z-index:99999;
+transition:opacity .28s ease,visibility .28s ease;
 }
-#pageTransition.show{
-opacity:1;
-visibility:visible;
+#laforet-transition.show{opacity:1;visibility:visible;}
+#laforet-transition img{
+width:92px;height:92px;background:#fff;padding:10px;border-radius:22px;
+box-shadow:0 25px 60px rgba(0,0,0,.35);
+animation:pulse .8s ease-in-out infinite alternate;
 }
-#pageTransition img{
-width:90px;
-height:90px;
-border-radius:20px;
-background:#fff;
-padding:10px;
-box-shadow:0 20px 50px rgba(0,0,0,.35);
-animation:logoPulse .9s ease infinite alternate;
-}
-@keyframes logoPulse{
-from{transform:scale(.92);}
-to{transform:scale(1);}
-}
-body.page-exit{
-overflow:hidden;
-}
+@keyframes pulse{from{transform:scale(.92)}to{transform:scale(1.05)}}
 </style>
 
 </head>
 <body>
 
-<div id="pageTransition">
-<img src="logo_laforet.png" alt="">
+<div id="laforet-transition">
+<img src="logo_laforet.png" alt="Laforêt">
 </div>
 
 
@@ -230,7 +241,7 @@ overflow:hidden;
   <p class="section-label">Choisir une application</p>
 
   <a class="app-card" href="bibliotheque.html">
-    <div class="app-icon icon-blue">📚</div>
+    <div class="app-icon icon-blue"><i data-lucide="library-big"></i></div>
     <div class="app-info">
       <p class="app-name">Bibliothèque de prompts</p>
       <p class="app-desc">Prompts IA prêts à l'emploi — annonces, emails, réseaux sociaux, prospection et admin.</p>
@@ -240,7 +251,7 @@ overflow:hidden;
   </a>
 
   <a class="app-card" href="photoimmo.html">
-    <div class="app-icon icon-sky">📷</div>
+    <div class="app-icon icon-sky"><i data-lucide="camera"></i></div>
     <div class="app-info">
       <p class="app-name">PhotoImmo Pro</p>
       <p class="app-desc">Notez et gérez vos photos de biens immobiliers pièce par pièce, avec guide de prise de vue.</p>
@@ -253,31 +264,15 @@ overflow:hidden;
 <footer>Laforêt Pithiviers · Usage interne</footer>
 
 
+
 <script>
-const overlay=document.getElementById('pageTransition');
-
+lucide.createIcons();
+const overlay=document.getElementById('laforet-transition');
 document.querySelectorAll('.app-card').forEach(card=>{
- card.addEventListener('click',function(e){
+ card.addEventListener('click',e=>{
    e.preventDefault();
-
-   const href=this.href;
-
    overlay.classList.add('show');
-   document.body.classList.add('page-exit');
-
-   this.animate([
-      {transform:'scale(1)'},
-      {transform:'scale(1.03)'}
-   ],{
-      duration:180,
-      easing:'ease-out',
-      fill:'forwards'
-   });
-
-   setTimeout(()=>{
-      window.location.href=href;
-   },320);
-
+   setTimeout(()=>window.location.href=card.href,280);
  });
 });
 </script>
