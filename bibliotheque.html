@@ -1678,6 +1678,14 @@ function wizGo(step) {
   const panel3 = document.getElementById('wiz-panel-3');
   const hubResult = document.getElementById('hub-result');
   if (step === 3) {
+    // Si on arrive directement sur l'étape 3 (ex: clic sur l'onglet) sans être
+    // passé par le bouton "Générer le prompt →", le prompt et le panneau IA
+    // (Claude / Gemini) n'ont jamais été générés : on le fait ici pour être sûr.
+    const checkedFormat = document.querySelector('input[name="hub-format"]:checked');
+    if (checkedFormat && document.getElementById('hub-result-box').value.trim() === '') {
+      currentHubFormat = checkedFormat.value;
+      hubGen(currentHubFormat);
+    }
     panel3.appendChild(hubResult);
     hubResult.style.display = 'block';
   }
