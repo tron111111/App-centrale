@@ -923,12 +923,13 @@ function renderBien(){
 }
 function roomRow(b,k){
   const r=DATA[k],ps=photosOf(b,k),best=bestOf(b,k),kept=ps.find(p=>p.kept);
-  const bd=best!=null?band(best):null;
+  const shown=kept?kept.score:best;
+  const bd=shown!=null?band(shown):null;
   const sub=ps.length?(ps.length+' angle'+(ps.length>1?'s':'')+(kept?' · '+ic('check',13)+' retenue':'')):'À prendre';
   return `<div class="roomrow ${ps.length?'done':''}">
     <span class="rr-ic">${ic(r.icon,24)}</span>
     <div class="rr-main"><div class="rr-name">${r.name}</div><div class="rr-sub">${sub}</div></div>
-    ${best!=null?`<span class="rr-badge ${bd}">${best}</span>`:''}
+    ${shown!=null?`<span class="rr-badge ${bd}">${shown}</span>`:''}
     <div class="rr-act"><button class="rr-cmp" data-cmp="${k}" title="Comparer les photos">${ic('scale',17)}</button><button class="rr-guide" data-guide="${k}" title="Conseils">${ic('lightbulb',17)}</button><button class="rr-import" data-import="${k}" title="Importer des images">${ic('image',17)}</button><button class="rr-shoot" data-shoot="${k}" title="Prendre">${ic('camera',18)}</button></div></div>`;
 }
 $('bienBody').addEventListener('click',e=>{
