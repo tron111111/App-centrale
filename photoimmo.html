@@ -163,6 +163,10 @@
   .cmp-score{font-size:22px;font-weight:800}
   .cmp-state{width:100%;margin-top:8px;border-radius:9px;padding:9px;font-weight:800;font-size:13px;text-align:center;background:var(--green-l);color:var(--green)}
   .cmp-card.kept .cmp-state{background:var(--ok);color:#fff}
+  .cmp-actions{display:flex;gap:7px;margin-top:8px}
+  .cmp-actions .cmp-state{margin-top:0;flex:1}
+  .cmp-save{flex:none;width:40px;height:40px;border-radius:9px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;display:grid;place-items:center}
+  .cmp-save:active{transform:scale(.95)}
   .cmp-card img{cursor:zoom-in}
 
   /* lightbox */
@@ -1311,8 +1315,10 @@ function openCompare(room){
       return `<div class="cmp-card ${p.kept?'kept':(isBest?'best':'')}" data-pid="${p.id}">
         <img src="${(sessionFull[p.id]&&sessionFull[p.id].url)||p.thumb}" alt="">
         <div class="cmp-info"><div class="cmp-score" style="color:${bd==='ok'?'#0f6b3f':bd==='mid'?'#b07d12':'#9a3b2e'}">${p.score}<span style="font-size:13px;color:#aab">/100</span> ${isBest?ic('star',14):''}</div>
-        <div class="cmp-state">${p.kept?ic('check',13)+' Retenue':'Tapez pour retenir'}</div></div></div>`;}).join('')+'</div>';
+        <div class="cmp-actions"><div class="cmp-state">${p.kept?ic('check',13)+' Retenue':'Tapez pour retenir'}</div><button class="cmp-save" data-save="${p.id}" title="Enregistrer la photo">${ic('download',17)}</button></div></div></div>`;}).join('')+'</div>';
   $('cmpBody').onclick=e=>{
+    const sv=e.target.closest('[data-save]');
+    if(sv){const p=photosOf(getBien(currentBienId),room).find(x=>x.id===sv.dataset.save);if(p)saveImage(p);return;}
     const c=e.target.closest('[data-pid]');if(!c)return;
     if(e.target.tagName==='IMG'){openLightbox(e.target.src);return;}
     const willKeep=keepPhoto(room,c.dataset.pid);openCompare(room);renderBien();toast(willKeep?'Angle retenu':'Sélection annulée');
