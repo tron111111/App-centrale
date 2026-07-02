@@ -783,7 +783,11 @@ function progress(b){const{req}=roomsForBien(b);const done=req.filter(k=>photosO
 
 /* ---------- navigation écrans ---------- */
 function openScreen(id){$(id).classList.add('open');$(id).scrollTop=0;window.scrollTo(0,0);}
-function closeScreen(id){$(id).classList.remove('open');}
+function closeScreen(id){
+  $(id).classList.remove('open');
+  // Rafraîchir bienScreen dès qu'on le rend visible (retour depuis score ou comparaison)
+  if((id==='scoreScreen'||id==='cmpScreen')&&currentBienId) renderBien();
+}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-close]');if(b)closeScreen(b.dataset.close);});
 
 /* ============================ ACCUEIL ============================ */
