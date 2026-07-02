@@ -1553,9 +1553,11 @@ document.addEventListener('click', function() { closeMoreMenu(); });
 
 // GESTION DU THEME SOMBRE
 function initTheme() {
-  const saved = localStorage.getItem('theme') || 'light';
-  document.documentElement.setAttribute('data-theme', saved);
-  updateThemeUI(saved);
+  const saved = localStorage.getItem('theme');
+  const sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme:dark)').matches;
+  const theme = saved || (sysDark ? 'dark' : 'light');
+  document.documentElement.setAttribute('data-theme', theme);
+  updateThemeUI(theme);
 }
 function toggleTheme() {
   const current = document.documentElement.getAttribute('data-theme') || 'light';

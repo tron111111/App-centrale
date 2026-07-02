@@ -20,6 +20,15 @@
     --bg:#f4f6fa; --card:#fff; --ink:#161d33; --muted:#525d7a;
     --line:#e2e7f0; --shadow:0 1px 3px rgba(22,38,107,.08),0 8px 24px rgba(22,38,107,.07);
     --radius:16px; --ok:#0f6b3f; --mid:#b07d12; --bad:#c0492f;
+    --pbar-bg:#e6eaf2; --bar-bg:#eceef3;
+    --priority-bg:#fff4e6; --priority-border:#f0a44a; --priority-accent:#e8862a; --priority-ink:#5b3b12;
+  }
+  [data-theme="dark"]{
+    --bg:#0f1117; --card:#1a1f2e; --ink:#e8ecf4; --muted:#8892aa;
+    --line:#2a3148; --shadow:0 1px 3px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);
+    --green-l:#1a2240; --gold-l:#0e2030;
+    --pbar-bg:#252c42; --bar-bg:#252c42;
+    --priority-bg:#2a1f0e; --priority-border:#8a5a1a; --priority-accent:#e8862a; --priority-ink:#e0c090;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;padding:0}
@@ -61,7 +70,7 @@
   .empty{text-align:center;color:var(--muted);font-size:14.5px;padding:40px 20px;line-height:1.6}
 
   /* progress bar */
-  .pbar{height:9px;border-radius:99px;background:#e6eaf2;overflow:hidden;margin-top:8px}
+  .pbar{height:9px;border-radius:99px;background:var(--pbar-bg);overflow:hidden;margin-top:8px}
   .pbar>i{display:block;height:100%;background:var(--green);border-radius:99px;transition:width .4s}
 
   /* room rows (shot list) */
@@ -126,14 +135,14 @@
   .gauge .den{font-size:12px;color:var(--muted);font-weight:600}
   .verdict{font-size:17px;font-weight:800;margin:4px 0 2px}
   .verdict-sub{font-size:13px;color:var(--muted);margin-bottom:6px;padding:0 8px}
-  .priority{background:#fff4e6;border:1.5px solid #f0a44a;border-left:5px solid #e8862a;border-radius:12px;padding:12px 14px;margin:2px 0 14px;font-size:14px;color:#5b3b12;line-height:1.5}
+  .priority{background:var(--priority-bg);border:1.5px solid var(--priority-border);border-left:5px solid var(--priority-accent);border-radius:12px;padding:12px 14px;margin:2px 0 14px;font-size:14px;color:var(--priority-ink);line-height:1.5}
   .priority .pt{font-weight:800;display:block;margin-bottom:3px;color:#9a5b12}
   .priority.good{background:#eaf6ef;border-color:#3f9d6b;border-left-color:var(--ok);color:#13502f}
   .priority.good .pt{color:var(--ok)}
   .metric{margin-bottom:12px}
   .metric .top{display:flex;justify-content:space-between;align-items:baseline;font-size:14px;margin-bottom:5px}
   .metric .mname{font-weight:700}.metric .mscore{font-weight:800}
-  .bar{height:9px;border-radius:99px;background:#eceef3;overflow:hidden}
+  .bar{height:9px;border-radius:99px;background:var(--bar-bg);overflow:hidden}
   .bar>i{display:block;height:100%;border-radius:99px;transition:width .5s}
   .bar.ok>i{background:var(--ok)}.bar.mid>i{background:var(--gold)}.bar.bad>i{background:#d0664f}
   .mtip{font-size:13.5px;color:var(--muted);margin-top:5px;line-height:1.5}.mtip.warn{color:#9a3b2e}
@@ -184,7 +193,7 @@
   @media print{
     header,.wrap,.screen,#camWrap,.toast,input,#work,canvas#work{display:none!important}
     #printArea{display:block!important;padding:0}
-    body{background:#fff}
+    body{background:var(--bg)}
     @page{margin:12mm}
   }
 </style>
@@ -199,6 +208,7 @@
       <p>Shooting guidé, noté et livré — par bien</p>
     </div>
     <button class="install-btn" id="installBtn">⬇️ Installer</button>
+    <button id="darkBtn" title="Mode sombre" style="background:rgba(255,255,255,.16);border:none;color:#fff;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;flex:none;margin-left:4px">🌙</button>
   </div>
 </header>
 
@@ -1331,6 +1341,21 @@ $('installBtn').onclick=async()=>{if(!deferredPrompt)return;deferredPrompt.promp
 
 /* init */
 renderHome();
+</script>
+<!-- Dark mode -->
+<script>
+(function(){
+  const btn=document.getElementById('darkBtn');
+  const apply=dark=>{
+    document.documentElement.setAttribute('data-theme',dark?'dark':'light');
+    btn.textContent=dark?'☀️':'🌙';
+    try{localStorage.setItem('theme',dark?'dark':'light');}catch(e){}
+  };
+  const saved=localStorage.getItem('theme');
+  const sysDark=window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches;
+  apply(saved?saved==='dark':sysDark);
+  btn.addEventListener('click',()=>apply(document.documentElement.getAttribute('data-theme')!=='dark'));
+})();
 </script>
 </body>
 </html>
