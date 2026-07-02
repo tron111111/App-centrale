@@ -2,7 +2,12 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#16266b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Bibliothèque">
 <!--
   Content-Security-Policy : limite ce que le navigateur autorise à exécuter/charger.
   - default-src 'self' : par défaut, rien d'externe.
@@ -11,7 +16,7 @@
     etc.). 'unsafe-inline' n'empêche pas l'exécution de scripts injectés via innerHTML,
     mais bloque le chargement de scripts depuis un domaine tiers (script src="https://...").
     Passer à une CSP sans 'unsafe-inline' demanderait de remplacer tous les onclick="..."
-    par des addEventListener, voir la documentation_bibliotheque_prompts_v6_8.html.
+    par des addEventListener, voir la documentation_bibliotheque.html.
   - connect-src : domaines externes contactés par le site, pour la génération directe
     de réponses Claude et Gemini via clé API.
   - img-src 'self' data: : les icônes SVG inline utilisent parfois des data URI.
@@ -24,25 +29,33 @@
 <link rel="icon" type="image/png" href="logo_laforet.png">
 <link rel="icon" type="image/png" href="logo_laforet.png">
 <style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html { overflow-x: hidden; }
+body { overflow-x: hidden; }
 :root {
-  --bg: #f5f4f0; --surface: #fff; --border: #e5e5e5; --border2: #ccc;
-  --text: #1a1a1a; --text2: #555; --text3: #888; --text4: #aaa;
-  --blue: #2563eb; --blue-bg: #eff6ff; --blue-border: #93c5fd; --blue-dark: #1d4ed8;
-  --input-bg: #fafafa; --result-bg: #f0f4ff; --radius: 12px;
+  /* Fond, blancs, neutres — identiques à index.html / photoimmo.html */
+  --bg: #f4f6fa; --surface: #fff; --border: #e2e7f0; --border2: #c7d0e4;
+  --text: #161d33; --text2: #525d7a; --text3: #7c86a3; --text4: #a8b0c4;
+  /* Bleu de marque Laforêt (navy + sky) — remplace l'ancien bleu générique */
+  --blue: #16266b; --blue-bg: #e9ecf7; --blue-border: #b9c2e0; --blue-dark: #0f1b50;
+  --sky: #29a9e0; --sky-bg: #e4f4fc;
+  --input-bg: #f4f6fa; --result-bg: #e9ecf7; --radius: 12px;
   /* catégories */
-  --c-ann: #2563eb; --c-ann-bg: #eff6ff; --c-ann-border: #bfdbfe;
+  --c-ann: var(--blue); --c-ann-bg: var(--blue-bg); --c-ann-border: var(--blue-border);
   --c-email: #dc2626; --c-email-bg: #fef2f2; --c-email-border: #fecaca;
   --c-social: #9333ea; --c-social-bg: #faf5ff; --c-social-border: #e9d5ff;
   --c-prosp: #d97706; --c-prosp-bg: #fffbeb; --c-prosp-border: #fde68a;
   --c-admin: #059669; --c-admin-bg: #ecfdf5; --c-admin-border: #a7f3d0;
 }
 [data-theme="dark"] {
-  --bg: #111; --surface: #1c1c1e; --border: #2c2c2e; --border2: #48484a;
-  --text: #f2f2f7; --text2: #aeaeb2; --text3: #636366; --text4: #48484a;
-  --blue: #3b82f6; --blue-bg: #1e2d4a; --blue-border: #2d4a7a; --blue-dark: #60a5fa;
-  --input-bg: #2c2c2e; --result-bg: #1a2340;
-  --c-ann: #60a5fa; --c-ann-bg: #1e2d4a; --c-ann-border: #2d4a7a;
+  /* Fond, blancs, neutres — identiques à index.html / photoimmo.html en mode sombre */
+  --bg: #0f1117; --surface: #1a1f2e; --border: #2a3148; --border2: #3a4260;
+  --text: #e8ecf4; --text2: #8892aa; --text3: #6b7594; --text4: #4a5474;
+  /* En sombre, on bascule sur le bleu ciel (plus lisible sur fond foncé), comme sur les autres écrans */
+  --blue: #29a9e0; --blue-bg: #1a2240; --blue-border: #2d3f70; --blue-dark: #5cc4ea;
+  --sky: #29a9e0; --sky-bg: #0e2030;
+  --input-bg: #232a42; --result-bg: #1a2240;
+  --c-ann: var(--blue); --c-ann-bg: var(--blue-bg); --c-ann-border: var(--blue-border);
   --c-email: #f87171; --c-email-bg: #2d1010; --c-email-border: #6e1f1f;
   --c-social: #c084fc; --c-social-bg: #2d1a45; --c-social-border: #6b21a8;
   --c-prosp: #fbbf24; --c-prosp-bg: #2d2010; --c-prosp-border: #7a5a10;
@@ -51,7 +64,7 @@
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; transition: background .2s, color .2s; }
 
 /* HEADER */
-header { background: linear-gradient(135deg, #0f1b50, #16266b); border-bottom: none; box-shadow: 0 2px 16px rgba(15,27,80,.3); padding: .85rem 1.25rem; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 100; }
+header { background: linear-gradient(135deg, #0f1b50, #16266b); border-bottom: none; box-shadow: 0 2px 16px rgba(15,27,80,.3); padding: calc(.85rem + env(safe-area-inset-top)) 1.25rem .85rem; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 100; }
 .back-home { background: rgba(255,255,255,.16); border: none; color: #fff; font-size: 13px; font-weight: 700; padding: 7px 13px; border-radius: 999px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; white-space: nowrap; }
 header .header-info h1 { color: #fff !important; }
 .header-logo { width: 46px; height: 46px; border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,.18); flex-shrink: 0; background: #fff; }
@@ -74,7 +87,7 @@ header .header-info h1 { color: #fff !important; }
 .container { max-width: 1100px; margin: 0 auto; padding: 1.25rem 1rem; }
 
 /* CATS */
-.cats-wrap { overflow-x: auto; scrollbar-width: none; margin-bottom: 1.25rem; }
+.cats-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; margin-bottom: 1.25rem; }
 .cats-wrap::-webkit-scrollbar { display: none; }
 .cats { display: flex; gap: 7px; width: max-content; }
 .cat-btn { background: var(--surface); border: 1.5px solid var(--border); border-radius: 20px; padding: 7px 14px; font-size: 12px; font-weight: 500; color: var(--text2); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; transition: all .15s; }
@@ -200,7 +213,7 @@ header .header-info h1 { color: #fff !important; }
 
 
 
-footer { text-align: center; padding: 2rem; font-size: 12px; color: var(--text4); }
+footer { text-align: center; padding: 2rem 1rem calc(2rem + env(safe-area-inset-bottom)); font-size: 12px; color: var(--text4); }
 
 /* CASE VITRINE */
 .vitrine-check-wrap { display: inline-flex; align-items: center; gap: 8px; margin-top: 10px; padding: 9px 14px; border: 1.5px dashed var(--c-ann-border); border-radius: 10px; cursor: pointer; font-size: 13px; color: var(--text); background: var(--surface); transition: background .15s, border-color .15s; user-select: none; }
@@ -444,7 +457,8 @@ footer { text-align: center; padding: 2rem; font-size: 12px; color: var(--text4)
     max-width: 100%;
     width: 100%;
   }
-  .header-search input { font-size: 15px; padding: 8px 12px 8px 32px; border-radius: 10px; }
+  .header-search input,
+  #search-input { font-size: 16px !important; padding: 8px 12px 8px 32px; border-radius: 10px; }
 
   /* LAYOUT */
   .container { padding: .85rem .75rem; }
@@ -509,14 +523,15 @@ footer { text-align: center; padding: 2rem; font-size: 12px; color: var(--text4)
 
   /* Zone résultat */
   .result-box { font-size: 12px; padding: .85rem; line-height: 1.65; }
-  .claude-response-box { font-size: 12px; padding: .85rem; }
+  .ai-response-box { font-size: 12px; padding: .85rem; }
 
-  /* Panneau API Claude */
-  .claude-api-key-wrap { flex-direction: column; gap: 8px; }
-  .claude-api-key-wrap input { font-size: 15px; width: 100%; }
+  /* Panneau API Claude / Gemini */
+  .ai-api-key-wrap { flex-direction: column; gap: 8px; }
+  .ai-api-key-wrap input { font-size: 16px !important; width: 100%; }
+  .ai-model-select { font-size: 13px; }
   .btn-run-ai { width: 100%; justify-content: center; padding: 12px; font-size: 13px; }
-  .claude-response-actions { flex-direction: column; }
-  .claude-response-actions .btn-copy { width: 100%; justify-content: center; padding: 12px; font-size: 13px; }
+  .ai-response-actions { flex-direction: column; }
+  .ai-response-actions .btn-copy { width: 100%; justify-content: center; padding: 12px; font-size: 13px; }
 
   /* ÉDITEUR */
   .editor { padding: .9rem; }
@@ -570,7 +585,7 @@ footer { text-align: center; padding: 2rem; font-size: 12px; color: var(--text4)
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           Aide
         </button>
-        <a class="more-item" href="documentation_bibliotheque_prompts_v6_8.html" target="_blank" onclick="closeMoreMenu()">
+        <a class="more-item" href="documentation_bibliotheque.html" target="_blank" onclick="closeMoreMenu()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
           Documentation
         </a>
@@ -2789,7 +2804,7 @@ function copyResult() {
     <div id="tuto-nav">
       <button id="tuto-prev" onclick="tutoNav(-1)">← Précédent</button>
       <div id="tuto-dots"></div>
-      <a id="tuto-doc-link" href="documentation_bibliotheque_prompts_v6_8.html" target="_blank" title="Ouvrir la documentation complète">
+      <a id="tuto-doc-link" href="documentation_bibliotheque.html" target="_blank" title="Ouvrir la documentation complète">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
         Documentation
       </a>
@@ -2808,7 +2823,7 @@ const TUTO_KEY = 'laforet_tuto_done_v1';
 const TUTO_STEPS = [
   {
     icon: '👋',
-    iconBg: '#eff6ff',
+    iconBg: '#e9ecf7',
     title: 'Bienvenue dans la bibliothèque de prompts',
     body: 'Cet outil a été conçu pour <strong>Laforêt Pithiviers</strong> afin de gagner du temps sur toutes les tâches rédactionnelles : annonces, emails, réseaux sociaux, prospection et documents administratifs.<br><br>Ce tutoriel vous guide en <strong>7 étapes</strong> pour maîtriser toutes les fonctionnalités.',
     visual: null
@@ -2819,7 +2834,7 @@ const TUTO_STEPS = [
     title: 'Les 5 catégories de prompts',
     body: 'Les prompts sont organisés en <strong>5 catégories</strong> accessibles via les onglets en haut de page. Cliquez sur une catégorie pour filtrer l\'affichage.',
     visual: `<div style="display:flex;flex-wrap:wrap;gap:7px;">
-      <span style="background:#eff6ff;border:1px solid #bfdbfe;color:#2563eb;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;">🏠 Annonces</span>
+      <span style="background:#e9ecf7;border:1px solid #b9c2e0;color:#16266b;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;">🏠 Annonces</span>
       <span style="background:#fef2f2;border:1px solid #fecaca;color:#dc2626;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;">📧 Emails clients</span>
       <span style="background:#faf5ff;border:1px solid #e9d5ff;color:#9333ea;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;">📱 Réseaux sociaux</span>
       <span style="background:#fffbeb;border:1px solid #fde68a;color:#d97706;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;">📞 Prospection</span>
@@ -2828,14 +2843,14 @@ const TUTO_STEPS = [
   },
   {
     icon: '🏗️',
-    iconBg: '#eff6ff',
+    iconBg: '#e9ecf7',
     title: 'Le générateur d\'annonces centralisé',
     body: 'En haut de page, le <strong>générateur d\'annonces</strong> est le cœur de l\'outil. Remplissez les champs une seule fois (type de bien, pièces, surface, équipements…) puis cliquez sur le format souhaité.',
     visual: `<div style="display:flex;flex-wrap:wrap;gap:8px;">
-      <span style="background:#fff;border:1.5px solid #e5e5e5;border-radius:8px;padding:8px 12px;font-size:12px;">📄 Annonce Internet<br><span style="color:#aaa;font-size:11px;">~150 mots · sans prix</span></span>
-      <span style="background:#fff;border:1.5px solid #e5e5e5;border-radius:8px;padding:8px 12px;font-size:12px;">🪟 Annonce vitrine<br><span style="color:#aaa;font-size:11px;">≤ 300 caractères</span></span>
-      <span style="background:#fff;border:1.5px solid #e5e5e5;border-radius:8px;padding:8px 12px;font-size:12px;">📱 Post réseaux sociaux<br><span style="color:#aaa;font-size:11px;">Avec mentions légales</span></span>
-      <span style="background:#fff;border:1.5px solid #e5e5e5;border-radius:8px;padding:8px 12px;font-size:12px;">🔑 Annonce locative<br><span style="color:#aaa;font-size:11px;">Avec loyer et charges</span></span>
+      <span style="background:#fff;border:1.5px solid #e2e7f0;border-radius:8px;padding:8px 12px;font-size:12px;">📄 Annonce Internet<br><span style="color:#a8b0c4;font-size:11px;">~150 mots · sans prix</span></span>
+      <span style="background:#fff;border:1.5px solid #e2e7f0;border-radius:8px;padding:8px 12px;font-size:12px;">🪟 Annonce vitrine<br><span style="color:#a8b0c4;font-size:11px;">≤ 300 caractères</span></span>
+      <span style="background:#fff;border:1.5px solid #e2e7f0;border-radius:8px;padding:8px 12px;font-size:12px;">📱 Post réseaux sociaux<br><span style="color:#a8b0c4;font-size:11px;">Avec mentions légales</span></span>
+      <span style="background:#fff;border:1.5px solid #e2e7f0;border-radius:8px;padding:8px 12px;font-size:12px;">🔑 Annonce locative<br><span style="color:#a8b0c4;font-size:11px;">Avec loyer et charges</span></span>
     </div>`
   },
   {
@@ -2851,7 +2866,7 @@ const TUTO_STEPS = [
     title: 'Copier ou envoyer à Claude',
     body: 'Une fois le prompt généré, vous avez deux options :<br><br><strong>Copier le prompt</strong> — copie dans le presse-papier pour coller dans n\'importe quel outil IA.<br><br><strong>Envoyer à Claude</strong> <span style="display:inline-block;background:#d97757;color:#fff;border-radius:5px;padding:1px 6px;font-size:11px;">→</span> — ouvre directement Claude.ai avec le prompt pré-rempli.',
     visual: `<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
-      <span style="background:#2563eb;color:#fff;border-radius:7px;padding:9px 14px;font-size:13px;font-weight:600;">📋 Copier le prompt</span>
+      <span style="background:#16266b;color:#fff;border-radius:7px;padding:9px 14px;font-size:13px;font-weight:600;">📋 Copier le prompt</span>
       <span style="background:#d97757;color:#fff;border-radius:7px;padding:9px 14px;font-size:13px;font-weight:600;">↗ Envoyer à Claude</span>
     </div>`
   },
@@ -2867,7 +2882,7 @@ const TUTO_STEPS = [
   },
   {
     icon: '⚙️',
-    iconBg: '#f5f4f0',
+    iconBg: '#eef1f9',
     title: 'Autres fonctionnalités',
     body: '<strong>Mode sombre</strong> — bouton en haut à droite du header, bascule l\'interface.<br><br><strong>Sauvegarde automatique</strong> — les champs du générateur d\'annonces sont mémorisés dans votre navigateur.<br><br><strong>Prompt modifiable</strong> — la zone de résultat est un champ de texte : vous pouvez ajuster le prompt à la main avant de le copier.',
     visual: null

@@ -20,6 +20,8 @@
     --bg:#f4f6fa; --card:#fff; --ink:#161d33; --muted:#525d7a;
     --line:#e2e7f0; --shadow:0 1px 3px rgba(22,38,107,.08),0 8px 24px rgba(22,38,107,.07);
     --radius:16px; --ok:#0f6b3f; --mid:#b07d12; --bad:#c0492f;
+    --ok-bg:#eaf6ef; --ok-border:#3f9d6b; --ok-ink:#0f6b3f;
+    --import:#7c5cff; --import-bg:#f2efff; --import-border:#d8cdff;
     --pbar-bg:#e6eaf2; --bar-bg:#eceef3;
     --priority-bg:#fff4e6; --priority-border:#f0a44a; --priority-accent:#e8862a; --priority-ink:#5b3b12;
   }
@@ -27,6 +29,8 @@
     --bg:#0f1117; --card:#1a1f2e; --ink:#e8ecf4; --muted:#8892aa;
     --line:#2a3148; --shadow:0 1px 3px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);
     --green-l:#1a2240; --gold-l:#0e2030;
+    --ok-bg:#123524; --ok-border:#1f6b46; --ok-ink:#6fd9a0;
+    --import:#a78bfa; --import-bg:#241f3a; --import-border:#4a3f78;
     --pbar-bg:#252c42; --bar-bg:#252c42;
     --priority-bg:#2a1f0e; --priority-border:#8a5a1a; --priority-accent:#e8862a; --priority-ink:#e0c090;
   }
@@ -76,7 +80,7 @@
   /* room rows (shot list) */
   .roomlist{display:flex;flex-direction:column;gap:9px}
   .roomrow{background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow)}
-  .roomrow.done{border-color:var(--ok);background:#f1faf4}
+  .roomrow.done{border-color:var(--ok-border);background:var(--ok-bg)}
   .roomrow .rr-ic{font-size:25px;flex:none}
   .roomrow .rr-main{flex:1;min-width:0}
   .roomrow .rr-name{font-weight:800;font-size:14.5px}
@@ -85,8 +89,8 @@
   .rr-badge.ok{background:var(--ok)} .rr-badge.mid{background:var(--mid)} .rr-badge.bad{background:var(--bad)}
   .rr-act{display:flex;gap:7px;flex:none}
   .rr-shoot{background:var(--green);color:#fff;border:none;border-radius:10px;width:42px;height:42px;font-size:19px;cursor:pointer;display:grid;place-items:center}
-  .rr-guide{background:var(--gold-l);color:var(--green);border:1.5px solid var(--gold);border-radius:10px;width:42px;height:42px;font-size:17px;cursor:pointer;display:grid;place-items:center}
-  .rr-import{background:var(--green-l);color:var(--green);border:1.5px solid var(--line);border-radius:10px;width:42px;height:42px;font-size:17px;cursor:pointer;display:grid;place-items:center}
+  .rr-guide{background:var(--priority-bg);color:var(--priority-accent);border:1.5px solid var(--priority-border);border-radius:10px;width:42px;height:42px;font-size:17px;cursor:pointer;display:grid;place-items:center}
+  .rr-import{background:var(--import-bg);color:var(--import);border:1.5px solid var(--import-border);border-radius:10px;width:42px;height:42px;font-size:17px;cursor:pointer;display:grid;place-items:center}
   .rr-cmp{background:var(--gold);color:#06243f;border:none;border-radius:10px;width:42px;height:42px;font-size:17px;cursor:pointer;display:grid;place-items:center}
 
   /* overlay screens */
@@ -95,7 +99,7 @@
   @keyframes fade{from{opacity:0}to{opacity:1}}
   .s-head{background:linear-gradient(135deg,var(--green-d),var(--green));color:#fff;padding:calc(13px + env(safe-area-inset-top)) 16px 16px;position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:12px}
   .s-back{background:rgba(255,255,255,.16);border:none;color:#fff;font-size:14px;font-weight:700;padding:9px 14px;border-radius:999px;cursor:pointer}
-  .s-title{font-size:17px;font-weight:800;margin:0}
+  .s-title{font-size:17px;font-weight:800;margin:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .s-body{max-width:760px;margin:0 auto;padding:16px 16px 90px}
 
   /* camera */
@@ -137,8 +141,8 @@
   .verdict-sub{font-size:13px;color:var(--muted);margin-bottom:6px;padding:0 8px}
   .priority{background:var(--priority-bg);border:1.5px solid var(--priority-border);border-left:5px solid var(--priority-accent);border-radius:12px;padding:12px 14px;margin:2px 0 14px;font-size:14px;color:var(--priority-ink);line-height:1.5}
   .priority .pt{font-weight:800;display:block;margin-bottom:3px;color:#9a5b12}
-  .priority.good{background:#eaf6ef;border-color:#3f9d6b;border-left-color:var(--ok);color:#13502f}
-  .priority.good .pt{color:var(--ok)}
+  .priority.good{background:var(--ok-bg);border-color:var(--ok-border);border-left-color:var(--ok);color:var(--ok-ink)}
+  .priority.good .pt{color:var(--ok-ink)}
   .metric{margin-bottom:12px}
   .metric .top{display:flex;justify-content:space-between;align-items:baseline;font-size:14px;margin-bottom:5px}
   .metric .mname{font-weight:700}.metric .mscore{font-weight:800}
@@ -201,31 +205,31 @@
 <body>
 <header>
   <div class="h-top">
-    <a class="back-home" href="index.html" title="Retour à l'accueil">← Accueil</a>
+    <a class="back-home" href="index.html" title="Retour à l'accueil"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg> Accueil</a>
     <div class="logo"><img src="logo_laforet.png" alt="Laforêt"></div>
     <div>
       <h1>PhotoImmo <span style="font-size:11px;font-weight:700;letter-spacing:1.5px;background:var(--gold);color:var(--green-d);padding:2px 6px;border-radius:5px;vertical-align:middle">PRO</span></h1>
       <p>Shooting guidé, noté et livré — par bien</p>
     </div>
-    <button class="install-btn" id="installBtn">⬇️ Installer</button>
-    <button id="darkBtn" title="Mode sombre" style="background:rgba(255,255,255,.16);border:none;color:#fff;width:34px;height:34px;border-radius:50%;font-size:16px;cursor:pointer;flex:none;margin-left:4px">🌙</button>
+    <button class="install-btn" id="installBtn"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg> Installer</button>
+    <button class="dark-toggle" title="Mode sombre" style="background:rgba(255,255,255,.16);border:none;color:#fff;width:34px;height:34px;border-radius:50%;cursor:pointer;flex:none;margin-left:4px;display:flex;align-items:center;justify-content:center;padding:0"><svg class="dark-toggle-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
   </div>
 </header>
 
 <div class="wrap" id="home"></div>
 
 <!-- BIEN -->
-<div class="screen" id="bienScreen"><div class="s-head"><button class="s-back" data-close="bienScreen">‹ Mes biens</button><h2 class="s-title" id="bienTitle">Bien</h2></div><div class="s-body" id="bienBody"></div></div>
+<div class="screen" id="bienScreen"><div class="s-head"><button class="s-back" data-close="bienScreen">‹ Mes biens</button><h2 class="s-title" id="bienTitle">Bien</h2><button class="dark-toggle" title="Mode sombre" style="background:rgba(255,255,255,.16);border:none;color:#fff;width:34px;height:34px;border-radius:50%;cursor:pointer;flex:none;margin-left:auto;display:flex;align-items:center;justify-content:center;padding:0"><svg class="dark-toggle-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button></div><div class="s-body" id="bienBody"></div></div>
 <!-- GUIDE -->
-<div class="screen" id="guideScreen"><div class="s-head"><button class="s-back" data-close="guideScreen">‹ Retour</button><h2 class="s-title" id="guideTitle">Guide</h2></div><div class="s-body" id="guideBody"></div></div>
+<div class="screen" id="guideScreen"><div class="s-head"><button class="s-back" data-close="guideScreen">‹ Retour</button><h2 class="s-title" id="guideTitle">Guide</h2><button class="dark-toggle" title="Mode sombre" style="background:rgba(255,255,255,.16);border:none;color:#fff;width:34px;height:34px;border-radius:50%;cursor:pointer;flex:none;margin-left:auto;display:flex;align-items:center;justify-content:center;padding:0"><svg class="dark-toggle-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button></div><div class="s-body" id="guideBody"></div></div>
 <!-- SCORE -->
-<div class="screen" id="scoreScreen"><div class="s-head"><button class="s-back" data-close="scoreScreen">‹ Retour</button><h2 class="s-title">Score de publication</h2></div><div class="s-body" id="scoreBody"></div></div>
+<div class="screen" id="scoreScreen"><div class="s-head"><button class="s-back" data-close="scoreScreen">‹ Retour</button><h2 class="s-title">Score de publication</h2><button class="dark-toggle" title="Mode sombre" style="background:rgba(255,255,255,.16);border:none;color:#fff;width:34px;height:34px;border-radius:50%;cursor:pointer;flex:none;margin-left:auto;display:flex;align-items:center;justify-content:center;padding:0"><svg class="dark-toggle-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button></div><div class="s-body" id="scoreBody"></div></div>
 <!-- COMPARE -->
-<div class="screen" id="cmpScreen"><div class="s-head"><button class="s-back" data-close="cmpScreen">‹ Retour</button><h2 class="s-title" id="cmpTitle">Comparer les angles</h2></div><div class="s-body" id="cmpBody"></div></div>
+<div class="screen" id="cmpScreen"><div class="s-head"><button class="s-back" data-close="cmpScreen">‹ Retour</button><h2 class="s-title" id="cmpTitle">Comparer les angles</h2><button class="dark-toggle" title="Mode sombre" style="background:rgba(255,255,255,.16);border:none;color:#fff;width:34px;height:34px;border-radius:50%;cursor:pointer;flex:none;margin-left:auto;display:flex;align-items:center;justify-content:center;padding:0"><svg class="dark-toggle-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button></div><div class="s-body" id="cmpBody"></div></div>
 
 <!-- LIGHTBOX -->
 <div id="lightbox">
-  <div class="lb-top"><button class="lb-close" id="lbClose">✕</button></div>
+  <div class="lb-top"><button class="lb-close" id="lbClose"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
   <div class="lb-stage" id="lbStage"><img id="lbImg" src="" alt=""></div>
 </div>
 
@@ -234,14 +238,14 @@
   <div class="cam-stage">
     <video id="camVideo" playsinline autoplay muted></video>
     <canvas id="camGuide"></canvas>
-    <div class="cam-top"><button class="cam-x" id="camClose">✕</button><div class="ct-title" id="camTitle">Pièce</div><div style="width:40px"></div></div>
+    <div class="cam-top"><button class="cam-x" id="camClose"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button><div class="ct-title" id="camTitle">Pièce</div><div style="width:40px"></div></div>
     <div class="cam-chips" id="camChips"></div>
     <div class="cam-msg" id="camMsg" style="display:none"></div>
   </div>
   <div class="cam-bar">
-    <button class="cam-side" id="camGrid" title="Grille">▦</button>
+    <button class="cam-side" id="camGrid" title="Grille"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></button>
     <button class="shutter" id="camShot" aria-label="Prendre la photo"></button>
-    <button class="cam-side" id="camGuideBtn" title="Conseils">💡</button>
+    <button class="cam-side" id="camGuideBtn" title="Conseils"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></svg></button>
   </div>
 </div>
 
@@ -255,11 +259,59 @@
 /* $ et état accessoires requis par le moteur */
 const $ = id=>document.getElementById(id);
 const acc = {trepied:false, grandangle:false};
+
+/* ====== ICÔNES (SVG inline — remplace les emojis, CSP bloque les CDN externes) ====== */
+const ICON_PATHS = {
+  download:'<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
+  moon:'<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
+  sun:'<circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>',
+  x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  lightbulb:'<path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/>',
+  sofa:'<path d="M20 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v3"/><path d="M4 9a2 2 0 0 0-2 2v4h20v-4a2 2 0 0 0-2-2H4Z"/><path d="M4 15v3"/><path d="M20 15v3"/>',
+  cooking:'<path d="M2 12h15a5 5 0 0 1 0 10H8a5 5 0 0 1 0-10"/><path d="M6 12V4a2 2 0 0 1 4 0v8"/>',
+  bed:'<path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8V6a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v2"/>',
+  bath:'<path d="M9 6 6.5 3.5a1.5 1.5 0 0 0-2.7 1.4L4 6"/><path d="M4 12h16v3a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-3Z"/><path d="M4 12V8a2 2 0 0 1 2-2h1"/><path d="M6 19v2M18 19v2"/>',
+  door:'<path d="M14 3v18"/><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M11 12h.01"/>',
+  briefcase:'<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>',
+  utensils:'<path d="M3 2v7c0 1.1.9 2 2 2h1a2 2 0 0 0 2-2V2"/><path d="M6 11v11"/><path d="M18 2v20"/><path d="M21 15c-3 0-3-3-3-3V2"/>',
+  home:'<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M9 22V12h6v10"/>',
+  trees:'<path d="M10 10v.2A3 3 0 0 1 8.9 16H5a3 3 0 0 1-1-5.8V10a3 3 0 0 1 6 0Z"/><path d="M7 16v6"/><path d="M13 19v3"/><path d="M12 19h8.3a1 1 0 0 0 .7-1.7L18 14h.3a1 1 0 0 0 .7-1.7L16 9h.2a1 1 0 0 0 .8-1.7L13 3l-1.4 1.5"/>',
+  umbrella:'<path d="M22 12a10.06 10.06 0 0 0-20 0Z"/><path d="M12 12v8a2 2 0 0 0 4 0"/><path d="M12 2v1"/>',
+  waves:'<path d="M2 6c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>',
+  mountain:'<path d="m8 3 4 8 5-5 5 15H2L8 3z"/>',
+  car:'<path d="M14 16H9m10 0h3v-3.15a1 1 0 0 0-.84-.99L16 11l-2.7-3.6a1 1 0 0 0-.8-.4H5.24a2 2 0 0 0-1.8 1.1l-.9 1.8a5 5 0 0 0-.53 2.23V16h3"/><circle cx="6.5" cy="16.5" r="2.5"/><circle cx="16.5" cy="16.5" r="2.5"/>',
+  building:'<rect x="4" y="2" width="16" height="20" rx="1"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M12 6h.01M16 6h.01M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01"/>',
+  plus:'<path d="M5 12h14"/><path d="M12 5v14"/>',
+  trash:'<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+  star:'<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+  filetext:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  checkcircle:'<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+  columns:'<rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="18" rx="1"/>',
+  scale:'<path d="M12 3v18"/><path d="M8 21h8"/><path d="m3 7 3-2 3 2"/><path d="M3 7c0 2.5 1.5 4.5 3 4.5S9 9.5 9 7"/><path d="m15 7 3-2 3 2"/><path d="M15 7c0 2.5 1.5 4.5 3 4.5S21 9.5 21 7"/><path d="M6 5h12"/>',
+  camera:'<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
+  sliders:'<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>',
+  ruler:'<path d="M21.3 8.7 8.7 21.3a1 1 0 0 1-1.4 0l-4.6-4.6a1 1 0 0 1 0-1.4L15.3 2.7a1 1 0 0 1 1.4 0l4.6 4.6a1 1 0 0 1 0 1.4Z"/><path d="m7.5 10.5 2 2"/><path d="m10.5 7.5 2 2"/><path d="m13.5 4.5 2 2"/><path d="m4.5 13.5 2 2"/>',
+  target:'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+  ban:'<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>',
+  window:'<rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 9h18"/><path d="M12 9v11"/>',
+  hourglass:'<path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/>',
+  mappin:'<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+  search:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  rotate:'<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.99 6.57 2.64L21 8"/><path d="M21 3v5h-5"/>',
+  image:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/>',
+  grid:'<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>',
+  arrowleft:'<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>'
+};
+function ic(name,size){
+  size=size||18;
+  return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-${Math.round(size*0.17)}px;flex:none">${ICON_PATHS[name]||''}</svg>`;
+}
 /* ====== MOTEUR (réutilisé verbatim depuis l'app calibrée) ====== */
 const clamp=(v,a=0,b=100)=>Math.max(a,Math.min(b,v));
 const DATA = {
   // INTÉRIEUR
-  salon:{cat:"int",icon:"🛋️",name:"Salon / Séjour",sub:"La pièce reine",
+  salon:{cat:"int",icon:"sofa",name:"Salon / Séjour",sub:"La pièce reine",
     accroche:"C'est <b>la photo de couverture</b> dans 8 cas sur 10. Objectif : un espace lumineux, ouvert et qui « respire ». L'acquéreur doit s'y projeter en 2 secondes.",
     reglages:{
       auto:[["Mode","Photo standard + <b>HDR auto</b>"],["Grille","Activée (lignes droites)"],["Expo","Touchez une zone moyenne, baissez un peu si fenêtre"],["Astuce","Mode <b>0,5× / Ultra grand-angle</b> seulement si nécessaire, sinon ça déforme"]],
@@ -273,7 +325,7 @@ const DATA = {
     eviter:["Télécommandes, câbles, gamelles d'animaux qui traînent","Photographier debout au niveau des yeux (écrase la pièce)","Le 0,5× systématique : ça courbe les murs","Flash intégré (ombres dures, couleurs fausses)"],
     checklist:["Pièce rangée et désencombrée","Coussins redressés, plaid plié","Toutes les lampes allumées","Rideaux ouverts au maximum","Pris depuis 2 coins différents"]},
 
-  cuisine:{cat:"int",icon:"🍳",name:"Cuisine",sub:"Propre = vendeur",
+  cuisine:{cat:"int",icon:"cooking",name:"Cuisine",sub:"Propre = vendeur",
     accroche:"Pièce <b>décisive</b> pour les acheteurs. Mot d'ordre : <b>plans de travail vides et brillants</b>. Une cuisine nette inspire confiance sur tout le bien.",
     reglages:{
       auto:[["Mode","Photo + HDR auto"],["Grille","Activée (alignez les meubles)"],["Expo","Touchez le plan de travail, ajustez"],["Astuce","Essuyez l'inox/les vitres avant : les reflets se voient"]],
@@ -287,7 +339,7 @@ const DATA = {
     eviter:["Éponges, torchons, produits vaisselle, poubelle visibles","Magnets et papiers sur le frigo","Vaisselle dans l'évier","Reflets de vous-même dans l'inox/le four"],
     checklist:["Plans de travail entièrement dégagés","Évier vide et sec","Frigo nettoyé (façade)","Spots et hotte allumés","Inox/vitres sans traces"]},
 
-  chambre:{cat:"int",icon:"🛏️",name:"Chambre",sub:"Cocon apaisant",
+  chambre:{cat:"int",icon:"bed",name:"Chambre",sub:"Cocon apaisant",
     accroche:"Vendez une <b>ambiance reposante</b>. Lit fait impeccablement, espace dégagé. L'acheteur doit imaginer son repos ici.",
     reglages:{
       auto:[["Mode","Photo + HDR auto"],["Grille","Activée"],["Expo","Légèrement clair (ambiance douce)"],["Astuce","Allumez les lampes de chevet, effet cosy"]],
@@ -301,7 +353,7 @@ const DATA = {
     eviter:["Lit défait ou couvre-lit froissé","Affaires personnelles, linge qui traîne","Placards ouverts","Trop d'objets sur les tables de nuit"],
     checklist:["Lit fait au carré, oreillers gonflés","Sols et chaises dégagés","Lampes de chevet allumées","Rideaux ouverts","Objets perso rangés"]},
 
-  sdb:{cat:"int",icon:"🛁",name:"Salle de bain / WC",sub:"Net & sec",
+  sdb:{cat:"int",icon:"bath",name:"Salle de bain / WC",sub:"Net & sec",
     accroche:"Une salle de bain <b>impeccable et sèche</b> rassure énormément. Misez sur la propreté et la luminosité, pas sur la taille.",
     reglages:{
       auto:[["Mode","Photo + HDR auto"],["Grille","Activée"],["Expo","Un peu clair (blancheur)"],["Astuce","Essuyez miroir, robinetterie, parois : tout reflète"]],
@@ -315,7 +367,7 @@ const DATA = {
     eviter:["Brosses à dents, gels douche, produits perso","Serviettes usagées","Lunette WC relevée","Votre reflet dans le miroir","Traces d'eau / calcaire"],
     checklist:["Surfaces dégagées (pas de produits)","Miroir et robinetterie sans traces","Serviette propre pliée","Toutes lumières allumées","WC fermé, abattant baissé"]},
 
-  entree:{cat:"int",icon:"🚪",name:"Entrée / Couloir",sub:"Première impression",
+  entree:{cat:"int",icon:"door",name:"Entrée / Couloir",sub:"Première impression",
     accroche:"Souvent négligé, mais c'est le <b>premier pas dans le bien</b>. Un dégagement net et lumineux pose le ton.",
     reglages:{
       auto:[["Mode","Photo + HDR auto"],["Grille","Activée (verticales droites)"],["Expo","Standard, attention au fond sombre"],["Astuce","Allumez toute lumière dispo, espace souvent peu éclairé"]],
@@ -329,7 +381,7 @@ const DATA = {
     eviter:["Chaussures, manteaux, parapluies en vrac","Mur penché (couloir = piège à verticales)","Photo trop sombre au fond"],
     checklist:["Sol dégagé, chaussures rangées","Patère/console désencombrée","Lumières allumées","Portes des pièces claires ouvertes","Pris dans l'axe, bien droit"]},
 
-  bureau:{cat:"int",icon:"💼",name:"Bureau / Pièce annexe",sub:"Polyvalence",
+  bureau:{cat:"int",icon:"briefcase",name:"Bureau / Pièce annexe",sub:"Polyvalence",
     accroche:"Montrez le <b>potentiel</b> : bureau, chambre d'amis, dressing... Une pièce rangée = un atout « pièce en plus » qui justifie le prix.",
     reglages:{
       auto:[["Mode","Photo + HDR auto"],["Grille","Activée"],["Expo","Standard"],["Astuce","Dégagez le bureau au maximum"]],
@@ -343,7 +395,7 @@ const DATA = {
     eviter:["Bazar de câbles, papiers, cartons","Pièce transformée en débarras","Usage trop marqué (cave à vin perso, etc.)"],
     checklist:["Surface de travail dégagée","Câbles rangés","Sol libre","Lumières allumées","Fenêtre dans le cadre"]},
 
-  sam:{cat:"int",icon:"🍽️",name:"Salle à manger",sub:"Convivialité",
+  sam:{cat:"int",icon:"utensils",name:"Salle à manger",sub:"Convivialité",
     accroche:"Vendez des <b>moments à partager</b>. Table mise sobrement, espace de circulation visible. Effet « on reçoit ici ».",
     reglages:{
       auto:[["Mode","Photo + HDR auto"],["Grille","Activée"],["Expo","Vers la fenêtre, baissez un peu"],["Astuce","Suspension allumée au-dessus de la table"]],
@@ -358,7 +410,7 @@ const DATA = {
     checklist:["Table dégagée ou mise sobrement","Chaises alignées","Suspension allumée","Rideaux ouverts","Pris en diagonale"]},
 
   // EXTÉRIEUR
-  facade:{cat:"ext",icon:"🏠",name:"Façade / Extérieur du bien",sub:"L'accroche n°1",
+  facade:{cat:"ext",icon:"home",name:"Façade / Extérieur du bien",sub:"L'accroche n°1",
     accroche:"C'est <b>la vitrine</b> de l'annonce. Une façade nette, sous belle lumière, sans voiture devant, déclenche le clic. Soignez-la comme la couverture.",
     reglages:{
       auto:[["Mode","Photo + HDR auto"],["Grille","Activée (verticales droites !)"],["Expo","Sur la façade, ciel pas cramé"],["Astuce","Évitez le grand soleil de midi (ombres dures)"]],
@@ -372,7 +424,7 @@ const DATA = {
     eviter:["Voitures devant (la vôtre y compris)","Poubelles sorties, fils, panneaux","Façade en plein contre-jour","Ciel totalement cramé (blanc)","Plan trop penché vers le haut"],
     checklist:["Voitures déplacées","Poubelles rentrées","Allée/entrée balayée","Volets ouverts (uniformes)","Belle lumière (matin/soir)","Verticales bien droites"]},
 
-  jardin:{cat:"ext",icon:"🌳",name:"Jardin",sub:"Espace de vie en plus",
+  jardin:{cat:"ext",icon:"trees",name:"Jardin",sub:"Espace de vie en plus",
     accroche:"Le jardin se vend comme une <b>pièce supplémentaire</b>. Montrez l'espace, l'intimité et le potentiel (jeux, repas, détente).",
     reglages:{
       auto:[["Mode","Photo + HDR auto"],["Grille","Activée"],["Expo","Vers la végétation"],["Astuce","Soleil dans le dos pour des couleurs saturées"]],
@@ -386,7 +438,7 @@ const DATA = {
     eviter:["Pelouse non tondue, feuilles, déchets verts","Tuyau d'arrosage, jouets, outils","Linge qui sèche","Ciel blanc / temps gris terne"],
     checklist:["Pelouse tondue, massifs nets","Salon de jardin en place et propre","Outils/tuyaux rangés","Beau temps, soleil dans le dos","Vue maison + vue profondeur prises"]},
 
-  terrasse:{cat:"ext",icon:"⛱️",name:"Terrasse / Balcon",sub:"Vivre dehors",
+  terrasse:{cat:"ext",icon:"umbrella",name:"Terrasse / Balcon",sub:"Vivre dehors",
     accroche:"Vendez l'<b>art de vivre extérieur</b>. Même un petit balcon mis en scène (table, plante) fait rêver et augmente la valeur perçue.",
     reglages:{
       auto:[["Mode","Photo + HDR auto"],["Grille","Activée"],["Expo","Équilibrez sol et ciel"],["Astuce","Tôt le matin ou fin de journée pour la lumière douce"]],
@@ -400,7 +452,7 @@ const DATA = {
     eviter:["Mobilier sale, cendrier, étendoir","Sol non balayé","Heure de plein cagnard (ombres dures)"],
     checklist:["Sol balayé/nettoyé","Mobilier d'extérieur en scène","Plantes soignées","Vue dégagée","Lumière douce"]},
 
-  piscine:{cat:"ext",icon:"🏊",name:"Piscine",sub:"L'argument rêve",
+  piscine:{cat:"ext",icon:"waves",name:"Piscine",sub:"L'argument rêve",
     accroche:"La piscine est un <b>aimant à clics</b>. Eau propre, reflets, ciel bleu : c'est la photo « coup de cœur » par excellence.",
     reglages:{
       auto:[["Mode","Photo + HDR auto"],["Grille","Activée"],["Expo","Sur l'eau, ciel pas cramé"],["Astuce","Reflets plus beaux quand le soleil est bas"]],
@@ -414,7 +466,7 @@ const DATA = {
     eviter:["Eau verte/trouble, robot ou tuyau dans le bassin","Bâche/volet de piscine fermé","Transats en désordre","Ciel gris (l'eau devient terne)"],
     checklist:["Eau propre et limpide","Robot/épuisette retirés","Plage et transats en place","Ciel bleu, soleil bas","Reflets dans l'eau soignés"]},
 
-  vue:{cat:"ext",icon:"🌄",name:"Vue / Panorama",sub:"L'exception qui vend",
+  vue:{cat:"ext",icon:"mountain",name:"Vue / Panorama",sub:"L'exception qui vend",
     accroche:"Une <b>belle vue</b> (mer, montagne, campagne, ville) est un argument rare et différenciant. Faites-la respirer dans l'annonce.",
     reglages:{
       auto:[["Mode","Photo + HDR auto"],["Grille","Activée (horizon droit)"],["Expo","Équilibrez ciel et paysage"],["Astuce","Mode Panoramique pour les vues larges"]],
@@ -428,7 +480,7 @@ const DATA = {
     eviter:["Horizon penché","Vitre sale entre l'objectif et la vue","Ciel cramé tout blanc","Premier plan encombré"],
     checklist:["Horizon bien droit","Vitres propres (si depuis l'intérieur)","Belle heure (matin/soir)","Premier plan « depuis chez soi »","Règle des tiers respectée"]},
 
-  garage:{cat:"ext",icon:"🚗",name:"Garage / Dépendance",sub:"Atout pratique",
+  garage:{cat:"ext",icon:"car",name:"Garage / Dépendance",sub:"Atout pratique",
     accroche:"Garage, cave, abri : des <b>arguments concrets</b>. Montrez le volume et la propreté, pas le bazar.",
     reglages:{
       auto:[["Mode","Photo + HDR auto"],["Grille","Activée"],["Expo","+0,3 EV (souvent sombre)"],["Astuce","Ouvrez la porte pour faire entrer la lumière"]],
@@ -804,7 +856,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-close]');i
 let currentBienId=null, currentRoom=null;
 function renderHome(){
   const list=loadBiens();
-  let html='<button class="btn btn-primary" id="newBienBtn" style="margin-bottom:14px">➕ Nouveau bien</button>';
+  let html='<button class="btn btn-primary" id="newBienBtn" style="margin-bottom:14px">'+ic('plus',18)+' Nouveau bien</button>';
   if(!list.length){
     html+='<div class="empty">Aucun bien pour l’instant.<br>Créez un bien, puis shootez pièce par pièce :<br>l’app vous guide, note chaque photo et garde la meilleure.</div>';
   }else{
@@ -812,15 +864,15 @@ function renderHome(){
     list.forEach(b=>{
       const pr=progress(b),pct=Math.round(pr.done/pr.total*100),n=(b.photos||[]).length;
       html+=`<div class="bien-card" data-bien="${b.id}">
-        <div class="bien-ic">${b.type==='appartement'?'🏢':'🏡'}</div>
+        <div class="bien-ic">${ic(b.type==='appartement'?'building':'home',26)}</div>
         <div class="bien-main"><div class="bien-addr">${esc(b.address)}</div>
           <div class="bien-sub">${b.type==='appartement'?'Appartement':'Maison'} · ${n} photo${n>1?'s':''} · ${fmtDate(b.created)}</div>
           <div class="pbar"><i style="width:${pct}%"></i></div></div>
         <div class="bien-prog">${pr.done}/${pr.total}</div>
-        <button class="bien-del" data-delbien="${b.id}" title="Supprimer">🗑️</button></div>`;
+        <button class="bien-del" data-delbien="${b.id}" title="Supprimer">${ic('trash',18)}</button></div>`;
     });
   }
-  html+='<div class="section-title">Aide</div><button class="btn btn-ghost" id="rulesBtn" style="width:100%">⭐ Les 10 règles d’or du shooting</button>';
+  html+='<div class="section-title">Aide</div><button class="btn btn-ghost" id="rulesBtn" style="width:100%">'+ic('star',18)+' Les 10 règles d’or du shooting</button>';
   html+='<div class="footer-note">Analyse 100% locale — vos photos ne quittent pas l’appareil. Ajoutez l’app à l’écran d’accueil pour l’utiliser hors-ligne sur le terrain.</div>';
   $('home').innerHTML=html;
 }
@@ -843,7 +895,7 @@ function openNewBien(){
         <div class="section-title">Adresse du bien</div>
         <input id="nbAddr" placeholder="12 rue des Lilas, Pithiviers" style="width:100%;padding:14px;font-size:16px;border:1.5px solid var(--line);border-radius:12px">
         <div class="section-title">Type</div>
-        <div class="btn-row" id="nbType"><button class="btn btn-ghost" data-t="maison" aria-pressed="true">🏡 Maison</button><button class="btn btn-ghost" data-t="appartement">🏢 Appartement</button></div>
+        <div class="btn-row" id="nbType"><button class="btn btn-ghost" data-t="maison" aria-pressed="true">${ic('home',17)} Maison</button><button class="btn btn-ghost" data-t="appartement">${ic('building',17)} Appartement</button></div>
         <button class="btn btn-primary" id="nbCreate" style="margin-top:18px">Créer le bien</button>
       </div>`;
     document.body.appendChild(m);
@@ -866,7 +918,7 @@ function renderBien(){
   $('bienTitle').textContent=b.address;
   const{req,extra}=roomsForBien(b),pr=progress(b),pct=Math.round(pr.done/pr.total*100);
   let html=`<div class="gcard"><div style="display:flex;justify-content:space-between;align-items:baseline"><b>Avancement</b><span style="font-weight:800;color:var(--green)">${pr.done}/${pr.total} pièces clés</span></div><div class="pbar" style="margin-top:9px"><i style="width:${pct}%"></i></div></div>`;
-  html+='<button class="btn btn-gold" id="exportBtn" style="margin-bottom:6px">📄 Générer le PDF du bien</button>';
+  html+='<button class="btn btn-gold" id="exportBtn" style="margin-bottom:6px">'+ic('filetext',18)+' Générer le PDF du bien</button>';
   html+='<div class="section-title">Pièces clés à shooter</div><div class="roomlist">'+req.map(k=>roomRow(b,k)).join('')+'</div>';
   html+='<div class="section-title">Autres pièces / extérieurs</div><div class="roomlist">'+extra.map(k=>roomRow(b,k)).join('')+'</div>';
   $('bienBody').innerHTML=html;
@@ -874,12 +926,12 @@ function renderBien(){
 function roomRow(b,k){
   const r=DATA[k],ps=photosOf(b,k),best=bestOf(b,k),kept=ps.find(p=>p.kept);
   const bd=best!=null?band(best):null;
-  const sub=ps.length?(ps.length+' angle'+(ps.length>1?'s':'')+(kept?' · ✓ retenue':'')):'À prendre';
+  const sub=ps.length?(ps.length+' angle'+(ps.length>1?'s':'')+(kept?' · '+ic('check',13)+' retenue':'')):'À prendre';
   return `<div class="roomrow ${ps.length?'done':''}">
-    <span class="rr-ic">${r.icon}</span>
+    <span class="rr-ic">${ic(r.icon,24)}</span>
     <div class="rr-main"><div class="rr-name">${r.name}</div><div class="rr-sub">${sub}</div></div>
     ${best!=null?`<span class="rr-badge ${bd}">${best}</span>`:''}
-    <div class="rr-act"><button class="rr-cmp" data-cmp="${k}" title="Comparer les photos">⚖️</button><button class="rr-guide" data-guide="${k}" title="Conseils">💡</button><button class="rr-import" data-import="${k}" title="Importer des images">🖼️</button><button class="rr-shoot" data-shoot="${k}" title="Prendre">📷</button></div></div>`;
+    <div class="rr-act"><button class="rr-cmp" data-cmp="${k}" title="Comparer les photos">${ic('scale',17)}</button><button class="rr-guide" data-guide="${k}" title="Conseils">${ic('lightbulb',17)}</button><button class="rr-import" data-import="${k}" title="Importer des images">${ic('image',17)}</button><button class="rr-shoot" data-shoot="${k}" title="Prendre">${ic('camera',18)}</button></div></div>`;
 }
 $('bienBody').addEventListener('click',e=>{
   if(e.target.closest('#exportBtn'))return exportBien(currentBienId);
@@ -910,14 +962,14 @@ function openGuide(k){
   const r=DATA[k];currentRoom=k;
   $('guideTitle').textContent=r.name;
   $('guideBody').innerHTML=`
-    <button class="btn btn-primary" id="guideShoot" style="margin-bottom:14px">📷 Prendre cette pièce</button>
+    <button class="btn btn-primary" id="guideShoot" style="margin-bottom:14px">${ic('camera',18)} Prendre cette pièce</button>
     <div class="accroche">${r.accroche}</div>
-    <div class="gcard"><h3>🎛️ Réglages (smartphone auto)</h3>${srows(r.reglages.auto)}</div>
-    <div class="gcard"><h3>📐 Angle & position</h3><p>${r.angle}</p></div>
-    <div class="gcard"><h3>🎯 Composition</h3><p>${r.composition}</p></div>
-    <div class="gcard"><h3>💡 Lumière</h3><p>${r.lumiere}</p></div>
-    <div class="gcard"><h3>✅ Avant de déclencher</h3><ul>${r.checklist.map(c=>'<li>'+c+'</li>').join('')}</ul></div>
-    <div class="gcard eviter"><h3>🚫 À éviter</h3><ul>${r.eviter.map(c=>'<li>'+c+'</li>').join('')}</ul></div>`;
+    <div class="gcard"><h3>${ic('sliders',15)} Réglages (smartphone auto)</h3>${srows(r.reglages.auto)}</div>
+    <div class="gcard"><h3>${ic('ruler',15)} Angle & position</h3><p>${r.angle}</p></div>
+    <div class="gcard"><h3>${ic('target',15)} Composition</h3><p>${r.composition}</p></div>
+    <div class="gcard"><h3>${ic('lightbulb',15)} Lumière</h3><p>${r.lumiere}</p></div>
+    <div class="gcard"><h3>${ic('checkcircle',15)} Avant de déclencher</h3><ul>${r.checklist.map(c=>'<li>'+c+'</li>').join('')}</ul></div>
+    <div class="gcard eviter"><h3>${ic('ban',15)} À éviter</h3><ul>${r.eviter.map(c=>'<li>'+c+'</li>').join('')}</ul></div>`;
   $('guideShoot').onclick=()=>{closeScreen('guideScreen');openCam(k);};
   openScreen('guideScreen');
 }
@@ -935,7 +987,7 @@ function openCam(room){
 }
 function camFail(msg){
   $('camMsg').style.display='grid';
-  $('camMsg').innerHTML=msg+'<br><br><button class="btn btn-gold" id="camFallback" style="max-width:280px">📷 Utiliser l’appareil photo</button>';
+  $('camMsg').innerHTML=msg+'<br><br><button class="btn btn-gold" id="camFallback" style="max-width:280px">'+ic('camera',18)+' Utiliser l’appareil photo</button>';
   $('camFallback').onclick=()=>{closeCam();const inp=$('fileInput');inp.onchange=e=>{const f=e.target.files&&e.target.files[0];if(f)handlePhoto(f,room);inp.value='';};inp.click();};
 }
 async function startStream(){
@@ -1008,11 +1060,11 @@ function startCoach(){
     for(let i=0,p=0;i<n;i++,p+=4){const l=0.299*d[p]+0.587*d[p+1]+0.114*d[p+2];sum+=l;if(l>=248)hi++;}
     const meanL=sum/n,hiPct=hi/n*100;
     const chips=[];
-    if(meanL<70)chips.push(['warn','🌑 Trop sombre — allumez les lumières']);
-    else if(meanL>205)chips.push(['warn','☀️ Trop clair']);
-    else chips.push(['ok','💡 Lumière OK']);
-    if(hiPct>8)chips.push(['warn','🪟 Fenêtre cramée — HDR']);
-    chips.push(lastTiltOK?['ok','📐 Droit']:['lvl','📐 Penché ('+Math.abs(Math.round(lastRoll))+'°)']);
+    if(meanL<70)chips.push(['warn',ic('moon',13)+' Trop sombre — allumez les lumières']);
+    else if(meanL>205)chips.push(['warn',ic('sun',13)+' Trop clair']);
+    else chips.push(['ok',ic('lightbulb',13)+' Lumière OK']);
+    if(hiPct>8)chips.push(['warn',ic('window',13)+' Fenêtre cramée — HDR']);
+    chips.push(lastTiltOK?['ok',ic('ruler',13)+' Droit']:['lvl',ic('ruler',13)+' Penché ('+Math.abs(Math.round(lastRoll))+'°)']);
     $('camChips').innerHTML=chips.map(([c,t])=>`<span class="cam-chip ${c}">${t}</span>`).join('');
   },500);
 }
@@ -1079,7 +1131,7 @@ async function handleImportFiles(fileList,room){
   currentRoom=room;
   if(files.length===1){await handlePhoto(files[0],room);return;}
   openScreen('scoreScreen');
-  $('scoreBody').innerHTML='<div class="empty"><div style="font-size:30px">⏳</div>Import de '+files.length+' photos…</div>';
+  $('scoreBody').innerHTML='<div class="empty"><div style="opacity:.5">'+ic('hourglass',30)+'</div>Import de '+files.length+' photos…</div>';
   let lastEntry=null,ok=0;
   for(const file of files){
     try{
@@ -1102,7 +1154,7 @@ async function handleImportFiles(fileList,room){
 
 async function handlePhoto(file,room){
   openScreen('scoreScreen');
-  $('scoreBody').innerHTML='<div class="empty"><div style="font-size:30px">⏳</div>Analyse de la photo…</div>';
+  $('scoreBody').innerHTML='<div class="empty"><div style="opacity:.5">'+ic('hourglass',30)+'</div>Analyse de la photo…</div>';
   try{
     const prof=profileFor(room);
     const bmp=await createImageBitmap(file,{imageOrientation:'from-image'}).catch(()=>loadImg(file));
@@ -1189,26 +1241,26 @@ function renderScore(entry,isNew){
   const v=o>=80?{c:'#0f6b3f',t:'Prête à publier',s:'Belle photo d’annonce.'}:o>=60?{c:'#c9a24b',t:'Correcte, améliorable',s:'Publiable, mais quelques réglages aideraient.'}:{c:'#d0664f',t:'À refaire',s:'Corrigez les points rouges et reprenez.'};
   const R=72,C=2*Math.PI*R,off=C*(1-o/100);
   const fix=metrics.filter(m=>m.score<75).sort((a,b)=>((b.w||1)*(100-b.score))-((a.w||1)*(100-a.score)));
-  const prio=fix.length?`<div class="priority"><span class="pt">🎯 À corriger en priorité : ${fix[0].name} · ${fix[0].score}/100</span>${fix[0].tip||''}</div>`:`<div class="priority good"><span class="pt">🎯 Rien à corriger</span>Tous les critères sont au vert.</div>`;
+  const prio=fix.length?`<div class="priority"><span class="pt">${ic('target',15)} À corriger en priorité : ${fix[0].name} · ${fix[0].score}/100</span>${fix[0].tip||''}</div>`:`<div class="priority good"><span class="pt">${ic('target',15)} Rien à corriger</span>Tous les critères sont au vert.</div>`;
   const mh=metrics.map(m=>{const bd=band(m.score),tip=m.tip?`<div class="mtip${m.score<55?' warn':''}">${m.tip}</div>`:'';
     return `<div class="metric"><div class="top"><span class="mname">${m.name}</span><span class="mscore" style="color:${bd==='ok'?'#0f6b3f':bd==='mid'?'#b07d12':'#9a3b2e'}">${m.score}<span style="color:#aab">/100</span></span></div><div class="bar ${bd}"><i style="width:${m.score}%"></i></div>${tip}</div>`;}).join('');
   const url=(sessionFull[entry.id]&&sessionFull[entry.id].url)||entry.thumb;
   const ps=photosOf(getBien(currentBienId),entry.room);
   $('scoreBody').innerHTML=`
-    <div style="text-align:center;margin-bottom:6px"><span style="background:var(--green-l);color:var(--green);font-weight:700;font-size:12px;padding:4px 11px;border-radius:999px">📍 ${DATA[entry.room].name}</span></div>
+    <div style="text-align:center;margin-bottom:6px"><span style="background:var(--green-l);color:var(--green);font-weight:700;font-size:12px;padding:4px 11px;border-radius:999px">${ic('mappin',12)} ${DATA[entry.room].name}</span></div>
     <div class="thumb-wrap"><img class="thumb" id="scoreImg" src="${url}" alt=""><canvas id="ovCanvas" style="display:none"></canvas></div>
-    <div class="ov-toggle"><button id="ovPhoto" aria-pressed="true">Photo</button><button id="ovDef">🔎 Voir les défauts</button></div>
+    <div class="ov-toggle"><button id="ovPhoto" aria-pressed="true">Photo</button><button id="ovDef">${ic('search',14)} Voir les défauts</button></div>
     <div class="score-hero"><div class="gauge"><svg width="160" height="160" viewBox="0 0 160 160"><circle cx="80" cy="80" r="${R}" fill="none" stroke="#eceef3" stroke-width="12"/><circle cx="80" cy="80" r="${R}" fill="none" stroke="${v.c}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${off}"/></svg><div class="val"><div class="num" style="color:${v.c}">${o}</div><div class="den">/ 100</div></div></div>
     <div class="verdict" style="color:${v.c}">${v.t}</div><div class="verdict-sub">${v.s}</div></div>
     ${prio}${mh}
-    <button class="btn btn-green" id="keepBtn" style="width:100%;margin-top:6px">${entry.kept?'✓ Photo retenue':'✅ Retenir cette photo'}</button>
+    <button class="btn btn-green" id="keepBtn" style="width:100%;margin-top:6px">${entry.kept?ic('check',16)+' Photo retenue':ic('checkcircle',16)+' Retenir cette photo'}</button>
     <div class="score-actions">
-      <button id="retakeBtn">📷 Reprendre</button>
-      <button id="reimportBtn">🖼️ Réimporter</button>
-      <button id="rotateBtn">🔄 Pivoter</button>
-      ${ps.length>1?`<button id="cmpBtn">⚖️ Comparer (${ps.length})</button>`:''}
+      <button id="retakeBtn">${ic('camera',16)} Reprendre</button>
+      <button id="reimportBtn">${ic('image',16)} Réimporter</button>
+      <button id="rotateBtn">${ic('rotate',16)} Pivoter</button>
+      ${ps.length>1?`<button id="cmpBtn">${ic('scale',16)} Comparer (${ps.length})</button>`:''}
     </div>
-    <button class="btn btn-ghost" id="saveImgBtn" style="width:100%;margin-top:4px">📥 Enregistrer la photo</button>`;
+    <button class="btn btn-ghost" id="saveImgBtn" style="width:100%;margin-top:4px">${ic('download',16)} Enregistrer la photo</button>`;
   const ring=$('scoreBody').querySelector('circle:last-of-type');ring.style.transition='none';ring.setAttribute('stroke-dashoffset',C);
   requestAnimationFrame(()=>{ring.style.transition='stroke-dashoffset 1s ease';ring.setAttribute('stroke-dashoffset',off);});
   $('ovPhoto').onclick=()=>setOverlay(false);
@@ -1216,7 +1268,7 @@ function renderScore(entry,isNew){
   $('retakeBtn').onclick=()=>{closeScreen('scoreScreen');openCam(entry.room);};
   $('reimportBtn').onclick=()=>{closeScreen('scoreScreen');triggerImport(entry.room);};
   $('rotateBtn').onclick=()=>rotatePhoto(entry);
-  $('keepBtn').onclick=()=>{const willKeep=keepPhoto(entry.room,entry.id);entry.kept=willKeep;$('keepBtn').textContent=willKeep?'✓ Photo retenue':'✅ Retenir cette photo';toast(willKeep?'Photo retenue pour '+DATA[entry.room].name:'Sélection annulée');};
+  $('keepBtn').onclick=()=>{const willKeep=keepPhoto(entry.room,entry.id);entry.kept=willKeep;$('keepBtn').innerHTML=willKeep?ic('check',16)+' Photo retenue':ic('checkcircle',16)+' Retenir cette photo';toast(willKeep?'Photo retenue pour '+DATA[entry.room].name:'Sélection annulée');};
   const cb=$('cmpBtn');if(cb)cb.onclick=()=>{closeScreen('scoreScreen');openCompare(entry.room);};
   $('saveImgBtn').onclick=()=>saveImage(entry);
   openScreen('scoreScreen');
@@ -1259,8 +1311,8 @@ function openCompare(room){
     ps.map(p=>{const bd=band(p.score),isBest=p.score===best;
       return `<div class="cmp-card ${p.kept?'kept':(isBest?'best':'')}" data-pid="${p.id}">
         <img src="${(sessionFull[p.id]&&sessionFull[p.id].url)||p.thumb}" alt="">
-        <div class="cmp-info"><div class="cmp-score" style="color:${bd==='ok'?'#0f6b3f':bd==='mid'?'#b07d12':'#9a3b2e'}">${p.score}<span style="font-size:13px;color:#aab">/100</span> ${isBest?'⭐':''}</div>
-        <div class="cmp-state">${p.kept?'✓ Retenue':'Tapez pour retenir'}</div></div></div>`;}).join('')+'</div>';
+        <div class="cmp-info"><div class="cmp-score" style="color:${bd==='ok'?'#0f6b3f':bd==='mid'?'#b07d12':'#9a3b2e'}">${p.score}<span style="font-size:13px;color:#aab">/100</span> ${isBest?ic('star',14):''}</div>
+        <div class="cmp-state">${p.kept?ic('check',13)+' Retenue':'Tapez pour retenir'}</div></div></div>`;}).join('')+'</div>';
   $('cmpBody').onclick=e=>{
     const c=e.target.closest('[data-pid]');if(!c)return;
     if(e.target.tagName==='IMG'){openLightbox(e.target.src);return;}
@@ -1345,16 +1397,17 @@ renderHome();
 <!-- Dark mode -->
 <script>
 (function(){
-  const btn=document.getElementById('darkBtn');
+  const btns=document.querySelectorAll('.dark-toggle');
+  const icons=document.querySelectorAll('.dark-toggle-icon');
   const apply=dark=>{
     document.documentElement.setAttribute('data-theme',dark?'dark':'light');
-    btn.textContent=dark?'☀️':'🌙';
+    icons.forEach(icon=>icon.innerHTML=dark?ICON_PATHS.sun:ICON_PATHS.moon);
     try{localStorage.setItem('theme',dark?'dark':'light');}catch(e){}
   };
   const saved=localStorage.getItem('theme');
   const sysDark=window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches;
   apply(saved?saved==='dark':sysDark);
-  btn.addEventListener('click',()=>apply(document.documentElement.getAttribute('data-theme')!=='dark'));
+  btns.forEach(btn=>btn.addEventListener('click',()=>apply(document.documentElement.getAttribute('data-theme')!=='dark')));
 })();
 </script>
 </body>
