@@ -2,6 +2,17 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
+<script>
+  // Applique le thème AVANT le premier rendu, pour éviter un flash en clair
+  // si l'utilisateur a choisi le mode sombre (voir aussi initTheme() plus bas,
+  // qui synchronise ensuite l'icône et le libellé du bouton une fois le DOM prêt).
+  (function(){
+    const saved = localStorage.getItem('theme');
+    const sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme:dark)').matches;
+    const theme = saved || (sysDark ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  })();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#16266b">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -580,7 +591,7 @@ footer { text-align: center; padding: 2rem 1rem calc(2rem + env(safe-area-inset-
       <span id="theme-label">Mode sombre</span>
     </button>
     <div class="more-menu" id="more-menu">
-      <button class="more-btn" onclick="toggleMoreMenu(event)" title="Plus d'options">⋯</button>
+      <button class="more-btn" onclick="toggleMoreMenu(event)" title="Plus d'options" aria-label="Plus d'options" aria-haspopup="true" aria-expanded="false" id="more-btn">⋯</button>
       <div class="more-dropdown" id="more-dropdown">
         <button class="more-item" onclick="tutoOpen();closeMoreMenu()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -1560,10 +1571,13 @@ window.onload = function() {
 // MENU ⋯
 function toggleMoreMenu(e) {
   e.stopPropagation();
-  document.getElementById('more-dropdown').classList.toggle('open');
+  const open = document.getElementById('more-dropdown').classList.toggle('open');
+  document.getElementById('more-btn').setAttribute('aria-expanded', open ? 'true' : 'false');
 }
 function closeMoreMenu() {
   document.getElementById('more-dropdown').classList.remove('open');
+  const btn = document.getElementById('more-btn');
+  if (btn) btn.setAttribute('aria-expanded', 'false');
 }
 document.addEventListener('click', function() { closeMoreMenu(); });
 
@@ -1956,11 +1970,12 @@ function hubSave() {
     if (el) data[id] = el.value;
   });
   data['__mode'] = currentMode;
-  localStorage.setItem('hub_data', JSON.stringify(data));
+  try { localStorage.setItem('hub_data', JSON.stringify(data)); } catch (e) {}
 }
 
 function hubLoad() {
-  const raw = localStorage.getItem('hub_data');
+  let raw;
+  try { raw = localStorage.getItem('hub_data'); } catch (e) { return; }
   if (!raw) return;
   try {
     const data = JSON.parse(raw);
@@ -1996,7 +2011,7 @@ function hubReset() {
 }
 
 function hubClear() {
-  localStorage.removeItem('hub_data');
+  try { localStorage.removeItem('hub_data'); } catch (e) {}
   document.querySelectorAll('.hub-field input, .hub-field textarea').forEach(el => el.value = '');
   document.querySelectorAll('.hub-field select').forEach(s => s.selectedIndex = 0);
   document.getElementById('hub-result').style.display = 'none';
