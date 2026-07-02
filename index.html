@@ -9,7 +9,18 @@
 <meta name="apple-mobile-web-app-title" content="Laforêt Apps">
 <link rel="icon" href="logo_laforet.png">
 <link rel="apple-touch-icon" href="logo_laforet.png">
+<!--
+  Content-Security-Policy : alignée sur celle de bibliotheque.html et photoimmo.html.
+  - default-src 'self' : rien d'externe par défaut.
+  - script-src 'self' 'unsafe-inline' : script inline uniquement (plus de dépendance
+    à un CDN externe depuis le retrait de lucide.js — icônes désormais en SVG inline).
+  - connect-src 'self' : cette page ne fait aucun appel réseau (navigation interne uniquement).
+  - img-src 'self' data: : logo local + éventuelles data URI.
+  - object-src 'none', base-uri 'self', form-action 'none' : durcissement standard.
+-->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'self'">
 <title>Laforêt Pithiviers — Applications</title>
+<meta name="description" content="Portail des applications internes Laforêt Pithiviers : bibliothèque de prompts IA et gestion des photos immobilières.">
 <style>
   :root {
     --blue: #16266b;
@@ -17,7 +28,7 @@
     --blue-l: #e9ecf7;
     --sky: #29a9e0;
     --sky-l: #e4f4fc;
-    --bg: #f4f6fa;
+    --bg: #eef1fa;
     --card: #fff;
     --ink: #161d33;
     --muted: #525d7a;
@@ -182,14 +193,13 @@ to{opacity:1}
 }
 
 </style>
-<script src="https://unpkg.com/lucide@latest"></script>
 
 <style>
 body{
 background:
-radial-gradient(circle at 15% 10%,rgba(41,169,224,.08),transparent 28%),
-radial-gradient(circle at 90% 25%,rgba(22,38,107,.06),transparent 30%),
-linear-gradient(180deg,#eef3fb,#f7f9fc 55%,#fff);
+radial-gradient(circle at 15% 10%,rgba(41,169,224,.13),transparent 32%),
+radial-gradient(circle at 90% 25%,rgba(22,38,107,.11),transparent 34%),
+linear-gradient(180deg,#e6ecfa,#eef2fb 55%,#f8faff);
 }
 header{
 backdrop-filter:blur(10px);
@@ -259,7 +269,7 @@ animation:pulse .8s ease-in-out infinite alternate;
   </div>
   <h1>Laforêt Pithiviers</h1>
   <p>Outils & Applications internes</p>
-  <button id="darkBtn" title="Mode sombre" style="position:absolute;top:calc(16px + env(safe-area-inset-top));right:16px;background:rgba(255,255,255,.16);border:none;color:#fff;width:36px;height:36px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0">
+  <button id="darkBtn" title="Mode sombre" aria-label="Basculer le mode sombre" style="position:absolute;top:calc(16px + env(safe-area-inset-top));right:16px;background:rgba(255,255,255,.16);border:none;color:#fff;width:36px;height:36px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0">
     <svg id="darkIcon" xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
   </button>
 </header>
@@ -268,7 +278,7 @@ animation:pulse .8s ease-in-out infinite alternate;
   <p class="section-label">Choisir une application</p>
 
   <a class="app-card" href="bibliotheque.html">
-    <div class="app-icon icon-blue"><i data-lucide="library-big"></i></div>
+    <div class="app-icon icon-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
     <div class="app-info">
       <p class="app-name">Bibliothèque de prompts</p>
       <p class="app-desc">Prompts IA prêts à l'emploi — annonces, emails, réseaux sociaux, prospection et admin.</p>
@@ -278,7 +288,7 @@ animation:pulse .8s ease-in-out infinite alternate;
   </a>
 
   <a class="app-card" href="photoimmo.html">
-    <div class="app-icon icon-sky"><i data-lucide="camera"></i></div>
+    <div class="app-icon icon-sky"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
     <div class="app-info">
       <p class="app-name">PhotoImmo Pro</p>
       <p class="app-desc">Notez et gérez vos photos de biens immobiliers pièce par pièce, avec guide de prise de vue.</p>
@@ -331,9 +341,6 @@ document.addEventListener('DOMContentLoaded',function(){
       setTimeout(()=>window.location.href=card.href,280);
     });
   });
-
-  // Lucide pour les icônes des cartes — optionnel (si réseau dispo)
-  if(typeof lucide!=='undefined') lucide.createIcons();
 });
 </script>
 
