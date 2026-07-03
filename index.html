@@ -341,6 +341,16 @@ document.addEventListener('DOMContentLoaded',function(){
       setTimeout(()=>window.location.href=card.href,280);
     });
   });
+
+  // Correctif bouton retour : quand on revient sur cette page (ex. depuis
+  // bibliotheque.html ou photoimmo.html via le bouton "retour" du navigateur),
+  // certains navigateurs restaurent la page depuis leur cache mémoire (bfcache)
+  // sans ré-exécuter le JS. L'overlay de transition, qui avait été rendu visible
+  // juste avant de quitter la page, restait alors affiché par-dessus le contenu.
+  // On le masque systématiquement à chaque affichage de la page.
+  window.addEventListener('pageshow',()=>{
+    overlay.classList.remove('show');
+  });
 });
 </script>
 

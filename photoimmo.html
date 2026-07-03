@@ -846,13 +846,56 @@ function bestOf(b,room){const ps=photosOf(b,room);return ps.length?Math.max(...p
 function progress(b){const{req}=roomsForBien(b);const done=req.filter(k=>photosOf(b,k).length>0).length;return{done,total:req.length};}
 
 /* ---------- navigation écrans ---------- */
-function openScreen(id){$(id).classList.add('open');$(id).scrollTop=0;window.scrollTo(0,0);}
+function openScreen(id){$(id).classList.add('open');$(id).scrollTop=0;window.scrollTo(0,0);syncUiHistory();}
 function closeScreen(id){
   $(id).classList.remove('open');
   // Rafraîchir bienScreen dès qu'on le rend visible (retour depuis score ou comparaison)
   if((id==='scoreScreen'||id==='cmpScreen')&&currentBienId) renderBien();
+  syncUiHistory();
 }
 document.addEventListener('click',e=>{const b=e.target.closest('[data-close]');if(b)closeScreen(b.dataset.close);});
+
+/* ---------- bouton retour (navigateur / geste mobile) ----------
+   Sans ce correctif, appuyer sur "retour" alors qu'un écran (fiche bien,
+   guide, appareil photo, zoom photo...) est ouvert quitte directement
+   PhotoImmo au lieu de simplement refermer l'écran en cours — on perd
+   le fil de ce qu'on faisait. On synchronise donc l'historique du
+   navigateur avec l'état "quelque chose est ouvert / tout est fermé",
+   pour que le retour se comporte comme dans une vraie app : il referme
+   d'abord ce qui est ouvert, et ne quitte la page qu'une fois revenu
+   à l'accueil. */
+let uiHistoryOpen=false, suppressPopstate=false, uiSyncScheduled=false;
+function isAnyUiOpen(){
+  return !!document.querySelector('.screen.open') ||
+         ($('camWrap')&&$('camWrap').classList.contains('open')) ||
+         ($('lightbox')&&$('lightbox').classList.contains('open'));
+}
+function syncUiHistory(){
+  if(uiSyncScheduled)return;
+  uiSyncScheduled=true;
+  setTimeout(()=>{
+    uiSyncScheduled=false;
+    const open=isAnyUiOpen();
+    if(open&&!uiHistoryOpen){
+      uiHistoryOpen=true;
+      history.pushState({photoimmoUi:true},'',location.href);
+    }else if(!open&&uiHistoryOpen){
+      uiHistoryOpen=false;
+      suppressPopstate=true;
+      history.back();
+    }
+  },0);
+}
+window.addEventListener('popstate',()=>{
+  if(suppressPopstate){suppressPopstate=false;return;}
+  if(uiHistoryOpen||isAnyUiOpen()){
+    document.querySelectorAll('.screen.open').forEach(s=>s.classList.remove('open'));
+    if($('camWrap')&&$('camWrap').classList.contains('open'))closeCam();
+    if($('lightbox')&&$('lightbox').classList.contains('open'))closeLightbox();
+    uiHistoryOpen=false;
+    if(currentBienId)renderBien();
+  }
+});
 
 /* ============================ ACCUEIL ============================ */
 let currentBienId=null, currentRoom=null;
@@ -985,6 +1028,7 @@ function openCam(room){
   $('camTitle').textContent=DATA[room]?DATA[room].name:'Pièce';
   $('camMsg').style.display='none';$('camChips').innerHTML='';
   $('camWrap').classList.add('open');camOpen=true;
+  syncUiHistory();
   requestOrientation();
   startStream();
 }
@@ -1007,6 +1051,7 @@ function closeCam(){
   camOpen=false;clearInterval(coachT);
   if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null;}
   $('camWrap').classList.remove('open');
+  syncUiHistory();
 }
 $('camClose').onclick=closeCam;
 $('camGrid').onclick=()=>{showGrid=!showGrid;};
@@ -1333,10 +1378,12 @@ function lbReset(){lbScale=1;lbX=0;lbY=0;lbApply();}
 function openLightbox(src){
   $('lbImg').src=src;lbReset();
   $('lightbox').classList.add('open');
+  syncUiHistory();
 }
 function closeLightbox(){
   $('lightbox').classList.remove('open');
   $('lbImg').src='';
+  syncUiHistory();
 }
 function lbDist(t){return Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);}
 (function initLightbox(){
@@ -1394,6 +1441,19 @@ if('serviceWorker' in navigator && location.protocol==='https:'){
 }
 /* init */
 renderHome();
+
+// Filet de sécurité bfcache : si le navigateur restaure cette page depuis son
+// cache mémoire (ex. retour arrière après avoir quitté avec la caméra ouverte),
+// on repart sur un état propre plutôt que de laisser un flux vidéo figé/coupé
+// ou un écran resté ouvert par erreur.
+window.addEventListener('pageshow',e=>{
+  if(!e.persisted)return;
+  if($('camWrap')&&$('camWrap').classList.contains('open'))closeCam();
+  document.querySelectorAll('.screen.open').forEach(s=>s.classList.remove('open'));
+  if($('lightbox')&&$('lightbox').classList.contains('open'))closeLightbox();
+  uiHistoryOpen=false;
+  renderHome();
+});
 </script>
 <!-- Dark mode -->
 <script>
