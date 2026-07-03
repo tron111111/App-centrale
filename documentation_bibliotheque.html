@@ -3,6 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!--
+  Content-Security-Policy : alignée sur celle de bibliotheque.html / photoimmo.html / index.html.
+  Cette page est purement statique (aucun script, aucune ressource externe), mais elle est
+  servie sur le même domaine que le reste de l'app : sans cette CSP, un contenu injecté ici
+  (édition future, copier-coller malencontreux, etc.) ne serait bloqué par aucun filet de
+  sécurité. On applique donc le même durcissement par défaut que les autres pages.
+  - default-src 'self' : rien d'externe par défaut.
+  - script-src 'self' 'unsafe-inline' : aucun script n'est utilisé actuellement, mais on
+    garde la même politique que les autres pages pour rester cohérent si un script inline
+    est ajouté plus tard (ex. sommaire interactif).
+  - connect-src 'self' : cette page ne fait aucun appel réseau.
+  - img-src 'self' data: : pas d'image externe, data URI autorisées par cohérence.
+  - object-src 'none', base-uri 'self', form-action 'none' : durcissement standard.
+-->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'self'">
 <title>Documentation — Bibliothèque de Prompts Laforêt Pithiviers v6.9</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
