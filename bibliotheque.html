@@ -147,6 +147,20 @@ header .header-info h1 { color: #fff !important; }
 /* HUB */
 .hub { border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1.25rem; border: 1.5px solid var(--c-ann-border); background: var(--surface); }
 .hub-header { display: flex; align-items: center; gap: 10px; margin-bottom: 3px; cursor: pointer; user-select: none; }
+
+/* Modale de confirmation avant perte de saisie (réinitialisation du générateur) */
+#confirm-overlay{position:fixed;inset:0;background:rgba(15,20,40,.55);display:none;align-items:center;justify-content:center;z-index:99998;padding:20px;backdrop-filter:blur(2px);}
+#confirm-overlay.show{display:flex;}
+#confirm-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;max-width:380px;width:100%;padding:22px 22px 18px;box-shadow:0 20px 50px rgba(15,20,40,.3);animation:confirmIn .18s ease;}
+@keyframes confirmIn{from{opacity:0;transform:translateY(8px) scale(.98);}to{opacity:1;transform:translateY(0) scale(1);}}
+#confirm-box h3{margin:0 0 8px;font-size:16px;font-weight:800;color:var(--text);}
+#confirm-box p{margin:0 0 18px;font-size:13.5px;line-height:1.5;color:var(--text2);}
+#confirm-actions{display:flex;gap:10px;justify-content:flex-end;}
+#confirm-actions button{border-radius:9px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid var(--border);}
+#confirm-cancel-btn{background:var(--bg);color:var(--text2);}
+#confirm-cancel-btn:hover{background:var(--border);}
+#confirm-ok-btn{background:#dc2626;border-color:#dc2626;color:#fff;}
+#confirm-ok-btn:hover{background:#b91c1c;}
 .hub-icon { width: 28px; height: 28px; border-radius: 8px; background: var(--c-ann-bg); border: 1px solid var(--c-ann-border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .hub-icon svg { color: var(--c-ann); }
 .hub-title { font-size: 14px; font-weight: 700; color: var(--text); }
@@ -615,7 +629,7 @@ footer { text-align: center; padding: 2rem 1rem calc(2rem + env(safe-area-inset-
     <div class="hub-header" onclick="toggleHub()">
       <div class="hub-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
       <div class="hub-title">Générateur d'annonces centralisé</div>
-      <button id="hub-clear-btn" onclick="event.stopPropagation();hubClear()" title="Réinitialiser tous les champs" style="display:none;background:none;border:1px solid var(--border);border-radius:8px;padding:4px 10px;font-size:11px;color:var(--text3);cursor:pointer;align-items:center;gap:5px;">
+      <button id="hub-clear-btn" onclick="event.stopPropagation();hubClearRequest()" title="Réinitialiser tous les champs" style="display:none;background:none;border:1px solid var(--border);border-radius:8px;padding:4px 10px;font-size:11px;color:var(--text3);cursor:pointer;align-items:center;gap:5px;">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
         Réinitialiser
       </button>
@@ -1682,6 +1696,9 @@ function toggleHub() {
     document.querySelectorAll('.prompt-card').forEach(c => c.classList.remove('selected'));
     document.getElementById('editor').style.display = 'none';
     document.getElementById('result-wrap').style.display = 'none';
+    // Focus auto sur le premier champ ("Type de bien") dès l'ouverture,
+    // pour pouvoir taper directement sans avoir à cliquer dedans.
+    setTimeout(() => document.getElementById('h-type').focus(), 350);
   }
 }
 
@@ -1705,6 +1722,11 @@ function wizGo(step) {
   });
   document.getElementById('wiz-panel-' + step).style.display = 'block';
   currentWizStep = step;
+
+  // Focus auto sur le premier champ de l'étape 1 quand on y revient
+  if (step === 1) {
+    setTimeout(() => document.getElementById('h-type').focus(), 350);
+  }
 
   // Si on arrive à l'étape 3 : déplacer hub-result dans le panel 3
   const panel3 = document.getElementById('wiz-panel-3');
@@ -2136,6 +2158,11 @@ function selectPrompt(id) {
 
   updateResult(p.id);
   editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // Focus auto sur le premier champ à remplir, une fois le scroll terminé
+  setTimeout(() => {
+    const firstField = fieldsWrap.querySelector('input, textarea');
+    if (firstField) firstField.focus();
+  }, 400);
 }
 
 function updateResult(id) {
@@ -3011,6 +3038,72 @@ document.getElementById('tuto-overlay').addEventListener('click', function(e) {
   try { seen = localStorage.getItem(TUTO_KEY) === '1'; } catch(e) {}
   if (!seen) tutoOpen();
 })();
+
+// ── FILET DE SÉCURITÉ BFCACHE ───────────────────────────────────────────────
+// Si le navigateur restaure cette page depuis son cache mémoire (ex. retour
+// arrière après l'avoir quittée en pleine génération IA), le bouton "Génération…"
+// peut rester bloqué en désactivé alors que la requête réseau a été interrompue.
+// On le remet dans son état normal pour éviter un blocage visuel.
+window.addEventListener('pageshow', function(e) {
+  if (!e.persisted) return;
+  ['hub-run-btn', 'editor-run-btn'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn && btn.disabled) {
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Générer';
+    }
+  });
+});
+
+// ── CONFIRMATION AVANT PERTE DE SAISIE ──────────────────────────────────────
+// Le bouton "Réinitialiser" du générateur d'annonces effaçait immédiatement
+// tous les champs saisis (+ le localStorage) sans avertissement. On demande
+// désormais confirmation, et uniquement s'il y a réellement quelque chose à
+// perdre (sinon, pas besoin d'interrompre l'utilisateur).
+function hubClearRequest() {
+  const hasData = HUB_IDS.some(id => {
+    const el = document.getElementById(id);
+    if (!el) return false;
+    if (el.tagName === 'SELECT') return el.selectedIndex > 0;
+    return el.value.trim() !== '';
+  });
+  if (!hasData) { hubClear(); return; }
+  document.getElementById('confirm-overlay').classList.add('show');
+}
+
+function hubClearCancel() {
+  document.getElementById('confirm-overlay').classList.remove('show');
+}
+
+function hubClearConfirmed() {
+  document.getElementById('confirm-overlay').classList.remove('show');
+  hubClear();
+}
+
+// Fermer la modale avec Échap ou un clic sur le fond
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') hubClearCancel();
+});
+document.addEventListener('DOMContentLoaded', () => {
+  const overlay = document.getElementById('confirm-overlay');
+  if (overlay) {
+    overlay.addEventListener('click', e => {
+      if (e.target.id === 'confirm-overlay') hubClearCancel();
+    });
+  }
+});
 </script>
+
+<div id="confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+  <div id="confirm-box">
+    <h3 id="confirm-title">Réinitialiser le formulaire ?</h3>
+    <p>Tous les champs remplis dans le générateur d'annonces seront définitivement effacés. Cette action est irréversible.</p>
+    <div id="confirm-actions">
+      <button id="confirm-cancel-btn" onclick="hubClearCancel()">Annuler</button>
+      <button id="confirm-ok-btn" onclick="hubClearConfirmed()">Réinitialiser</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
