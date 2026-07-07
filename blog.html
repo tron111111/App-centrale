@@ -183,12 +183,13 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
 .drafts-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .drafts-header h2 { font-size: 13.5px; font-weight: 700; color: var(--text); }
 .draft-list { display: flex; flex-direction: column; gap: 8px; }
-.draft-item { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg); }
+.draft-item { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg); flex-wrap: wrap; }
 .draft-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .draft-info { flex: 1; min-width: 0; }
 .draft-title { font-size: 12.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .draft-sub { font-size: 10.5px; color: var(--text3); }
 .draft-btn { background: none; border: 1px solid var(--border); border-radius: 7px; padding: 5px 9px; font-size: 11px; color: var(--text2); cursor: pointer; white-space: nowrap; }
+.draft-sort-select { background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 5px 8px; font-size: 11px; color: var(--text2); cursor: pointer; }
 .draft-btn:hover { background: var(--border); }
 .draft-btn.danger:hover { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
 .draft-btn.danger.confirming { background: #dc2626; border-color: #dc2626; color: #fff; font-weight: 700; }
@@ -342,11 +343,20 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
 
   <div class="drafts-section">
     <div class="drafts-header">
-      <h2>Mes brouillons</h2>
+      <div style="display:flex; align-items:center; gap:9px; flex-wrap:wrap;">
+        <h2>Mes brouillons</h2>
+        <select id="draft-sort" class="draft-sort-select" onchange="onSortChange()">
+          <option value="recent">Plus récents d'abord</option>
+          <option value="old">Plus anciens d'abord</option>
+          <option value="alpha">Titre (A → Z)</option>
+          <option value="cat">Par catégorie</option>
+        </select>
+      </div>
       <button class="draft-btn" id="import-toggle-btn" onclick="toggleImportForm()">+ Importer un texte</button>
     </div>
 
     <div class="import-form" id="import-form">
+      <div class="import-form-title" id="import-form-title" style="display:none; font-size:13px; font-weight:700; color:var(--blue); margin-bottom:.7rem;">✏️ Modification du brouillon</div>
       <div class="fields">
         <div class="field-wrap wide">
           <label for="imp-title">Titre de l'article</label>
@@ -373,12 +383,13 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
         <div class="field-wrap wide">
           <label for="imp-body">Texte de l'article</label>
           <textarea id="imp-body" style="min-height:160px;" placeholder="Collez ou tapez votre texte ici. Vous pouvez utiliser : &#10;## pour un intertitre&#10;- pour une liste à puces&#10;**mot** pour du gras"></textarea>
+          <div style="font-size:10.5px; color:var(--c-prosp);">⚠️ Ne mettez pas d'émojis dans le texte de l'article — ce n'est pas conforme au ton éditorial du blog.</div>
         </div>
       </div>
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
-        <button class="btn-copy admin" onclick="importDraft()">
+        <button class="btn-copy admin" id="import-submit-btn" onclick="importDraft()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Importer comme brouillon
+          <span id="import-submit-label">Importer comme brouillon</span>
         </button>
         <button class="draft-btn" onclick="toggleImportForm(false)">Annuler</button>
       </div>
@@ -529,13 +540,24 @@ let currentCat = "Tous";
 let selectedId = null;
 let resultVisible = true;
 const DRAFTS_KEY = 'laforet_blog_drafts';
+const DRAFT_SORT_KEY = 'laforet_blog_draft_sort';
 
 window.onload = function() {
   initTheme();
   document.getElementById('g-date').value = new Date().toISOString().slice(0,10);
   renderCats();
   renderGrid();
+  document.getElementById('draft-sort').value = getDraftSortMode();
   renderDrafts();
+  // Sécurité : force le collage en texte brut dans la zone éditable de réponse IA,
+  // pour éviter qu'un contenu HTML collé (ex: depuis une page malveillante) ne soit
+  // inséré tel quel dans le DOM de la page.
+  const responseBox = document.getElementById('response-box');
+  responseBox.addEventListener('paste', function(e) {
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+    document.execCommand('insertText', false, text);
+  });
 };
 
 // ── THEME ─────────────────────────────────────────────────────────────────
@@ -983,7 +1005,56 @@ function getDrafts() {
 }
 function setDrafts(list) { localStorage.setItem(DRAFTS_KEY, JSON.stringify(list)); }
 
-// ── IMPORT DE TEXTE (créer un brouillon manuellement) ─────────────────────
+// ── TRI DE L'AFFICHAGE DES BROUILLONS ──────────────────────────────────────
+// Le tri ne change que l'ordre d'affichage : l'ordre réel stocké (savedAt le
+// plus récent en tête par défaut) n'est pas modifié.
+function getDraftSortMode() {
+  return localStorage.getItem(DRAFT_SORT_KEY) || 'recent';
+}
+function onSortChange() {
+  localStorage.setItem(DRAFT_SORT_KEY, document.getElementById('draft-sort').value);
+  renderDrafts();
+}
+function sortDrafts(drafts, mode) {
+  const sorted = drafts.slice();
+  switch (mode) {
+    case 'old':
+      sorted.sort((a, b) => new Date(a.savedAt) - new Date(b.savedAt));
+      break;
+    case 'alpha':
+      sorted.sort((a, b) => (a.title || '').localeCompare(b.title || '', 'fr', { sensitivity: 'base' }));
+      break;
+    case 'cat':
+      sorted.sort((a, b) => {
+        const c = (a.cat || '').localeCompare(b.cat || '', 'fr', { sensitivity: 'base' });
+        return c !== 0 ? c : (a.title || '').localeCompare(b.title || '', 'fr', { sensitivity: 'base' });
+      });
+      break;
+    case 'recent':
+    default:
+      sorted.sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
+  }
+  return sorted;
+}
+
+// ── IMPORT DE TEXTE (créer un brouillon manuellement, ou modifier un brouillon existant) ──
+let editingDraftId = null; // id du brouillon en cours de modification, ou null en mode "import"
+
+function clearImportForm() {
+  document.getElementById('imp-title').value = '';
+  document.getElementById('imp-meta').value = '';
+  document.getElementById('imp-body').value = '';
+  document.getElementById('imp-date').value = '';
+  document.getElementById('imp-cat').selectedIndex = 0;
+  updateImpMetaCount();
+}
+
+function setImportFormMode(editing) {
+  editingDraftId = editing ? editingDraftId : null;
+  document.getElementById('import-form-title').style.display = editing ? 'block' : 'none';
+  document.getElementById('import-submit-label').textContent = editing ? 'Enregistrer les modifications' : 'Importer comme brouillon';
+}
+
 function toggleImportForm(show) {
   const form = document.getElementById('import-form');
   const btn = document.getElementById('import-toggle-btn');
@@ -994,7 +1065,49 @@ function toggleImportForm(show) {
     const dateEl = document.getElementById('imp-date');
     if (!dateEl.value) dateEl.value = new Date().toISOString().slice(0, 10);
     form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } else {
+    clearImportForm();
+    setImportFormMode(false);
   }
+}
+
+// Pré-remplit le formulaire d'import avec le contenu d'un brouillon existant,
+// pour permettre de le modifier puis de l'enregistrer à la même place.
+function editDraft(id) {
+  const d = getDrafts().find(x => x.id === id);
+  if (!d) return;
+
+  toggleImportForm(true);
+
+  document.getElementById('imp-title').value = d.title || '';
+  document.getElementById('imp-meta').value = d.meta || '';
+  document.getElementById('imp-body').value = d.body || '';
+  document.getElementById('imp-cat').value = d.cat || '';
+  document.getElementById('imp-date').value = extractIsoDate(d.dateLabel) || new Date().toISOString().slice(0, 10);
+  updateImpMetaCount();
+
+  editingDraftId = id;
+  setImportFormMode(true);
+}
+
+// Retrouve une date ISO (YYYY-MM-DD) à partir d'un libellé du type
+// "Mis à jour le 7 juillet 2026 • 3 minutes de lecture". Retourne '' si non trouvé.
+function extractIsoDate(dateLabel) {
+  if (!dateLabel) return '';
+  const MOIS = { janvier:1, février:2, fevrier:2, mars:3, avril:4, mai:5, juin:6, juillet:7, août:8, aout:8, septembre:9, octobre:10, novembre:11, décembre:12, decembre:12 };
+  const m = dateLabel.match(/(\d{1,2})\s+([a-zéû]+)\s+(\d{4})/i);
+  if (!m) return '';
+  const jour = parseInt(m[1], 10);
+  const mois = MOIS[m[2].toLowerCase()];
+  const annee = parseInt(m[3], 10);
+  if (!mois) return '';
+  return `${annee}-${String(mois).padStart(2, '0')}-${String(jour).padStart(2, '0')}`;
+}
+
+// Détecte la présence d'émojis (plages Unicode courantes) dans un texte.
+function containsEmoji(str) {
+  const emojiRegex = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{FE0F}]/u;
+  return emojiRegex.test(str);
 }
 
 function importDraft() {
@@ -1009,11 +1122,30 @@ function importDraft() {
     return;
   }
 
+  if (containsEmoji(title) || containsEmoji(meta) || containsEmoji(body)) {
+    flashSaveToast('⚠️ Retirez les émojis (titre, meta ou texte) avant d\'importer — non conforme au ton éditorial du blog.');
+    return;
+  }
+
   const bodyHtml = markdownToHtml(body);
   const minutes = estimateReadingMinutes(body);
   const dateLabel = `Mis à jour le ${formatDateFr(dateIso || new Date().toISOString().slice(0, 10))} • ${minutes} minute${minutes > 1 ? 's' : ''} de lecture`;
 
   const drafts = getDrafts();
+
+  if (editingDraftId !== null) {
+    // Mode édition : on met à jour le brouillon existant à la même place.
+    const idx = drafts.findIndex(x => x.id === editingDraftId);
+    if (idx !== -1) {
+      drafts[idx] = { ...drafts[idx], title, meta, dateLabel, body, bodyHtml, cat, savedAt: new Date().toISOString() };
+    }
+    setDrafts(drafts);
+    renderDrafts();
+    toggleImportForm(false);
+    flashSaveToast('✅ Brouillon modifié.');
+    return;
+  }
+
   drafts.unshift({
     id: Date.now(),
     title, meta, dateLabel, body, bodyHtml, cat,
@@ -1022,11 +1154,6 @@ function importDraft() {
   setDrafts(drafts);
   renderDrafts();
 
-  document.getElementById('imp-title').value = '';
-  document.getElementById('imp-meta').value = '';
-  document.getElementById('imp-body').value = '';
-  document.getElementById('imp-date').value = '';
-  updateImpMetaCount();
   toggleImportForm(false);
   flashSaveToast('✅ Texte importé comme brouillon.');
 }
@@ -1058,7 +1185,7 @@ function saveDraft() {
 }
 
 function renderDrafts() {
-  const drafts = getDrafts();
+  const drafts = sortDrafts(getDrafts(), getDraftSortMode());
   const list = document.getElementById('draft-list');
   const empty = document.getElementById('drafts-empty');
   if (!drafts.length) {
@@ -1076,6 +1203,7 @@ function renderDrafts() {
         <div class="draft-sub">${escapeHTML(d.cat || '')} · ${escapeHTML(d.dateLabel || '')}</div>
       </div>
       <button class="draft-btn" onclick="loadDraft(${d.id})">Ouvrir</button>
+      <button class="draft-btn" onclick="editDraft(${d.id})">✏️ Modifier</button>
       <button class="draft-btn danger" onclick="deleteDraft(${d.id}, this)">Supprimer</button>
     </div>`;
   }).join('');
