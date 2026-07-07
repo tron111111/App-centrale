@@ -71,6 +71,45 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
   .header-info span { display: none; }
   .theme-toggle span { display: none; }
   .theme-toggle { padding: 7px 9px; }
+
+  /* Marges resserrées pour laisser plus de place au contenu sur petit écran */
+  .container { padding: 1rem .75rem calc(2.5rem + env(safe-area-inset-bottom)); }
+
+  /* Les modèles d'articles passent en une seule colonne, plus lisible au doigt */
+  .tpl-grid { grid-template-columns: 1fr; }
+
+  /* Les champs du formulaire et les réglages globaux s'empilent verticalement */
+  .fields, .global-row { grid-template-columns: 1fr; }
+
+  .editor, .preview-section, .drafts-section, .intro { padding: 1rem .9rem 1.1rem; }
+  .article-frame { padding: 1.1rem 1rem 1.3rem; }
+
+  /* Barres d'actions : les boutons prennent toute la largeur pour rester faciles à toucher */
+  .preview-actions, .modal-actions { flex-direction: column; align-items: stretch; }
+  .preview-actions .btn-copy, .modal-actions button { width: 100%; justify-content: center; }
+
+  /* Panneau IA : le champ clé et le bouton "Générer" s'empilent au lieu de se serrer */
+  .ai-api-key-wrap { flex-wrap: wrap; }
+  .ai-api-key-wrap input { min-width: 0; flex-basis: 100%; }
+  .btn-run-ai { width: 100%; justify-content: center; }
+
+  /* Brouillons : titre au-dessus, boutons d'action en pleine largeur en dessous */
+  .draft-item { flex-direction: column; align-items: stretch; }
+  .draft-item .draft-info { order: -1; }
+  .draft-btn { flex: 1 1 auto; text-align: center; }
+
+  .drafts-header { flex-direction: column; align-items: stretch; }
+  #import-toggle-btn { width: 100%; text-align: center; }
+
+  /* Cibles tactiles un peu plus grandes pour un usage confortable au doigt */
+  .cat-btn, .btn-copy, .draft-btn, .btn-run-ai, .autosave-restore-btn, .btn-toggle-result { min-height: 38px; }
+}
+
+/* Très petits écrans (ex : iPhone SE) : on resserre encore un peu */
+@media (max-width: 380px) {
+  .header-info h1 { font-size: 13px; }
+  .card-title { font-size: 12.5px; }
+  .article-frame h1 { font-size: 18px; }
 }
 
 .container { max-width: 1000px; margin: 0 auto; padding: 1.25rem 1rem calc(3rem + env(safe-area-inset-bottom)); }
@@ -208,6 +247,19 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
 .import-form { display: none; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: .9rem; margin-bottom: 12px; }
 .import-form .fields { margin-bottom: .7rem; }
 
+/* AUTOSAVE INDICATOR */
+.autosave-bar { display: none; align-items: center; gap: 6px; font-size: 11px; color: var(--text3); padding: 5px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; margin-top: 10px; }
+.autosave-bar.visible { display: inline-flex; }
+.autosave-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--c-admin); flex-shrink: 0; }
+.autosave-bar.saving .autosave-dot { background: var(--c-prosp); animation: pulse-dot .8s ease-in-out infinite alternate; }
+@keyframes pulse-dot { from { opacity: 1; } to { opacity: .35; } }
+.autosave-restore-banner { display: none; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; background: var(--c-ann-bg); border: 1px solid var(--c-ann-border); border-radius: 10px; margin-bottom: 1rem; font-size: 12.5px; color: var(--text); flex-wrap: wrap; }
+.autosave-restore-banner.visible { display: flex; }
+.autosave-restore-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.autosave-restore-btn { border: none; border-radius: 7px; padding: 5px 12px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.autosave-restore-btn.primary { background: var(--blue); color: #fff; }
+.autosave-restore-btn.secondary { background: var(--surface); color: var(--text2); border: 1px solid var(--border); }
+
 .toast { display: none; align-items: flex-start; gap: 6px; margin-top: 10px; padding: 9px 13px; border-radius: 8px; font-size: 12px; line-height: 1.5; }
 .toast.ok { background: var(--c-admin-bg); border: 1px solid var(--c-admin-border); color: var(--c-admin); }
 .toast.warn { background: var(--c-prosp-bg); border: 1px solid var(--c-prosp-border); color: var(--c-prosp); }
@@ -237,6 +289,15 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
 </header>
 
 <div class="container">
+
+  <!-- BANNIÈRE DE RESTAURATION DU BROUILLON TEMPORAIRE -->
+  <div class="autosave-restore-banner" id="autosave-restore-banner" role="alert">
+    <span><b>Brouillon temporaire récupéré</b> — un travail en cours a été trouvé. Souhaitez-vous le reprendre ?</span>
+    <div class="autosave-restore-actions">
+      <button class="autosave-restore-btn primary" onclick="restoreAutosave()">Reprendre</button>
+      <button class="autosave-restore-btn secondary" onclick="discardAutosave()">Ignorer</button>
+    </div>
+  </div>
 
   <div class="intro">
     <b>Comment ça marche :</b> choisissez un modèle d'article ci-dessous, renseignez les informations factuelles (aucune donnée n'est inventée par défaut), puis générez le prompt. Vous pouvez ensuite le copier vers Claude.ai, ou le lancer directement ici avec votre clé API Anthropic ou Gemini. L'article généré est mis en forme automatiquement et prêt à copier en texte ou en HTML pour votre page de blog.
@@ -331,6 +392,11 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
             </button>
           </div>
         </div>
+      </div>
+      <!-- INDICATEUR D'AUTO-SAVE -->
+      <div class="autosave-bar" id="autosave-bar" aria-live="polite">
+        <span class="autosave-dot"></span>
+        <span id="autosave-label">Brouillon temporaire sauvegardé</span>
       </div>
     </div>
   </div>
@@ -601,6 +667,7 @@ let selectedId = null;
 let resultVisible = true;
 const DRAFTS_KEY = 'laforet_blog_drafts';
 const DRAFT_SORT_KEY = 'laforet_blog_draft_sort';
+const AUTOSAVE_KEY = 'laforet_blog_brouillon_temporaire';
 
 window.onload = function() {
   initTheme();
@@ -616,6 +683,7 @@ window.onload = function() {
     catFilterEl.appendChild(opt);
   });
   renderDrafts();
+  initAutosave();
   // Sécurité : force le collage en texte brut dans la zone éditable de réponse IA,
   // pour éviter qu'un contenu HTML collé (ex: depuis une page malveillante) ne soit
   // inséré tel quel dans le DOM de la page.
@@ -652,6 +720,117 @@ function updateThemeUI(theme) {
     icon.innerHTML = '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
     label.textContent = "Mode sombre";
   }
+}
+
+// ── AUTO-SAVE BROUILLON TEMPORAIRE ───────────────────────────────────────
+// Sauvegarde discrète toutes les 10 s dans localStorage sous AUTOSAVE_KEY.
+// Restaure le travail en cours si l'utilisateur a fermé l'onglet par accident.
+
+let _autosaveTimer = null;
+
+function getAutosaveData() {
+  const tpl = templates.find(x => x.id === selectedId);
+  if (!tpl) return null;
+  const fields = {};
+  document.querySelectorAll('#fields [data-field]').forEach(inp => {
+    fields[inp.dataset.field] = inp.value;
+  });
+  return {
+    selectedId,
+    fields,
+    ton: document.getElementById('g-ton').value,
+    longueur: document.getElementById('g-longueur').value,
+    date: document.getElementById('g-date').value,
+    aiResponse: document.getElementById('response-box').textContent || '',
+    savedAt: new Date().toISOString()
+  };
+}
+
+function triggerAutosave() {
+  const data = getAutosaveData();
+  if (!data) return;
+  const bar = document.getElementById('autosave-bar');
+  bar.classList.add('visible', 'saving');
+  document.getElementById('autosave-label').textContent = 'Sauvegarde…';
+  try {
+    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(data));
+    setTimeout(() => {
+      bar.classList.remove('saving');
+      const d = new Date();
+      document.getElementById('autosave-label').textContent =
+        'Brouillon temporaire sauvegardé à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    }, 400);
+  } catch (e) {
+    bar.classList.remove('saving');
+    document.getElementById('autosave-label').textContent = 'Auto-save indisponible (quota atteint ?)';
+  }
+}
+
+function scheduleAutosave() {
+  clearTimeout(_autosaveTimer);
+  _autosaveTimer = setTimeout(triggerAutosave, 10000);
+}
+
+function clearAutosave() {
+  try { localStorage.removeItem(AUTOSAVE_KEY); } catch (e) {}
+  document.getElementById('autosave-bar').classList.remove('visible', 'saving');
+}
+
+function initAutosave() {
+  // Vérifie si un brouillon temporaire existe au chargement.
+  try {
+    const raw = localStorage.getItem(AUTOSAVE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (!data || !data.selectedId) return;
+    // Affiche la bannière de restauration seulement si le modèle existe encore.
+    const tpl = templates.find(x => x.id === data.selectedId);
+    if (!tpl) { clearAutosave(); return; }
+    document.getElementById('autosave-restore-banner').classList.add('visible');
+  } catch (e) {}
+}
+
+function restoreAutosave() {
+  try {
+    const raw = localStorage.getItem(AUTOSAVE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    document.getElementById('autosave-restore-banner').classList.remove('visible');
+    // Sélectionne le modèle
+    selectTemplate(data.selectedId);
+    // Restaure les champs après un tick (selectTemplate reconstruit le DOM)
+    setTimeout(() => {
+      if (data.fields) {
+        Object.entries(data.fields).forEach(([field, val]) => {
+          const inp = document.querySelector(`#fields [data-field="${CSS.escape(field)}"]`);
+          if (inp) inp.value = val;
+        });
+      }
+      if (data.ton) document.getElementById('g-ton').value = data.ton;
+      if (data.longueur) document.getElementById('g-longueur').value = data.longueur;
+      if (data.date) document.getElementById('g-date').value = data.date;
+      updateResult();
+      // Restaure la réponse IA si elle existe
+      if (data.aiResponse) {
+        const box = document.getElementById('response-box');
+        box.textContent = data.aiResponse;
+        box.contentEditable = true;
+        document.getElementById('response-wrap').style.display = 'block';
+        document.getElementById('response-edit-hint').style.display = 'block';
+      }
+      // Affiche l'indicateur
+      const bar = document.getElementById('autosave-bar');
+      bar.classList.add('visible');
+      document.getElementById('autosave-label').textContent = 'Brouillon temporaire restauré';
+    }, 100);
+  } catch (e) {
+    document.getElementById('autosave-restore-banner').classList.remove('visible');
+  }
+}
+
+function discardAutosave() {
+  clearAutosave();
+  document.getElementById('autosave-restore-banner').classList.remove('visible');
 }
 
 // ── ECHAPPEMENT HTML ──────────────────────────────────────────────────────
@@ -747,6 +926,7 @@ function updateResult() {
 
   document.getElementById('result').value = text;
   resetCopyBtn();
+  scheduleAutosave();
 }
 function resetCopyBtn() {
   const t = templates.find(x => x.id === selectedId);
@@ -841,6 +1021,7 @@ async function runAi() {
     // Une fois la génération terminée, le texte devient modifiable directement dans la zone.
     boxEl.contentEditable = true;
     document.getElementById('response-edit-hint').style.display = 'block';
+    triggerAutosave(); // sauvegarde immédiate après génération IA
   } catch (err) {
     wrapEl.style.display = 'none';
     let msg = err.message || 'Erreur inconnue.';
@@ -1255,13 +1436,16 @@ function confirmFileImport(mode) {
   if (!pendingImportDrafts) return;
 
   // Nouveaux identifiants pour éviter toute collision avec les brouillons existants.
+  // Sécurité : on ne fait jamais confiance au bodyHtml d'un fichier importé
+  // (il pourrait contenir du HTML/JS arbitraire injecté via un fichier trafiqué).
+  // On le régénère systématiquement depuis le texte brut "body".
   const incoming = pendingImportDrafts.map((d, i) => ({
     id: Date.now() + i,
     title: d.title,
     meta: d.meta || '',
     dateLabel: d.dateLabel || '',
     body: d.body,
-    bodyHtml: d.bodyHtml || markdownToHtml(d.body),
+    bodyHtml: markdownToHtml(d.body),
     cat: d.cat || '',
     savedAt: d.savedAt || new Date().toISOString()
   }));
@@ -1480,6 +1664,7 @@ function saveDraft() {
   setDrafts(drafts);
   renderDrafts();
   currentDraftId = newId;
+  clearAutosave(); // le brouillon temporaire est maintenant enregistré officiellement
   flashSaveToast('Brouillon sauvegardé localement.');
 }
 
