@@ -167,10 +167,17 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
 .preview-section { display: none; background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 1.1rem 1.1rem 1.25rem; margin-bottom: 1.25rem; }
 .preview-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; padding-bottom: .8rem; border-bottom: 1px solid var(--border); }
 .preview-bar-title { font-size: 14.5px; font-weight: 700; color: var(--text); }
+.preview-bar-hint { font-size: 11px; color: var(--text3); margin-top: 2px; }
 .preview-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .article-frame { border: 1px dashed var(--border2); border-radius: 12px; padding: 1.4rem 1.4rem 1.6rem; background: var(--bg); }
 .article-frame h1 { font-size: 21px; font-weight: 800; color: var(--blue-dark); line-height: 1.3; margin-bottom: 8px; }
 [data-theme="dark"] .article-frame h1 { color: var(--blue); }
+.article-frame h1[contenteditable] { cursor: text; border-radius: 6px; transition: outline-color .15s; outline: 1px dashed transparent; outline-offset: 4px; }
+.article-frame h1[contenteditable]:hover { outline-color: var(--border2); }
+.article-frame h1[contenteditable]:focus { outline: 1px dashed var(--blue); background: var(--surface); }
+.article-body { cursor: text; border-radius: 8px; transition: outline-color .15s; outline: 1px dashed transparent; outline-offset: 8px; }
+.article-body:hover { outline-color: var(--border2); }
+.article-body-edit { width: 100%; min-height: 220px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--blue); background: var(--input-bg); color: var(--text); font-size: 13.5px; font-family: inherit; line-height: 1.6; outline: none; resize: vertical; }
 .article-meta { font-size: 12px; color: var(--text3); margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
 .article-body h2 { font-size: 16px; font-weight: 700; color: var(--text); margin: 20px 0 8px; }
 .article-body p { font-size: 13.5px; color: var(--text2); line-height: 1.7; margin-bottom: 10px; }
@@ -325,7 +332,10 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
 
   <div class="preview-section" id="preview-section">
     <div class="preview-bar">
-      <div class="preview-bar-title">Aperçu de l'article</div>
+      <div>
+        <div class="preview-bar-title">Aperçu de l'article</div>
+        <div class="preview-bar-hint">✏️ Cliquez sur le titre ou le texte ci-dessous pour les modifier directement.</div>
+      </div>
       <div class="preview-actions">
         <button class="btn-copy" style="background:var(--text2);" onclick="copyArticleText(this)">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
@@ -342,9 +352,10 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
       </div>
     </div>
     <div class="article-frame">
-      <h1 id="art-title">—</h1>
+      <h1 id="art-title" contenteditable="true" spellcheck="false" onblur="onTitleBlur()" onkeydown="if(event.key==='Enter'){event.preventDefault(); this.blur();}">—</h1>
       <div class="article-meta" id="art-meta">—</div>
-      <div class="article-body" id="art-body"></div>
+      <div class="article-body" id="art-body" onclick="startBodyEdit()"></div>
+      <textarea class="article-body-edit" id="art-body-edit" spellcheck="false" style="display:none;" onblur="finishBodyEdit()"></textarea>
     </div>
   </div>
 
@@ -924,6 +935,7 @@ function copyRawResponse(btn) {
 
 // ── MISE EN FORME DE L'ARTICLE (parsing TITRE / META / corps) ────────────
 let currentArticle = null; // { title, meta, bodyHtml, bodyText, cat }
+let currentDraftId = null; // id du brouillon en cours si l'aperçu correspond à un brouillon existant, sinon null
 
 function parseArticle(raw) {
   const titreMatch = raw.match(/TITRE\s*:\s*(.+)/i);
@@ -1003,12 +1015,91 @@ function buildPreview() {
     dateLabel: `Mis à jour le ${formatDateFr(dateIso)} • ${minutes} minute${minutes > 1 ? 's' : ''} de lecture`,
     cat: t ? t.cat : ''
   };
+  currentDraftId = null;
 
   document.getElementById('art-title').textContent = title;
   document.getElementById('art-meta').textContent = currentArticle.dateLabel;
   document.getElementById('art-body').innerHTML = bodyHtml;
   document.getElementById('preview-section').style.display = 'block';
   document.getElementById('preview-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── EDITION INLINE DANS L'APERÇU (titre + corps) ──────────────────────────
+// Recalcule la date/durée de lecture, met à jour currentArticle, et persiste
+// dans le brouillon d'origine si l'aperçu correspond à un brouillon déjà ouvert.
+function persistInlineChanges() {
+  if (!currentArticle) return;
+  const iso = extractIsoDate(currentArticle.dateLabel) || new Date().toISOString().slice(0, 10);
+  const minutes = estimateReadingMinutes(currentArticle.body);
+  currentArticle.dateLabel = `Mis à jour le ${formatDateFr(iso)} • ${minutes} minute${minutes > 1 ? 's' : ''} de lecture`;
+  document.getElementById('art-meta').textContent = currentArticle.dateLabel;
+
+  if (containsEmoji(currentArticle.title) || containsEmoji(currentArticle.body)) {
+    flashSaveToast('⚠️ Émojis détectés — non conforme au ton éditorial du blog, pense à les retirer.');
+  }
+
+  if (currentDraftId !== null) {
+    const drafts = getDrafts();
+    const idx = drafts.findIndex(x => x.id === currentDraftId);
+    if (idx !== -1) {
+      drafts[idx] = {
+        ...drafts[idx],
+        title: currentArticle.title,
+        dateLabel: currentArticle.dateLabel,
+        body: currentArticle.body,
+        bodyHtml: currentArticle.bodyHtml,
+        savedAt: new Date().toISOString()
+      };
+      setDrafts(drafts);
+      renderDrafts();
+    }
+    flashSaveToast('✅ Modifications enregistrées dans le brouillon.');
+  } else {
+    flashSaveToast('✏️ Aperçu mis à jour — clique sur "Sauvegarder le brouillon" pour le conserver.');
+  }
+}
+
+function onTitleBlur() {
+  if (!currentArticle) return;
+  const el = document.getElementById('art-title');
+  const newTitle = el.textContent.trim();
+  if (!newTitle) {
+    el.textContent = currentArticle.title; // pas de titre vide
+    return;
+  }
+  if (newTitle === currentArticle.title) return;
+  currentArticle.title = newTitle;
+  persistInlineChanges();
+}
+
+function startBodyEdit() {
+  if (!currentArticle) return;
+  const view = document.getElementById('art-body');
+  const edit = document.getElementById('art-body-edit');
+  edit.value = currentArticle.body;
+  view.style.display = 'none';
+  edit.style.display = 'block';
+  edit.focus();
+  // Curseur à la fin plutôt qu'une sélection complète du texte.
+  edit.setSelectionRange(edit.value.length, edit.value.length);
+}
+
+function finishBodyEdit() {
+  if (!currentArticle) return;
+  const view = document.getElementById('art-body');
+  const edit = document.getElementById('art-body-edit');
+  const newBody = edit.value.trim();
+  edit.style.display = 'none';
+  view.style.display = 'block';
+
+  if (!newBody || newBody === currentArticle.body) {
+    view.innerHTML = currentArticle.bodyHtml; // pas de texte vide, ou rien n'a changé
+    return;
+  }
+  currentArticle.body = newBody;
+  currentArticle.bodyHtml = markdownToHtml(newBody);
+  view.innerHTML = currentArticle.bodyHtml;
+  persistInlineChanges();
 }
 
 // ── COPIE TEXTE / HTML DE L'ARTICLE ───────────────────────────────────────
@@ -1358,8 +1449,9 @@ function updateImpMetaCount() {
 function saveDraft() {
   if (!currentArticle) return;
   const drafts = getDrafts();
+  const newId = Date.now();
   drafts.unshift({
-    id: Date.now(),
+    id: newId,
     title: currentArticle.title,
     meta: currentArticle.meta,
     dateLabel: currentArticle.dateLabel,
@@ -1370,6 +1462,7 @@ function saveDraft() {
   });
   setDrafts(drafts);
   renderDrafts();
+  currentDraftId = newId;
   flashSaveToast('✅ Brouillon sauvegardé localement.');
 }
 
@@ -1408,6 +1501,7 @@ function loadDraft(id) {
   const d = getDrafts().find(x => x.id === id);
   if (!d) return;
   currentArticle = { title: d.title, meta: d.meta, body: d.body, bodyHtml: d.bodyHtml, dateLabel: d.dateLabel, cat: d.cat };
+  currentDraftId = d.id;
   document.getElementById('art-title').textContent = d.title;
   document.getElementById('art-meta').textContent = d.dateLabel;
   document.getElementById('art-body').innerHTML = d.bodyHtml;
