@@ -191,7 +191,10 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
 .draft-btn { background: none; border: 1px solid var(--border); border-radius: 7px; padding: 5px 9px; font-size: 11px; color: var(--text2); cursor: pointer; white-space: nowrap; }
 .draft-btn:hover { background: var(--border); }
 .draft-btn.danger:hover { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+.draft-btn.danger.confirming { background: #dc2626; border-color: #dc2626; color: #fff; font-weight: 700; }
 .drafts-empty { text-align: center; padding: 1.2rem; color: var(--text3); font-size: 12.5px; }
+.import-form { display: none; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: .9rem; margin-bottom: 12px; }
+.import-form .fields { margin-bottom: .7rem; }
 
 .toast { display: none; margin-top: 10px; padding: 9px 13px; border-radius: 8px; font-size: 12px; line-height: 1.5; }
 .toast.ok { background: var(--c-admin-bg); border: 1px solid var(--c-admin-border); color: var(--c-admin); }
@@ -340,7 +343,47 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
   <div class="drafts-section">
     <div class="drafts-header">
       <h2>Mes brouillons</h2>
+      <button class="draft-btn" id="import-toggle-btn" onclick="toggleImportForm()">+ Importer un texte</button>
     </div>
+
+    <div class="import-form" id="import-form">
+      <div class="fields">
+        <div class="field-wrap wide">
+          <label for="imp-title">Titre de l'article</label>
+          <input type="text" id="imp-title" placeholder="Ex : Les nouveautés du marché immobilier à Pithiviers">
+        </div>
+        <div class="field-wrap wide">
+          <label for="imp-meta">Meta description (SEO, 150-160 caractères)</label>
+          <input type="text" id="imp-meta" maxlength="200" placeholder="Résumé de l'article pour les moteurs de recherche" oninput="updateImpMetaCount()">
+          <div style="font-size:10.5px; color:var(--text3); margin-top:2px;" id="imp-meta-count">0 caractère</div>
+        </div>
+        <div class="field-wrap">
+          <label for="imp-cat">Catégorie</label>
+          <select id="imp-cat">
+            <option value="Marché immobilier">Marché immobilier</option>
+            <option value="Conseils pratiques">Conseils pratiques</option>
+            <option value="Vie locale">Vie locale</option>
+            <option value="Gastronomie & Terroir">Gastronomie &amp; Terroir</option>
+          </select>
+        </div>
+        <div class="field-wrap">
+          <label for="imp-date">Date de publication</label>
+          <input type="date" id="imp-date">
+        </div>
+        <div class="field-wrap wide">
+          <label for="imp-body">Texte de l'article</label>
+          <textarea id="imp-body" style="min-height:160px;" placeholder="Collez ou tapez votre texte ici. Vous pouvez utiliser : &#10;## pour un intertitre&#10;- pour une liste à puces&#10;**mot** pour du gras"></textarea>
+        </div>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn-copy admin" onclick="importDraft()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Importer comme brouillon
+        </button>
+        <button class="draft-btn" onclick="toggleImportForm(false)">Annuler</button>
+      </div>
+    </div>
+
     <div class="draft-list" id="draft-list"></div>
     <div class="drafts-empty" id="drafts-empty" style="display:none;">Aucun brouillon enregistré pour le moment.</div>
   </div>
@@ -940,6 +983,62 @@ function getDrafts() {
 }
 function setDrafts(list) { localStorage.setItem(DRAFTS_KEY, JSON.stringify(list)); }
 
+// ── IMPORT DE TEXTE (créer un brouillon manuellement) ─────────────────────
+function toggleImportForm(show) {
+  const form = document.getElementById('import-form');
+  const btn = document.getElementById('import-toggle-btn');
+  const willShow = typeof show === 'boolean' ? show : form.style.display !== 'block';
+  form.style.display = willShow ? 'block' : 'none';
+  btn.textContent = willShow ? '✕ Fermer' : '+ Importer un texte';
+  if (willShow) {
+    const dateEl = document.getElementById('imp-date');
+    if (!dateEl.value) dateEl.value = new Date().toISOString().slice(0, 10);
+    form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+function importDraft() {
+  const title = document.getElementById('imp-title').value.trim();
+  const meta = document.getElementById('imp-meta').value.trim();
+  const body = document.getElementById('imp-body').value.trim();
+  const cat = document.getElementById('imp-cat').value;
+  const dateIso = document.getElementById('imp-date').value;
+
+  if (!title || !body) {
+    flashSaveToast('⚠️ Merci de renseigner au moins un titre et un texte.');
+    return;
+  }
+
+  const bodyHtml = markdownToHtml(body);
+  const minutes = estimateReadingMinutes(body);
+  const dateLabel = `Mis à jour le ${formatDateFr(dateIso || new Date().toISOString().slice(0, 10))} • ${minutes} minute${minutes > 1 ? 's' : ''} de lecture`;
+
+  const drafts = getDrafts();
+  drafts.unshift({
+    id: Date.now(),
+    title, meta, dateLabel, body, bodyHtml, cat,
+    savedAt: new Date().toISOString()
+  });
+  setDrafts(drafts);
+  renderDrafts();
+
+  document.getElementById('imp-title').value = '';
+  document.getElementById('imp-meta').value = '';
+  document.getElementById('imp-body').value = '';
+  document.getElementById('imp-date').value = '';
+  updateImpMetaCount();
+  toggleImportForm(false);
+  flashSaveToast('✅ Texte importé comme brouillon.');
+}
+
+function updateImpMetaCount() {
+  const val = document.getElementById('imp-meta').value;
+  const len = val.length;
+  const el = document.getElementById('imp-meta-count');
+  el.textContent = `${len} caractère${len > 1 ? 's' : ''}`;
+  el.style.color = (len >= 150 && len <= 160) ? 'var(--c-admin)' : (len === 0 ? 'var(--text3)' : 'var(--c-prosp)');
+}
+
 function saveDraft() {
   if (!currentArticle) return;
   const drafts = getDrafts();
@@ -977,7 +1076,7 @@ function renderDrafts() {
         <div class="draft-sub">${escapeHTML(d.cat || '')} · ${escapeHTML(d.dateLabel || '')}</div>
       </div>
       <button class="draft-btn" onclick="loadDraft(${d.id})">Ouvrir</button>
-      <button class="draft-btn danger" onclick="deleteDraft(${d.id})">Supprimer</button>
+      <button class="draft-btn danger" onclick="deleteDraft(${d.id}, this)">Supprimer</button>
     </div>`;
   }).join('');
 }
@@ -993,9 +1092,23 @@ function loadDraft(id) {
   document.getElementById('preview-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function deleteDraft(id) {
-  setDrafts(getDrafts().filter(x => x.id !== id));
-  renderDrafts();
+// Suppression avec confirmation en 2 temps : un premier clic demande confirmation,
+// le second (dans les 3 secondes) supprime réellement le brouillon.
+function deleteDraft(id, btn) {
+  if (btn.dataset.confirming === 'true') {
+    clearTimeout(btn._confirmTimer);
+    setDrafts(getDrafts().filter(x => x.id !== id));
+    renderDrafts();
+    return;
+  }
+  btn.dataset.confirming = 'true';
+  btn.textContent = 'Confirmer ?';
+  btn.classList.add('confirming');
+  btn._confirmTimer = setTimeout(() => {
+    btn.dataset.confirming = 'false';
+    btn.textContent = 'Supprimer';
+    btn.classList.remove('confirming');
+  }, 3000);
 }
 </script>
 </body>
