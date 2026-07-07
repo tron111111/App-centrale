@@ -196,6 +196,17 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
 .ai-response-wrap { padding: 0 14px 14px; }
 .ai-response-box { background: var(--result-bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; font-size: 13px; line-height: 1.65; white-space: pre-wrap; color: var(--text); max-height: 420px; overflow-y: auto; }
 .ai-response-box.streaming::after { content: '▍'; animation: blink 1s step-end infinite; }
+.ai-response-box.skeleton { display: flex; flex-direction: column; gap: 11px; padding-top: 2px; }
+.skel-line { height: 12px; border-radius: 6px; background: linear-gradient(90deg, var(--border) 25%, var(--border2) 50%, var(--border) 75%); background-size: 200% 100%; animation: skel-shimmer 1.4s ease-in-out infinite; }
+.skel-line.w-40 { width: 40%; }
+.skel-line.w-60 { width: 60%; }
+.skel-line.w-70 { width: 70%; }
+.skel-line.w-88 { width: 88%; }
+.skel-line.w-92 { width: 92%; }
+.skel-line.w-95 { width: 95%; }
+.skel-line.title { height: 15px; margin-bottom: 2px; }
+.skel-line.gap-top { margin-top: 4px; }
+@keyframes skel-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 @keyframes blink { 50% { opacity: 0; } }
 .ai-response-box[contenteditable="true"] { cursor: text; }
 .ai-response-box[contenteditable="true"]:hover { box-shadow: inset 0 0 0 1.5px var(--border2); }
@@ -318,11 +329,16 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
     <div class="global-row">
       <div class="field-wrap">
         <label for="g-ton">Ton</label>
-        <select id="g-ton" onchange="updateResult()">
+        <select id="g-ton" onchange="onTonChange()">
           <option value="factuel et professionnel">Factuel et professionnel</option>
           <option value="chaleureux et accessible">Chaleureux et accessible</option>
           <option value="institutionnel et sobre">Institutionnel et sobre</option>
+          <option value="__custom__">Ton personnalisé…</option>
         </select>
+      </div>
+      <div class="field-wrap" id="g-ton-custom-wrap" style="display:none;">
+        <label for="g-ton-custom">Précisez le ton souhaité</label>
+        <input type="text" id="g-ton-custom" placeholder="ex : dynamique, avec une pointe d'humour, orienté conseils pratiques" oninput="updateResult()">
       </div>
       <div class="field-wrap">
         <label for="g-longueur">Longueur cible</label>
@@ -365,8 +381,8 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
       <div class="ai-api-panel" id="api-panel">
         <div class="ai-api-header">
           <select class="ai-model-select" id="model-select" onchange="modelChange()">
-            <option value="claude">Générer avec Claude</option>
-            <option value="gemini">Générer avec Gemini</option>
+            <option value="claude">🟠 Générer avec Claude</option>
+            <option value="gemini">🔵 Générer avec Gemini</option>
           </select>
         </div>
         <div class="ai-api-key-wrap">
@@ -739,6 +755,7 @@ function getAutosaveData() {
     selectedId,
     fields,
     ton: document.getElementById('g-ton').value,
+    tonCustom: document.getElementById('g-ton-custom').value,
     longueur: document.getElementById('g-longueur').value,
     date: document.getElementById('g-date').value,
     aiResponse: document.getElementById('response-box').textContent || '',
@@ -807,6 +824,8 @@ function restoreAutosave() {
         });
       }
       if (data.ton) document.getElementById('g-ton').value = data.ton;
+      if (data.tonCustom) document.getElementById('g-ton-custom').value = data.tonCustom;
+      document.getElementById('g-ton-custom-wrap').style.display = (data.ton === '__custom__') ? '' : 'none';
       if (data.longueur) document.getElementById('g-longueur').value = data.longueur;
       if (data.date) document.getElementById('g-date').value = data.date;
       updateResult();
@@ -832,6 +851,29 @@ function discardAutosave() {
   clearAutosave();
   document.getElementById('autosave-restore-banner').classList.remove('visible');
 }
+
+// Indique s'il existe, à l'instant présent, un travail en cours qui mérite d'être
+// signalé avant de quitter la page : au moins un champ rempli ou une réponse IA générée.
+function hasUnsavedTempWork() {
+  const data = getAutosaveData();
+  if (!data) return false;
+  const hasFieldValue = Object.values(data.fields || {}).some(v => v && v.trim());
+  const hasAiResponse = !!(data.aiResponse && data.aiResponse.trim());
+  return hasFieldValue || hasAiResponse;
+}
+
+// Avertit l'utilisateur avant de fermer/rafraîchir l'onglet s'il perdrait un brouillon
+// temporaire non encore enregistré comme brouillon officiel (bouton "Sauvegarder le brouillon").
+window.addEventListener('beforeunload', function(e) {
+  // On force une dernière sauvegarde synchrone pour que le brouillon temporaire soit
+  // bien à jour dans le localStorage si l'utilisateur revient plus tard.
+  if (hasUnsavedTempWork()) {
+    try { localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(getAutosaveData())); } catch (err) {}
+    e.preventDefault();
+    e.returnValue = '';
+    return '';
+  }
+});
 
 // ── ECHAPPEMENT HTML ──────────────────────────────────────────────────────
 function escapeHTML(str) {
@@ -909,6 +951,29 @@ function selectTemplate(id) {
   }, 350);
 }
 
+// Affiche/masque le champ de saisie libre quand "Ton personnalisé…" est choisi.
+function onTonChange() {
+  const select = document.getElementById('g-ton');
+  const wrap = document.getElementById('g-ton-custom-wrap');
+  const isCustom = select.value === '__custom__';
+  wrap.style.display = isCustom ? '' : 'none';
+  if (isCustom) {
+    setTimeout(() => document.getElementById('g-ton-custom').focus(), 50);
+  }
+  updateResult();
+}
+
+// Retourne le ton effectif à insérer dans le prompt : soit une des valeurs
+// prédéfinies, soit le texte libre saisi par l'utilisateur (avec repli si vide).
+function getEffectiveTon() {
+  const select = document.getElementById('g-ton');
+  if (select.value === '__custom__') {
+    const custom = document.getElementById('g-ton-custom').value.trim();
+    return custom || 'factuel et professionnel';
+  }
+  return select.value;
+}
+
 // ── CONSTRUCTION DU PROMPT ────────────────────────────────────────────────
 function updateResult() {
   const t = templates.find(x => x.id === selectedId);
@@ -920,7 +985,7 @@ function updateResult() {
     text = text.split('[' + inp.dataset.field + ']').join(val);
   });
 
-  const ton = document.getElementById('g-ton').value;
+  const ton = getEffectiveTon();
   const longueur = document.getElementById('g-longueur').value;
   text = text.split('[Ton]').join(ton).split('[Longueur]').join(longueur);
 
@@ -989,6 +1054,20 @@ function modelChange() {
   document.getElementById('api-key').placeholder = model === 'claude' ? 'Clé API Anthropic' : 'Clé API Gemini';
 }
 
+// Squelette de chargement affiché dans la zone de réponse IA le temps que
+// le premier fragment de texte arrive : donne une sensation de rapidité perçue,
+// plus rassurante qu'un simple spinner sur un fond vide.
+const SKELETON_HTML = `
+  <div class="skel-line title w-40"></div>
+  <div class="skel-line w-95"></div>
+  <div class="skel-line w-88"></div>
+  <div class="skel-line w-92"></div>
+  <div class="skel-line w-60"></div>
+  <div class="skel-line w-95 gap-top"></div>
+  <div class="skel-line w-70"></div>
+  <div class="skel-line w-40"></div>
+`;
+
 async function runAi() {
   const model = document.getElementById('model-select').value;
   const prompt = document.getElementById('result').value;
@@ -1009,7 +1088,9 @@ async function runAi() {
   wrapEl.style.display = 'block';
   boxEl.textContent = '';
   boxEl.contentEditable = false;
-  boxEl.classList.add('streaming');
+  boxEl.classList.remove('streaming');
+  boxEl.classList.add('skeleton');
+  boxEl.innerHTML = SKELETON_HTML;
   document.getElementById('response-edit-hint').style.display = 'none';
 
   try {
@@ -1030,7 +1111,7 @@ async function runAi() {
     if (msg.includes('fetch') || msg.includes('network')) msg = 'Erreur réseau — vérifiez votre connexion.';
     showApiError(errorEl, msg);
   } finally {
-    boxEl.classList.remove('streaming');
+    boxEl.classList.remove('streaming', 'skeleton');
     btn.disabled = false;
     btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Générer';
   }
@@ -1059,6 +1140,7 @@ async function streamClaude(prompt, apiKey, boxEl) {
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
+  let firstChunk = true;
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -1072,11 +1154,18 @@ async function streamClaude(prompt, apiKey, boxEl) {
       try {
         const json = JSON.parse(data);
         if (json.type === 'content_block_delta' && json.delta?.text) {
+          if (firstChunk) {
+            boxEl.classList.remove('skeleton');
+            boxEl.innerHTML = '';
+            boxEl.classList.add('streaming');
+            firstChunk = false;
+          }
           boxEl.textContent += json.delta.text;
         }
       } catch {}
     }
   }
+  if (firstChunk) { boxEl.classList.remove('skeleton'); boxEl.innerHTML = ''; }
 }
 
 async function streamGemini(prompt, apiKey, boxEl) {
@@ -1093,6 +1182,7 @@ async function streamGemini(prompt, apiKey, boxEl) {
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
+  let firstChunk = true;
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -1106,10 +1196,21 @@ async function streamGemini(prompt, apiKey, boxEl) {
       try {
         const json = JSON.parse(data);
         const parts = json?.candidates?.[0]?.content?.parts || [];
-        for (const part of parts) { if (part.text) boxEl.textContent += part.text; }
+        for (const part of parts) {
+          if (part.text) {
+            if (firstChunk) {
+              boxEl.classList.remove('skeleton');
+              boxEl.innerHTML = '';
+              boxEl.classList.add('streaming');
+              firstChunk = false;
+            }
+            boxEl.textContent += part.text;
+          }
+        }
       } catch {}
     }
   }
+  if (firstChunk) { boxEl.classList.remove('skeleton'); boxEl.innerHTML = ''; }
 }
 
 function showApiError(el, msg) {
