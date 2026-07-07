@@ -152,6 +152,7 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
 .btn-run-ai:disabled { opacity: .6; cursor: default; }
 .api-key-save-hint { font-size: 10px; color: var(--text3); margin-top: -2px; padding: 0 14px 8px; }
 .ai-error { display: none; margin: 0 14px 10px; padding: 8px 11px; background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; border-radius: 8px; font-size: 12px; }
+.ai-error::before { content: ''; display: inline-block; width: 12px; height: 12px; margin-right: 5px; vertical-align: -1px; background-color: currentColor; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z'/%3E%3Cline x1='12' y1='9' x2='12' y2='13'/%3E%3Cline x1='12' y1='17' x2='12.01' y2='17'/%3E%3C/svg%3E") no-repeat center / contain; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z'/%3E%3Cline x1='12' y1='9' x2='12' y2='13'/%3E%3Cline x1='12' y1='17' x2='12.01' y2='17'/%3E%3C/svg%3E") no-repeat center / contain; }
 [data-theme="dark"] .ai-error { background: #2d1010; border-color: #6e1f1f; color: #f87171; }
 .ai-response-wrap { padding: 0 14px 14px; }
 .ai-response-box { background: var(--result-bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; font-size: 13px; line-height: 1.65; white-space: pre-wrap; color: var(--text); max-height: 420px; overflow-y: auto; }
@@ -197,7 +198,9 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
 .draft-sub { font-size: 10.5px; color: var(--text3); }
 .draft-btn { background: none; border: 1px solid var(--border); border-radius: 7px; padding: 5px 9px; font-size: 11px; color: var(--text2); cursor: pointer; white-space: nowrap; }
 .draft-sort-select { background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 5px 8px; font-size: 11px; color: var(--text2); cursor: pointer; }
-.draft-search-input { flex: 1; min-width: 160px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 5px 9px; font-size: 12px; color: var(--text); outline: none; }
+.draft-search-wrap { position: relative; flex: 1; min-width: 160px; display: flex; align-items: center; }
+.draft-search-wrap svg { position: absolute; left: 9px; color: var(--text3); pointer-events: none; }
+.draft-search-input { flex: 1; min-width: 160px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 5px 9px 5px 28px; font-size: 12px; color: var(--text); outline: none; }
 .draft-search-input:focus { border-color: var(--blue); }
 .draft-btn:hover { background: var(--border); }
 .draft-btn.danger:hover { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
@@ -205,8 +208,10 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
 .import-form { display: none; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: .9rem; margin-bottom: 12px; }
 .import-form .fields { margin-bottom: .7rem; }
 
-.toast { display: none; margin-top: 10px; padding: 9px 13px; border-radius: 8px; font-size: 12px; line-height: 1.5; }
+.toast { display: none; align-items: flex-start; gap: 6px; margin-top: 10px; padding: 9px 13px; border-radius: 8px; font-size: 12px; line-height: 1.5; }
 .toast.ok { background: var(--c-admin-bg); border: 1px solid var(--c-admin-border); color: var(--c-admin); }
+.toast.warn { background: var(--c-prosp-bg); border: 1px solid var(--c-prosp-border); color: var(--c-prosp); }
+.toast.edit { background: var(--c-ann-bg); border: 1px solid var(--c-ann-border); color: var(--c-ann); }
 #save-toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 500; max-width: min(92vw, 480px); margin-top: 0; box-shadow: 0 6px 20px rgba(0,0,0,.18); }
 
 /* POPUP DE CONFIRMATION (suppression, remplacement...) */
@@ -219,7 +224,7 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
 <body>
 
 <header>
-  <a class="back-home" href="index.html" title="Retour à l'accueil">← Accueil</a>
+  <a class="back-home" href="index.html" title="Retour à l'accueil"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Accueil</a>
   <div class="header-logo"><img src="logo_laforet.png" alt="Laforêt" width="46" height="46"></div>
   <div class="header-info">
     <h1>Générateur de blog</h1>
@@ -293,14 +298,14 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
       <div id="result-wrap">
         <textarea class="result-box" id="result" spellcheck="false" placeholder="Le prompt apparaîtra ici — vous pouvez le modifier avant de copier."></textarea>
       </div>
-      <div class="toast ok" id="claude-toast">✅ <b>Prompt copié.</b> Claude.ai s'ouvre — colle le prompt avec Ctrl+V (ou ⌘V sur Mac).</div>
+      <div class="toast ok" id="claude-toast"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:2px;"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg> <b>Prompt copié.</b> Claude.ai s'ouvre — colle le prompt avec Ctrl+V (ou ⌘V sur Mac).</div>
 
       <!-- PANNEAU GENERATION DIRECTE -->
       <div class="ai-api-panel" id="api-panel">
         <div class="ai-api-header">
           <select class="ai-model-select" id="model-select" onchange="modelChange()">
-            <option value="claude">🟠 Générer avec Claude</option>
-            <option value="gemini">🔵 Générer avec Gemini</option>
+            <option value="claude">Générer avec Claude</option>
+            <option value="gemini">Générer avec Gemini</option>
           </select>
         </div>
         <div class="ai-api-key-wrap">
@@ -310,10 +315,10 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
             Générer
           </button>
         </div>
-        <div class="api-key-save-hint">🔒 La clé reste dans votre navigateur, elle n'est pas stockée.</div>
+        <div class="api-key-save-hint"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:2px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> La clé reste dans votre navigateur, elle n'est pas stockée.</div>
         <div class="ai-error" id="api-error"></div>
         <div class="ai-response-wrap" id="response-wrap" style="display:none;">
-          <div class="ai-response-edit-hint" id="response-edit-hint">✏️ Vous pouvez cliquer dans le texte ci-dessous et le modifier avant de le mettre en forme.</div>
+          <div class="ai-response-edit-hint" id="response-edit-hint"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:2px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Vous pouvez cliquer dans le texte ci-dessous et le modifier avant de le mettre en forme.</div>
           <div class="ai-response-box" id="response-box"></div>
           <div class="ai-response-actions">
             <button class="btn-copy ann" onclick="copyRawResponse(this)">
@@ -334,7 +339,7 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
     <div class="preview-bar">
       <div>
         <div class="preview-bar-title">Aperçu de l'article</div>
-        <div class="preview-bar-hint">✏️ Cliquez sur le titre ou le texte ci-dessous pour les modifier directement.</div>
+        <div class="preview-bar-hint"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:2px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Cliquez sur le titre ou le texte ci-dessous pour les modifier directement.</div>
       </div>
       <div class="preview-actions">
         <button class="btn-copy" style="background:var(--text2);" onclick="copyArticleText(this)">
@@ -376,8 +381,8 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
     </div>
 
     <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
-      <button class="draft-btn" onclick="exportDrafts()">⬇️ Exporter en JSON</button>
-      <button class="draft-btn" onclick="triggerImportFile()">⬆️ Importer un fichier</button>
+      <button class="draft-btn" onclick="exportDrafts()" style="display:inline-flex; align-items:center; gap:5px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Exporter en JSON</button>
+      <button class="draft-btn" onclick="triggerImportFile()" style="display:inline-flex; align-items:center; gap:5px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Importer un fichier</button>
       <input type="file" id="import-file-input" accept="application/json,.json" style="display:none;" onchange="handleImportFile(event)">
     </div>
 
@@ -391,14 +396,17 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
     </div>
 
     <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
-      <input type="text" id="draft-search" class="draft-search-input" placeholder="🔎 Rechercher par titre..." oninput="onDraftFilterChange()">
+      <div class="draft-search-wrap">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="draft-search" class="draft-search-input" placeholder="Rechercher par titre..." oninput="onDraftFilterChange()">
+      </div>
       <select id="draft-cat-filter" class="draft-sort-select" onchange="onDraftFilterChange()">
         <option value="">Toutes les catégories</option>
       </select>
     </div>
 
     <div class="import-form" id="import-form">
-      <div class="import-form-title" id="import-form-title" style="display:none; font-size:13px; font-weight:700; color:var(--blue); margin-bottom:.7rem;">✏️ Modification du brouillon</div>
+      <div class="import-form-title" id="import-form-title" style="display:none; align-items:center; gap:5px; font-size:13px; font-weight:700; color:var(--blue); margin-bottom:.7rem;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Modification du brouillon</div>
       <div class="fields">
         <div class="field-wrap wide">
           <label for="imp-title">Titre de l'article</label>
@@ -425,7 +433,7 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
         <div class="field-wrap wide">
           <label for="imp-body">Texte de l'article</label>
           <textarea id="imp-body" style="min-height:160px;" placeholder="Collez ou tapez votre texte ici. Vous pouvez utiliser : &#10;## pour un intertitre&#10;- pour une liste à puces&#10;**mot** pour du gras"></textarea>
-          <div style="font-size:10.5px; color:var(--c-prosp);">⚠️ Ne mettez pas d'émojis dans le texte de l'article — ce n'est pas conforme au ton éditorial du blog.</div>
+          <div style="font-size:10.5px; color:var(--c-prosp); display:flex; align-items:center; gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Ne mettez pas d'émojis dans le texte de l'article — ce n'est pas conforme au ton éditorial du blog.</div>
         </div>
       </div>
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -754,7 +762,7 @@ function flashCopyFeedback(btn, label, restore) {
   if (!btn) return;
   const original = btn.innerHTML;
   btn.classList.add('copied');
-  btn.innerHTML = label || '✓ Copié !';
+  btn.innerHTML = label || '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><polyline points="20 6 9 17 4 12"/></svg> Copié !';
   clearTimeout(btn._copyTimer);
   btn._copyTimer = setTimeout(() => {
     btn.classList.remove('copied');
@@ -766,7 +774,7 @@ function copyResult() {
   const txt = document.getElementById('result').value;
   const btn = document.getElementById('copy-btn');
   navigator.clipboard.writeText(txt).then(() => {
-    flashCopyFeedback(btn, '✓ Copié dans le presse-papiers !', resetCopyBtn);
+    flashCopyFeedback(btn, '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><polyline points="20 6 9 17 4 12"/></svg> Copié dans le presse-papiers !', resetCopyBtn);
   });
 }
 function sendToClaude() {
@@ -775,7 +783,7 @@ function sendToClaude() {
   const toast = document.getElementById('claude-toast');
   navigator.clipboard.writeText(txt).then(() => {
     toast.style.display = 'block';
-    flashCopyFeedback(btn, '✓ Ouverture…');
+    flashCopyFeedback(btn, '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><polyline points="20 6 9 17 4 12"/></svg> Ouverture…');
     setTimeout(() => { toast.style.display = 'none'; }, 6000);
     window.open('https://claude.ai/new', '_blank', 'noopener,noreferrer');
   });
@@ -924,13 +932,13 @@ async function streamGemini(prompt, apiKey, boxEl) {
 }
 
 function showApiError(el, msg) {
-  el.textContent = '⚠️ ' + msg;
+  el.textContent = msg;
   el.style.display = 'block';
 }
 function copyRawResponse(btn) {
   const txt = document.getElementById('response-box').textContent;
   navigator.clipboard.writeText(txt);
-  flashCopyFeedback(btn, '✓ Copié !');
+  flashCopyFeedback(btn, '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><polyline points="20 6 9 17 4 12"/></svg> Copié !');
 }
 
 // ── MISE EN FORME DE L'ARTICLE (parsing TITRE / META / corps) ────────────
@@ -1035,7 +1043,7 @@ function persistInlineChanges() {
   document.getElementById('art-meta').textContent = currentArticle.dateLabel;
 
   if (containsEmoji(currentArticle.title) || containsEmoji(currentArticle.body)) {
-    flashSaveToast('⚠️ Émojis détectés — non conforme au ton éditorial du blog, pense à les retirer.');
+    flashSaveToast('Émojis détectés — non conforme au ton éditorial du blog, pense à les retirer.', 'warn');
   }
 
   if (currentDraftId !== null) {
@@ -1053,9 +1061,9 @@ function persistInlineChanges() {
       setDrafts(drafts);
       renderDrafts();
     }
-    flashSaveToast('✅ Modifications enregistrées dans le brouillon.');
+    flashSaveToast('Modifications enregistrées dans le brouillon.');
   } else {
-    flashSaveToast('✏️ Aperçu mis à jour — clique sur "Sauvegarder le brouillon" pour le conserver.');
+    flashSaveToast('Aperçu mis à jour — clique sur "Sauvegarder le brouillon" pour le conserver.', 'edit');
   }
 }
 
@@ -1111,8 +1119,8 @@ function copyArticleText(btn) {
     .replace(/\*\*(.+?)\*\*/g, '$1');
   const text = `${currentArticle.title}\n\n${currentArticle.dateLabel}\n\n${plain}`;
   navigator.clipboard.writeText(text);
-  flashSaveToast('✅ Texte de l\'article copié dans le presse-papiers.');
-  flashCopyFeedback(btn, '✓ Copié !');
+  flashSaveToast('Texte de l\'article copié dans le presse-papiers.');
+  flashCopyFeedback(btn, '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><polyline points="20 6 9 17 4 12"/></svg> Copié !');
 }
 
 function copyArticleHtml(btn) {
@@ -1126,14 +1134,21 @@ ${currentArticle.bodyHtml.replace(/<h2>/g, '<h2 style="font-size:18px;font-weigh
   <div style="margin-top:24px;padding-top:16px;border-top:1px solid #e2e7f0;font-size:13px;color:#7c86a3;">Agence Laforêt Pithiviers</div>
 </article>`;
   navigator.clipboard.writeText(html);
-  flashSaveToast('✅ Code HTML de l\'article copié dans le presse-papiers.');
-  flashCopyFeedback(btn, '✓ Copié !');
+  flashSaveToast('Code HTML de l\'article copié dans le presse-papiers.');
+  flashCopyFeedback(btn, '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><polyline points="20 6 9 17 4 12"/></svg> Copié !');
 }
 
-function flashSaveToast(msg) {
+const TOAST_ICONS = {
+  ok: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; flex-shrink:0;"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>',
+  warn: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; flex-shrink:0;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+  edit: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; flex-shrink:0;"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>'
+};
+function flashSaveToast(msg, type) {
   const t = document.getElementById('save-toast');
-  t.textContent = msg;
-  t.style.display = 'block';
+  t.classList.toggle('warn', type === 'warn');
+  t.classList.toggle('edit', type === 'edit');
+  t.innerHTML = `${TOAST_ICONS[type] || TOAST_ICONS.ok} ${msg}`;
+  t.style.display = 'flex';
   clearTimeout(t._timer);
   t._timer = setTimeout(() => t.style.display = 'none', 3500);
 }
@@ -1182,7 +1197,7 @@ function exportDrafts() {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
-  flashSaveToast(`✅ ${drafts.length} brouillon${drafts.length > 1 ? 's' : ''} exporté${drafts.length > 1 ? 's' : ''}.`);
+  flashSaveToast(`${drafts.length} brouillon${drafts.length > 1 ? 's' : ''} exporté${drafts.length > 1 ? 's' : ''}.`);
 }
 
 function triggerImportFile() {
@@ -1200,20 +1215,20 @@ function handleImportFile(event) {
     try {
       parsed = JSON.parse(reader.result);
     } catch {
-      flashSaveToast('⚠️ Fichier illisible : ce n\'est pas un JSON valide.');
+      flashSaveToast('Fichier illisible : ce n\'est pas un JSON valide.', 'warn');
       return;
     }
 
     const rawList = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.drafts) ? parsed.drafts : null);
     if (!rawList) {
-      flashSaveToast('⚠️ Ce fichier ne contient pas de brouillons reconnaissables.');
+      flashSaveToast('Ce fichier ne contient pas de brouillons reconnaissables.', 'warn');
       return;
     }
 
     // On ne garde que les entrées qui ressemblent bien à des brouillons.
     const valid = rawList.filter(d => d && typeof d === 'object' && typeof d.title === 'string' && typeof d.body === 'string');
     if (!valid.length) {
-      flashSaveToast('⚠️ Aucun brouillon valide trouvé dans ce fichier.');
+      flashSaveToast('Aucun brouillon valide trouvé dans ce fichier.', 'warn');
       return;
     }
 
@@ -1223,7 +1238,7 @@ function handleImportFile(event) {
     document.getElementById('import-file-confirm').style.display = 'block';
     document.getElementById('import-file-confirm').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   };
-  reader.onerror = () => flashSaveToast('⚠️ Impossible de lire ce fichier.');
+  reader.onerror = () => flashSaveToast('Impossible de lire ce fichier.', 'warn');
   reader.readAsText(file);
 }
 
@@ -1253,11 +1268,11 @@ function confirmFileImport(mode) {
 
   if (mode === 'replace') {
     setDrafts(incoming);
-    flashSaveToast(`✅ Brouillons remplacés (${incoming.length}).`);
+    flashSaveToast(`Brouillons remplacés (${incoming.length}).`);
   } else {
     const merged = [...incoming, ...getDrafts()];
     setDrafts(merged);
-    flashSaveToast(`✅ ${incoming.length} brouillon${incoming.length > 1 ? 's' : ''} ajouté${incoming.length > 1 ? 's' : ''}.`);
+    flashSaveToast(`${incoming.length} brouillon${incoming.length > 1 ? 's' : ''} ajouté${incoming.length > 1 ? 's' : ''}.`);
   }
 
   renderDrafts();
@@ -1331,7 +1346,7 @@ function clearImportForm() {
 
 function setImportFormMode(editing) {
   editingDraftId = editing ? editingDraftId : null;
-  document.getElementById('import-form-title').style.display = editing ? 'block' : 'none';
+  document.getElementById('import-form-title').style.display = editing ? 'flex' : 'none';
   document.getElementById('import-submit-label').textContent = editing ? 'Enregistrer les modifications' : 'Importer comme brouillon';
 }
 
@@ -1340,7 +1355,9 @@ function toggleImportForm(show) {
   const btn = document.getElementById('import-toggle-btn');
   const willShow = typeof show === 'boolean' ? show : form.style.display !== 'block';
   form.style.display = willShow ? 'block' : 'none';
-  btn.textContent = willShow ? '✕ Fermer' : '+ Importer un texte';
+  btn.innerHTML = willShow
+    ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg> Fermer'
+    : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;"><path d="M5 12h14"/><path d="M12 5v14"/></svg> Importer un texte';
   if (willShow) {
     const dateEl = document.getElementById('imp-date');
     if (!dateEl.value) dateEl.value = new Date().toISOString().slice(0, 10);
@@ -1398,12 +1415,12 @@ function importDraft() {
   const dateIso = document.getElementById('imp-date').value;
 
   if (!title || !body) {
-    flashSaveToast('⚠️ Merci de renseigner au moins un titre et un texte.');
+    flashSaveToast('Merci de renseigner au moins un titre et un texte.', 'warn');
     return;
   }
 
   if (containsEmoji(title) || containsEmoji(meta) || containsEmoji(body)) {
-    flashSaveToast('⚠️ Retirez les émojis (titre, meta ou texte) avant d\'importer — non conforme au ton éditorial du blog.');
+    flashSaveToast('Retirez les émojis (titre, meta ou texte) avant d\'importer — non conforme au ton éditorial du blog.', 'warn');
     return;
   }
 
@@ -1422,7 +1439,7 @@ function importDraft() {
     setDrafts(drafts);
     renderDrafts();
     toggleImportForm(false);
-    flashSaveToast('✅ Brouillon modifié.');
+    flashSaveToast('Brouillon modifié.', 'edit');
     return;
   }
 
@@ -1435,7 +1452,7 @@ function importDraft() {
   renderDrafts();
 
   toggleImportForm(false);
-  flashSaveToast('✅ Texte importé comme brouillon.');
+  flashSaveToast('Texte importé comme brouillon.');
 }
 
 function updateImpMetaCount() {
@@ -1463,7 +1480,7 @@ function saveDraft() {
   setDrafts(drafts);
   renderDrafts();
   currentDraftId = newId;
-  flashSaveToast('✅ Brouillon sauvegardé localement.');
+  flashSaveToast('Brouillon sauvegardé localement.');
 }
 
 function renderDrafts() {
@@ -1491,7 +1508,7 @@ function renderDrafts() {
         <div class="draft-sub">${escapeHTML(d.cat || '')} · ${escapeHTML(d.dateLabel || '')}</div>
       </div>
       <button class="draft-btn" onclick="loadDraft(${d.id})">Ouvrir</button>
-      <button class="draft-btn" onclick="editDraft(${d.id})">✏️ Modifier</button>
+      <button class="draft-btn" onclick="editDraft(${d.id})"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg> Modifier</button>
       <button class="draft-btn danger" onclick="deleteDraft(${d.id})">Supprimer</button>
     </div>`;
   }).join('');
