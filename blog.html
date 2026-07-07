@@ -190,15 +190,23 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
 .draft-sub { font-size: 10.5px; color: var(--text3); }
 .draft-btn { background: none; border: 1px solid var(--border); border-radius: 7px; padding: 5px 9px; font-size: 11px; color: var(--text2); cursor: pointer; white-space: nowrap; }
 .draft-sort-select { background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 5px 8px; font-size: 11px; color: var(--text2); cursor: pointer; }
+.draft-search-input { flex: 1; min-width: 160px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 5px 9px; font-size: 12px; color: var(--text); outline: none; }
+.draft-search-input:focus { border-color: var(--blue); }
 .draft-btn:hover { background: var(--border); }
 .draft-btn.danger:hover { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
-.draft-btn.danger.confirming { background: #dc2626; border-color: #dc2626; color: #fff; font-weight: 700; }
 .drafts-empty { text-align: center; padding: 1.2rem; color: var(--text3); font-size: 12.5px; }
 .import-form { display: none; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: .9rem; margin-bottom: 12px; }
 .import-form .fields { margin-bottom: .7rem; }
 
 .toast { display: none; margin-top: 10px; padding: 9px 13px; border-radius: 8px; font-size: 12px; line-height: 1.5; }
 .toast.ok { background: var(--c-admin-bg); border: 1px solid var(--c-admin-border); color: var(--c-admin); }
+#save-toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 500; max-width: min(92vw, 480px); margin-top: 0; box-shadow: 0 6px 20px rgba(0,0,0,.18); }
+
+/* POPUP DE CONFIRMATION (suppression, remplacement...) */
+.modal-overlay { position: fixed; inset: 0; background: rgba(15,17,26,.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+.modal-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.2rem 1.2rem 1rem; max-width: 380px; width: 100%; box-shadow: 0 12px 40px rgba(0,0,0,.3); }
+.modal-message { font-size: 13.5px; color: var(--text); line-height: 1.55; margin-bottom: 1.1rem; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 </style>
 </head>
 <body>
@@ -338,8 +346,9 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
       <div class="article-meta" id="art-meta">—</div>
       <div class="article-body" id="art-body"></div>
     </div>
-    <div class="toast ok" id="save-toast"></div>
   </div>
+
+  <div class="toast ok" id="save-toast"></div>
 
   <div class="drafts-section">
     <div class="drafts-header">
@@ -353,6 +362,28 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
         </select>
       </div>
       <button class="draft-btn" id="import-toggle-btn" onclick="toggleImportForm()">+ Importer un texte</button>
+    </div>
+
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+      <button class="draft-btn" onclick="exportDrafts()">⬇️ Exporter en JSON</button>
+      <button class="draft-btn" onclick="triggerImportFile()">⬆️ Importer un fichier</button>
+      <input type="file" id="import-file-input" accept="application/json,.json" style="display:none;" onchange="handleImportFile(event)">
+    </div>
+
+    <div class="import-form" id="import-file-confirm" style="display:none;">
+      <div id="import-file-summary" style="font-size:12.5px; color:var(--text2); margin-bottom:.7rem;"></div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn-copy admin" onclick="confirmFileImport('merge')">Ajouter aux brouillons existants</button>
+        <button class="btn-copy" id="replace-all-btn" style="background:var(--text2);" onclick="confirmReplaceAll()">Remplacer tous les brouillons</button>
+        <button class="draft-btn" onclick="cancelFileImport()">Annuler</button>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+      <input type="text" id="draft-search" class="draft-search-input" placeholder="🔎 Rechercher par titre..." oninput="onDraftFilterChange()">
+      <select id="draft-cat-filter" class="draft-sort-select" onchange="onDraftFilterChange()">
+        <option value="">Toutes les catégories</option>
+      </select>
     </div>
 
     <div class="import-form" id="import-form">
@@ -399,6 +430,16 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
     <div class="drafts-empty" id="drafts-empty" style="display:none;">Aucun brouillon enregistré pour le moment.</div>
   </div>
 
+</div>
+
+<div class="modal-overlay" id="confirm-modal-overlay" style="display:none;" onclick="if(event.target===this) hideConfirmModal()">
+  <div class="modal-box">
+    <div class="modal-message" id="confirm-modal-message"></div>
+    <div class="modal-actions">
+      <button class="draft-btn" onclick="hideConfirmModal()">Annuler</button>
+      <button class="btn-copy" id="confirm-modal-confirm-btn" style="background:#dc2626;" onclick="runConfirmModalAction()">Confirmer</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -548,6 +589,13 @@ window.onload = function() {
   renderCats();
   renderGrid();
   document.getElementById('draft-sort').value = getDraftSortMode();
+  const catFilterEl = document.getElementById('draft-cat-filter');
+  categories.slice(1).forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c;
+    opt.textContent = c;
+    catFilterEl.appendChild(opt);
+  });
   renderDrafts();
   // Sécurité : force le collage en texte brut dans la zone éditable de réponse IA,
   // pour éviter qu'un contenu HTML collé (ex: depuis une page malveillante) ne soit
@@ -1004,6 +1052,132 @@ function getDrafts() {
   try { return JSON.parse(localStorage.getItem(DRAFTS_KEY) || '[]'); } catch { return []; }
 }
 function setDrafts(list) { localStorage.setItem(DRAFTS_KEY, JSON.stringify(list)); }
+// ── POPUP DE CONFIRMATION GENERIQUE ────────────────────────────────────────
+let _confirmModalAction = null;
+
+function showConfirmModal(message, onConfirm) {
+  document.getElementById('confirm-modal-message').textContent = message;
+  _confirmModalAction = onConfirm;
+  document.getElementById('confirm-modal-overlay').style.display = 'flex';
+}
+function hideConfirmModal() {
+  document.getElementById('confirm-modal-overlay').style.display = 'none';
+  _confirmModalAction = null;
+}
+function runConfirmModalAction() {
+  const action = _confirmModalAction;
+  hideConfirmModal();
+  if (action) action();
+}
+
+// ── EXPORT / IMPORT DES BROUILLONS EN FICHIER (sauvegarde locale) ─────────
+let pendingImportDrafts = null;
+
+function exportDrafts() {
+  const drafts = getDrafts();
+  const payload = {
+    app: 'laforet_blog_drafts',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    drafts
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `brouillons-blog-laforet-${stamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  flashSaveToast(`✅ ${drafts.length} brouillon${drafts.length > 1 ? 's' : ''} exporté${drafts.length > 1 ? 's' : ''}.`);
+}
+
+function triggerImportFile() {
+  document.getElementById('import-file-input').click();
+}
+
+function handleImportFile(event) {
+  const file = event.target.files[0];
+  event.target.value = ''; // permet de resélectionner le même fichier plus tard
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    let parsed;
+    try {
+      parsed = JSON.parse(reader.result);
+    } catch {
+      flashSaveToast('⚠️ Fichier illisible : ce n\'est pas un JSON valide.');
+      return;
+    }
+
+    const rawList = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.drafts) ? parsed.drafts : null);
+    if (!rawList) {
+      flashSaveToast('⚠️ Ce fichier ne contient pas de brouillons reconnaissables.');
+      return;
+    }
+
+    // On ne garde que les entrées qui ressemblent bien à des brouillons.
+    const valid = rawList.filter(d => d && typeof d === 'object' && typeof d.title === 'string' && typeof d.body === 'string');
+    if (!valid.length) {
+      flashSaveToast('⚠️ Aucun brouillon valide trouvé dans ce fichier.');
+      return;
+    }
+
+    pendingImportDrafts = valid;
+    document.getElementById('import-file-summary').textContent =
+      `${valid.length} brouillon${valid.length > 1 ? 's' : ''} trouvé${valid.length > 1 ? 's' : ''} dans le fichier. Que veux-tu faire ?`;
+    document.getElementById('import-file-confirm').style.display = 'block';
+    document.getElementById('import-file-confirm').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  };
+  reader.onerror = () => flashSaveToast('⚠️ Impossible de lire ce fichier.');
+  reader.readAsText(file);
+}
+
+// Le remplacement total est destructif : on passe par la popup de confirmation.
+function confirmReplaceAll() {
+  const n = pendingImportDrafts ? pendingImportDrafts.length : 0;
+  showConfirmModal(
+    `Remplacer tous tes brouillons actuels par les ${n} brouillon${n > 1 ? 's' : ''} du fichier importé ? Cette action est irréversible.`,
+    () => confirmFileImport('replace')
+  );
+}
+
+function confirmFileImport(mode) {
+  if (!pendingImportDrafts) return;
+
+  // Nouveaux identifiants pour éviter toute collision avec les brouillons existants.
+  const incoming = pendingImportDrafts.map((d, i) => ({
+    id: Date.now() + i,
+    title: d.title,
+    meta: d.meta || '',
+    dateLabel: d.dateLabel || '',
+    body: d.body,
+    bodyHtml: d.bodyHtml || markdownToHtml(d.body),
+    cat: d.cat || '',
+    savedAt: d.savedAt || new Date().toISOString()
+  }));
+
+  if (mode === 'replace') {
+    setDrafts(incoming);
+    flashSaveToast(`✅ Brouillons remplacés (${incoming.length}).`);
+  } else {
+    const merged = [...incoming, ...getDrafts()];
+    setDrafts(merged);
+    flashSaveToast(`✅ ${incoming.length} brouillon${incoming.length > 1 ? 's' : ''} ajouté${incoming.length > 1 ? 's' : ''}.`);
+  }
+
+  renderDrafts();
+  cancelFileImport();
+}
+
+function cancelFileImport() {
+  pendingImportDrafts = null;
+  document.getElementById('import-file-confirm').style.display = 'none';
+  document.getElementById('import-file-summary').textContent = '';
+}
 
 // ── TRI DE L'AFFICHAGE DES BROUILLONS ──────────────────────────────────────
 // Le tri ne change que l'ordre d'affichage : l'ordre réel stocké (savedAt le
@@ -1014,6 +1188,21 @@ function getDraftSortMode() {
 function onSortChange() {
   localStorage.setItem(DRAFT_SORT_KEY, document.getElementById('draft-sort').value);
   renderDrafts();
+}
+function onDraftFilterChange() {
+  renderDrafts();
+}
+// Normalise pour une recherche insensible aux accents et à la casse.
+function normalizeSearch(str) {
+  return (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+function filterDrafts(drafts, searchText, cat) {
+  const q = normalizeSearch(searchText.trim());
+  return drafts.filter(d => {
+    const matchesSearch = !q || normalizeSearch(d.title).includes(q);
+    const matchesCat = !cat || d.cat === cat;
+    return matchesSearch && matchesCat;
+  });
 }
 function sortDrafts(drafts, mode) {
   const sorted = drafts.slice();
@@ -1185,11 +1374,17 @@ function saveDraft() {
 }
 
 function renderDrafts() {
-  const drafts = sortDrafts(getDrafts(), getDraftSortMode());
+  const allDrafts = getDrafts();
+  const searchText = document.getElementById('draft-search').value;
+  const catFilter = document.getElementById('draft-cat-filter').value;
+  const drafts = sortDrafts(filterDrafts(allDrafts, searchText, catFilter), getDraftSortMode());
   const list = document.getElementById('draft-list');
   const empty = document.getElementById('drafts-empty');
   if (!drafts.length) {
     list.innerHTML = '';
+    empty.textContent = allDrafts.length
+      ? 'Aucun brouillon ne correspond à ta recherche.'
+      : 'Aucun brouillon enregistré pour le moment.';
     empty.style.display = 'block';
     return;
   }
@@ -1204,7 +1399,7 @@ function renderDrafts() {
       </div>
       <button class="draft-btn" onclick="loadDraft(${d.id})">Ouvrir</button>
       <button class="draft-btn" onclick="editDraft(${d.id})">✏️ Modifier</button>
-      <button class="draft-btn danger" onclick="deleteDraft(${d.id}, this)">Supprimer</button>
+      <button class="draft-btn danger" onclick="deleteDraft(${d.id})">Supprimer</button>
     </div>`;
   }).join('');
 }
@@ -1222,21 +1417,11 @@ function loadDraft(id) {
 
 // Suppression avec confirmation en 2 temps : un premier clic demande confirmation,
 // le second (dans les 3 secondes) supprime réellement le brouillon.
-function deleteDraft(id, btn) {
-  if (btn.dataset.confirming === 'true') {
-    clearTimeout(btn._confirmTimer);
+function deleteDraft(id) {
+  showConfirmModal('Supprimer définitivement ce brouillon ? Cette action est irréversible.', () => {
     setDrafts(getDrafts().filter(x => x.id !== id));
     renderDrafts();
-    return;
-  }
-  btn.dataset.confirming = 'true';
-  btn.textContent = 'Confirmer ?';
-  btn.classList.add('confirming');
-  btn._confirmTimer = setTimeout(() => {
-    btn.dataset.confirming = 'false';
-    btn.textContent = 'Supprimer';
-    btn.classList.remove('confirming');
-  }, 3000);
+  });
 }
 </script>
 </body>
