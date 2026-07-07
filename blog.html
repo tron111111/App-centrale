@@ -193,6 +193,19 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
 .ai-error { display: none; margin: 0 14px 10px; padding: 8px 11px; background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; border-radius: 8px; font-size: 12px; }
 .ai-error::before { content: ''; display: inline-block; width: 12px; height: 12px; margin-right: 5px; vertical-align: -1px; background-color: currentColor; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z'/%3E%3Cline x1='12' y1='9' x2='12' y2='13'/%3E%3Cline x1='12' y1='17' x2='12.01' y2='17'/%3E%3C/svg%3E") no-repeat center / contain; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z'/%3E%3Cline x1='12' y1='9' x2='12' y2='13'/%3E%3Cline x1='12' y1='17' x2='12.01' y2='17'/%3E%3C/svg%3E") no-repeat center / contain; }
 [data-theme="dark"] .ai-error { background: #2d1010; border-color: #6e1f1f; color: #f87171; }
+
+/* BANDEAU HORS LIGNE — sticky sous le header, visible partout sur la page */
+.offline-banner { display: none; align-items: center; gap: 8px; justify-content: center; background: #b91c1c; color: #fff; font-size: 12.5px; font-weight: 600; padding: 8px 14px; text-align: center; position: sticky; top: 0; z-index: 200; }
+.offline-banner.show { display: flex; }
+.offline-banner.back-online { background: var(--c-admin, #059669); }
+.offline-banner svg { flex-shrink: 0; }
+.offline-banner .dot { width: 7px; height: 7px; border-radius: 50%; background: #fff; flex-shrink: 0; animation: offline-pulse 1.4s ease-in-out infinite; }
+@keyframes offline-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+
+/* Bouton "Générer" désactivé pendant la coupure : évite de laisser croire que l'IA est juste lente */
+.btn-run-ai.is-offline { opacity: .6; cursor: not-allowed; }
+.ai-offline-note { display: none; margin: 0 14px 10px; padding: 8px 11px; background: var(--result-bg); border: 1px solid var(--border2); color: var(--text2); border-radius: 8px; font-size: 12px; }
+.ai-offline-note.show { display: block; }
 .ai-response-wrap { padding: 0 14px 14px; }
 .ai-response-box { background: var(--result-bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; font-size: 13px; line-height: 1.65; white-space: pre-wrap; color: var(--text); max-height: 420px; overflow-y: auto; }
 .ai-response-box.streaming::after { content: '▍'; animation: blink 1s step-end infinite; }
@@ -299,6 +312,11 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
   </button>
 </header>
 
+<div class="offline-banner" id="offline-banner" role="status" aria-live="polite">
+  <span class="dot" id="offline-banner-dot"></span>
+  <span id="offline-banner-text">Vous êtes hors ligne — la génération IA est indisponible.</span>
+</div>
+
 <div class="container">
 
   <!-- BANNIÈRE DE RESTAURATION DU BROUILLON TEMPORAIRE -->
@@ -394,6 +412,7 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
         </div>
         <div class="api-key-save-hint"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:2px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> La clé reste dans votre navigateur, elle n'est pas stockée.</div>
         <div class="ai-error" id="api-error"></div>
+        <div class="ai-offline-note" id="ai-offline-note"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:2px;"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg> Pas de connexion : le bouton "Générer" sera de nouveau actif dès que le réseau sera de retour.</div>
         <div class="ai-response-wrap" id="response-wrap" style="display:none;">
           <div class="ai-response-edit-hint" id="response-edit-hint"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:2px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Vous pouvez cliquer dans le texte ci-dessous et le modifier avant de le mettre en forme.</div>
           <div class="ai-response-box" id="response-box"></div>
@@ -1082,7 +1101,17 @@ async function runAi() {
     return;
   }
 
+  // Vérification immédiate : inutile de lancer un appel voué à échouer si le
+  // navigateur sait déjà qu'il n'y a pas de réseau — on le dit tout de suite,
+  // plutôt que de laisser tourner un spinner qui ferait croire à une simple lenteur.
+  if (!navigator.onLine) {
+    updateOnlineStatus(false);
+    showApiError(errorEl, 'Pas de connexion internet — impossible de lancer la génération.');
+    return;
+  }
+
   errorEl.style.display = 'none';
+  isCurrentlyGenerating = true;
   btn.disabled = true;
   btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> Génération…';
   wrapEl.style.display = 'block';
@@ -1092,6 +1121,14 @@ async function runAi() {
   boxEl.classList.add('skeleton');
   boxEl.innerHTML = SKELETON_HTML;
   document.getElementById('response-edit-hint').style.display = 'none';
+
+  // Si la connexion tombe pendant la génération, on le signale tout de suite
+  // sur le bouton lui-même, au lieu de laisser le spinner tourner en silence.
+  const onDropDuringGeneration = () => {
+    btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg> Connexion perdue…';
+    updateOnlineStatus(false);
+  };
+  window.addEventListener('offline', onDropDuringGeneration);
 
   try {
     if (model === 'claude') {
@@ -1106,14 +1143,26 @@ async function runAi() {
   } catch (err) {
     wrapEl.style.display = 'none';
     let msg = err.message || 'Erreur inconnue.';
-    if (msg.includes('401') || msg.includes('403') || msg.includes('authentication') || msg.includes('API_KEY_INVALID')) msg = 'Clé API invalide ou expirée.';
-    if (msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED')) msg = 'Limite de requêtes atteinte — réessayez dans quelques secondes.';
-    if (msg.includes('fetch') || msg.includes('network')) msg = 'Erreur réseau — vérifiez votre connexion.';
+    if (!navigator.onLine) {
+      // Cas prioritaire : la coupure réseau explique l'échec, plutôt que de
+      // laisser croire à un simple ralentissement du modèle.
+      msg = 'Connexion perdue pendant la génération. Reconnectez-vous puis relancez.';
+    } else if (msg.includes('401') || msg.includes('403') || msg.includes('authentication') || msg.includes('API_KEY_INVALID')) {
+      msg = 'Clé API invalide ou expirée.';
+    } else if (msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED')) {
+      msg = 'Limite de requêtes atteinte — réessayez dans quelques secondes.';
+    } else if (msg.includes('Failed to fetch') || msg.toLowerCase().includes('network')) {
+      msg = 'Erreur réseau — vérifiez votre connexion.';
+    }
     showApiError(errorEl, msg);
   } finally {
+    window.removeEventListener('offline', onDropDuringGeneration);
+    isCurrentlyGenerating = false;
     boxEl.classList.remove('streaming', 'skeleton');
-    btn.disabled = false;
+    btn.disabled = !navigator.onLine;
+    btn.classList.toggle('is-offline', !navigator.onLine);
     btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Générer';
+    updateOnlineStatus(false); // resynchronise le bandeau/bouton avec l'état réel une fois la génération terminée
   }
 }
 
@@ -1820,6 +1869,54 @@ function deleteDraft(id) {
     renderDrafts();
   });
 }
+
+// ── MODE HORS LIGNE ────────────────────────────────────────────────────
+// But : signaler la perte de connexion tout de suite et clairement, avant
+// que l'utilisateur ne pense simplement que la génération IA est lente.
+let isCurrentlyGenerating = false;
+
+function setRunBtnOfflineState(offline) {
+  const btn = document.getElementById('run-btn');
+  const note = document.getElementById('ai-offline-note');
+  if (!btn || !note) return;
+  // On ne touche pas au bouton pendant une génération en cours : c'est le
+  // gestionnaire de flux (streamClaude/streamGemini) qui gère ce cas précis.
+  if (isCurrentlyGenerating) return;
+  btn.classList.toggle('is-offline', offline);
+  btn.disabled = offline;
+  note.classList.toggle('show', offline);
+}
+
+function updateOnlineStatus(justChanged) {
+  const banner = document.getElementById('offline-banner');
+  const dot = document.getElementById('offline-banner-dot');
+  const text = document.getElementById('offline-banner-text');
+  const online = navigator.onLine;
+
+  if (!online) {
+    banner.classList.remove('back-online');
+    banner.classList.add('show');
+    dot.style.display = '';
+    text.textContent = 'Vous êtes hors ligne — la génération IA est indisponible.';
+    setRunBtnOfflineState(true);
+  } else if (justChanged) {
+    // Reconnexion : petit message de confirmation, puis le bandeau se masque.
+    banner.classList.add('show', 'back-online');
+    dot.style.display = 'none';
+    text.textContent = 'Connexion rétablie.';
+    setRunBtnOfflineState(false);
+    setTimeout(() => {
+      banner.classList.remove('show', 'back-online');
+    }, 2500);
+  } else {
+    banner.classList.remove('show', 'back-online');
+    setRunBtnOfflineState(false);
+  }
+}
+
+window.addEventListener('online', () => updateOnlineStatus(true));
+window.addEventListener('offline', () => updateOnlineStatus(false));
+updateOnlineStatus(false); // état initial au chargement de la page
 </script>
 </body>
 </html>
