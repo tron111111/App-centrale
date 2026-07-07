@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<script>
+  // Applique le thème AVANT le premier rendu, pour éviter un flash en clair.
+  (function(){
+    const saved = localStorage.getItem('theme');
+    const sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme:dark)').matches;
+    const theme = saved || (sysDark ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  })();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#16266b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Générateur de blog">
+<!--
+  Content-Security-Policy : alignée sur celle de bibliotheque.html / photoimmo.html / index.html.
+  - connect-src ajoute api.anthropic.com et generativelanguage.googleapis.com pour la
+    génération directe via clé API (BYOK), comme dans bibliotheque.html.
+-->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://api.anthropic.com https://generativelanguage.googleapis.com; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'self'">
+<title>Générateur de blog — Laforêt Pithiviers</title>
+<meta name="description" content="Génère des articles de blog prêts à publier pour le site Laforêt Pithiviers : actualités immobilières et vie locale.">
+<link rel="icon" type="image/png" href="logo_laforet.png">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html { overflow-x: hidden; }
+body { overflow-x: hidden; }
+:root {
+  --bg: #f4f6fa; --surface: #fff; --border: #e2e7f0; --border2: #c7d0e4;
+  --text: #161d33; --text2: #525d7a; --text3: #7c86a3; --text4: #a8b0c4;
+  --blue: #16266b; --blue-bg: #e9ecf7; --blue-border: #b9c2e0; --blue-dark: #0f1b50;
+  --sky: #29a9e0; --sky-bg: #e4f4fc;
+  --input-bg: #f4f6fa; --result-bg: #e9ecf7; --radius: 12px;
+  /* catégories d'articles */
+  --c-ann: var(--blue); --c-ann-bg: var(--blue-bg); --c-ann-border: var(--blue-border);
+  --c-prosp: #d97706; --c-prosp-bg: #fffbeb; --c-prosp-border: #fde68a;
+  --c-social: #9333ea; --c-social-bg: #faf5ff; --c-social-border: #e9d5ff;
+  --c-admin: #059669; --c-admin-bg: #ecfdf5; --c-admin-border: #a7f3d0;
+}
+[data-theme="dark"] {
+  --bg: #0f1117; --surface: #1a1f2e; --border: #2a3148; --border2: #3a4260;
+  --text: #e8ecf4; --text2: #8892aa; --text3: #6b7594; --text4: #4a5474;
+  --blue: #29a9e0; --blue-bg: #1a2240; --blue-border: #2d3f70; --blue-dark: #5cc4ea;
+  --sky: #29a9e0; --sky-bg: #0e2030;
+  --input-bg: #232a42; --result-bg: #1a2240;
+  --c-ann: var(--blue); --c-ann-bg: var(--blue-bg); --c-ann-border: var(--blue-border);
+  --c-prosp: #fbbf24; --c-prosp-bg: #2d2010; --c-prosp-border: #7a5a10;
+  --c-social: #c084fc; --c-social-bg: #2d1a45; --c-social-border: #6b21a8;
+  --c-admin: #34d399; --c-admin-bg: #0a2e20; --c-admin-border: #0f5a3a;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; transition: background .2s, color .2s; }
+
+/* HEADER */
+header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2px 16px rgba(15,27,80,.3); padding: calc(.85rem + env(safe-area-inset-top)) 1.25rem .85rem; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 100; }
+.back-home { background: rgba(255,255,255,.16); border: none; color: #fff; font-size: 13px; font-weight: 700; padding: 7px 13px; border-radius: 999px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; white-space: nowrap; }
+.header-logo { width: 46px; height: 46px; border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,.18); flex-shrink: 0; background: #fff; }
+.header-logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.header-info { flex: 1; min-width: 0; }
+.header-info h1 { font-size: 18px; font-weight: 800; color: #fff; line-height: 1.2; letter-spacing: .2px; }
+.header-info span { font-size: 12px; color: #fff; opacity: .75; }
+.theme-toggle { background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.18); border-radius: 20px; padding: 7px 12px; font-size: 12px; color: #fff; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; flex-shrink: 0; }
+.theme-toggle:hover { background: rgba(255,255,255,.22); }
+@media (max-width: 640px) {
+  .header-logo { width: 30px; height: 30px; border-radius: 8px; }
+  .header-info h1 { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .header-info span { display: none; }
+  .theme-toggle span { display: none; }
+  .theme-toggle { padding: 7px 9px; }
+}
+
+.container { max-width: 1000px; margin: 0 auto; padding: 1.25rem 1rem calc(3rem + env(safe-area-inset-bottom)); }
+
+/* INTRO */
+.intro { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 1rem 1.1rem; margin-bottom: 1.25rem; font-size: 12.5px; color: var(--text2); line-height: 1.6; }
+.intro b { color: var(--text); }
+
+/* CATS */
+.cats-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; margin-bottom: 1rem; }
+.cats-wrap::-webkit-scrollbar { display: none; }
+.cats { display: flex; gap: 7px; width: max-content; }
+.cat-btn { background: var(--surface); border: 1.5px solid var(--border); border-radius: 20px; padding: 7px 14px; font-size: 12px; font-weight: 500; color: var(--text2); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; transition: all .15s; }
+.cat-btn:hover { border-color: var(--border2); color: var(--text); }
+.cat-btn.active { font-weight: 600; }
+.cat-btn[data-cat="Tous"].active     { background: var(--blue-bg); border-color: var(--blue-border); color: var(--blue); }
+.cat-btn[data-cat="Marché immobilier"].active   { background: var(--c-ann-bg); border-color: var(--c-ann-border); color: var(--c-ann); }
+.cat-btn[data-cat="Conseils pratiques"].active  { background: var(--c-prosp-bg); border-color: var(--c-prosp-border); color: var(--c-prosp); }
+.cat-btn[data-cat="Vie locale"].active          { background: var(--c-social-bg); border-color: var(--c-social-border); color: var(--c-social); }
+.cat-btn[data-cat="Gastronomie & Terroir"].active { background: var(--c-admin-bg); border-color: var(--c-admin-border); color: var(--c-admin); }
+.cat-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.cat-dot.ann   { background: var(--c-ann); }
+.cat-dot.prosp { background: var(--c-prosp); }
+.cat-dot.social { background: var(--c-social); }
+.cat-dot.admin { background: var(--c-admin); }
+
+/* GRID DE MODELES */
+.tpl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; margin-bottom: 1.25rem; }
+.tpl-card { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); padding: .9rem 1rem; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+.tpl-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.07); }
+.tpl-card.selected { border-width: 2px; }
+.tpl-card[data-cat="Marché immobilier"]:hover, .tpl-card[data-cat="Marché immobilier"].selected     { border-color: var(--c-ann); }
+.tpl-card[data-cat="Conseils pratiques"]:hover, .tpl-card[data-cat="Conseils pratiques"].selected   { border-color: var(--c-prosp); }
+.tpl-card[data-cat="Vie locale"]:hover, .tpl-card[data-cat="Vie locale"].selected                   { border-color: var(--c-social); }
+.tpl-card[data-cat="Gastronomie & Terroir"]:hover, .tpl-card[data-cat="Gastronomie & Terroir"].selected { border-color: var(--c-admin); }
+.tpl-card[data-cat="Marché immobilier"].selected     { background: var(--c-ann-bg); }
+.tpl-card[data-cat="Conseils pratiques"].selected    { background: var(--c-prosp-bg); }
+.tpl-card[data-cat="Vie locale"].selected            { background: var(--c-social-bg); }
+.tpl-card[data-cat="Gastronomie & Terroir"].selected { background: var(--c-admin-bg); }
+.card-cat-row { display: flex; align-items: center; gap: 5px; margin-bottom: 5px; }
+.card-cat-label { font-size: 10px; color: var(--text4); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+.card-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+.card-desc { font-size: 11.5px; color: var(--text2); line-height: 1.45; }
+
+/* EDITEUR */
+.editor { display: none; background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 1.1rem 1.1rem 1.25rem; margin-bottom: 1.25rem; }
+.editor-header { display: flex; align-items: center; gap: 9px; margin-bottom: 1rem; padding-bottom: .8rem; border-bottom: 1px solid var(--border); }
+.editor-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.editor-title-text { font-size: 14.5px; font-weight: 700; color: var(--text); }
+.fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: .7rem; margin-bottom: .9rem; }
+.field-wrap { display: flex; flex-direction: column; gap: 4px; }
+.field-wrap.wide { grid-column: 1 / -1; }
+.field-wrap label { font-size: 11.5px; font-weight: 600; color: var(--text2); }
+.field-wrap input, .field-wrap select, .field-wrap textarea { width: 100%; padding: 8px 11px; border-radius: 9px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text); font-size: 13px; font-family: inherit; outline: none; transition: border-color .15s; resize: vertical; }
+.field-wrap textarea { min-height: 70px; }
+.field-wrap input:focus, .field-wrap select:focus, .field-wrap textarea:focus { border-color: var(--blue); }
+.global-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: .7rem; padding: .8rem; margin-bottom: .9rem; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; }
+
+.result-section { margin-top: .3rem; }
+.result-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.result-label { font-size: 12px; font-weight: 600; color: var(--text2); }
+.btn-toggle-result { background: none; border: 1px solid var(--border); border-radius: 8px; padding: 5px 10px; font-size: 11px; color: var(--text3); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+.btn-copy { border: none; border-radius: 8px; padding: 7px 12px; font-size: 12px; font-weight: 600; color: #fff; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; transition: background .15s, transform .1s; }
+.btn-copy.ann { background: var(--c-ann); } .btn-copy.prosp { background: var(--c-prosp); } .btn-copy.social { background: var(--c-social); } .btn-copy.admin { background: var(--c-admin); }
+.btn-copy.copied { background: #16a34a !important; transform: scale(1.03); }
+[data-theme="dark"] .btn-copy.copied { background: #22c55e !important; }
+.result-box { width: 100%; min-height: 160px; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--result-bg); color: var(--text); font-size: 12.5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; line-height: 1.55; resize: vertical; outline: none; }
+.result-box:focus { border-color: var(--blue); }
+
+/* PANNEAU IA */
+.ai-api-panel { border: 1.5px solid var(--c-ann-border); border-radius: 10px; overflow: hidden; margin-top: 12px; background: var(--surface); }
+.ai-api-panel.model-gemini { border-color: #93c5fd; }
+.ai-api-header { padding: 8px 14px; border-bottom: 1px solid var(--border); background: var(--bg); }
+.ai-model-select { width: 100%; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 12.5px; font-family: inherit; }
+.ai-api-key-wrap { display: flex; gap: 6px; padding: 10px 14px; align-items: center; }
+.ai-api-key-wrap input { flex: 1; padding: 8px 11px; border-radius: 8px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text); font-size: 13px; font-family: inherit; outline: none; }
+.ai-api-key-wrap input:focus { border-color: var(--blue); }
+.btn-run-ai { background: var(--blue); color: #fff; border: none; border-radius: 8px; padding: 8px 14px; font-size: 12.5px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.btn-run-ai:disabled { opacity: .6; cursor: default; }
+.api-key-save-hint { font-size: 10px; color: var(--text3); margin-top: -2px; padding: 0 14px 8px; }
+.ai-error { display: none; margin: 0 14px 10px; padding: 8px 11px; background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; border-radius: 8px; font-size: 12px; }
+[data-theme="dark"] .ai-error { background: #2d1010; border-color: #6e1f1f; color: #f87171; }
+.ai-response-wrap { padding: 0 14px 14px; }
+.ai-response-box { background: var(--result-bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; font-size: 13px; line-height: 1.65; white-space: pre-wrap; color: var(--text); max-height: 420px; overflow-y: auto; }
+.ai-response-box.streaming::after { content: '▍'; animation: blink 1s step-end infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.ai-response-box[contenteditable="true"] { cursor: text; }
+.ai-response-box[contenteditable="true"]:hover { box-shadow: inset 0 0 0 1.5px var(--border2); }
+.ai-response-box[contenteditable="true"]:focus { outline: none; box-shadow: inset 0 0 0 1.5px var(--blue); }
+.ai-response-edit-hint { font-size: 10.5px; color: var(--text3); margin-bottom: 6px; display: none; }
+.ai-response-actions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+
+/* APERCU ARTICLE */
+.preview-section { display: none; background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 1.1rem 1.1rem 1.25rem; margin-bottom: 1.25rem; }
+.preview-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; padding-bottom: .8rem; border-bottom: 1px solid var(--border); }
+.preview-bar-title { font-size: 14.5px; font-weight: 700; color: var(--text); }
+.preview-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.article-frame { border: 1px dashed var(--border2); border-radius: 12px; padding: 1.4rem 1.4rem 1.6rem; background: var(--bg); }
+.article-frame h1 { font-size: 21px; font-weight: 800; color: var(--blue-dark); line-height: 1.3; margin-bottom: 8px; }
+[data-theme="dark"] .article-frame h1 { color: var(--blue); }
+.article-meta { font-size: 12px; color: var(--text3); margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+.article-body h2 { font-size: 16px; font-weight: 700; color: var(--text); margin: 20px 0 8px; }
+.article-body p { font-size: 13.5px; color: var(--text2); line-height: 1.7; margin-bottom: 10px; }
+.article-body ul, .article-body ol { margin: 0 0 12px 1.2rem; }
+.article-body li { font-size: 13.5px; color: var(--text2); line-height: 1.65; margin-bottom: 6px; }
+.article-body li b, .article-body p b { color: var(--text); }
+
+/* BROUILLONS */
+.drafts-section { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 1rem 1.1rem; }
+.drafts-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.drafts-header h2 { font-size: 13.5px; font-weight: 700; color: var(--text); }
+.draft-list { display: flex; flex-direction: column; gap: 8px; }
+.draft-item { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg); }
+.draft-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.draft-info { flex: 1; min-width: 0; }
+.draft-title { font-size: 12.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.draft-sub { font-size: 10.5px; color: var(--text3); }
+.draft-btn { background: none; border: 1px solid var(--border); border-radius: 7px; padding: 5px 9px; font-size: 11px; color: var(--text2); cursor: pointer; white-space: nowrap; }
+.draft-btn:hover { background: var(--border); }
+.draft-btn.danger:hover { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+.drafts-empty { text-align: center; padding: 1.2rem; color: var(--text3); font-size: 12.5px; }
+
+.toast { display: none; margin-top: 10px; padding: 9px 13px; border-radius: 8px; font-size: 12px; line-height: 1.5; }
+.toast.ok { background: var(--c-admin-bg); border: 1px solid var(--c-admin-border); color: var(--c-admin); }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back-home" href="index.html" title="Retour à l'accueil">← Accueil</a>
+  <div class="header-logo"><img src="logo_laforet.png" alt="Laforêt" width="46" height="46"></div>
+  <div class="header-info">
+    <h1>Générateur de blog</h1>
+    <span>Laforêt Pithiviers — Actus immobilières &amp; vie locale</span>
+  </div>
+  <button class="theme-toggle" onclick="toggleTheme()">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="theme-icon"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    <span id="theme-label">Mode sombre</span>
+  </button>
+</header>
+
+<div class="container">
+
+  <div class="intro">
+    <b>Comment ça marche :</b> choisissez un modèle d'article ci-dessous, renseignez les informations factuelles (aucune donnée n'est inventée par défaut), puis générez le prompt. Vous pouvez ensuite le copier vers Claude.ai, ou le lancer directement ici avec votre clé API Anthropic ou Gemini. L'article généré est mis en forme automatiquement et prêt à copier en texte ou en HTML pour votre page de blog.
+  </div>
+
+  <div class="cats-wrap"><div class="cats" id="cats"></div></div>
+
+  <div class="tpl-grid" id="grid"></div>
+
+  <div class="editor" id="editor">
+    <div class="editor-header">
+      <div class="editor-dot" id="editor-dot"></div>
+      <div class="editor-title-text" id="editor-title">Modèle d'article sélectionné</div>
+    </div>
+
+    <div class="fields" id="fields"></div>
+
+    <div class="global-row">
+      <div class="field-wrap">
+        <label for="g-ton">Ton</label>
+        <select id="g-ton" onchange="updateResult()">
+          <option value="factuel et professionnel">Factuel et professionnel</option>
+          <option value="chaleureux et accessible">Chaleureux et accessible</option>
+          <option value="institutionnel et sobre">Institutionnel et sobre</option>
+        </select>
+      </div>
+      <div class="field-wrap">
+        <label for="g-longueur">Longueur cible</label>
+        <select id="g-longueur" onchange="updateResult()">
+          <option value="courte, environ 350 mots">Courte (~350 mots)</option>
+          <option value="moyenne, environ 600 mots" selected>Moyenne (~600 mots)</option>
+          <option value="longue, environ 900 mots">Longue (~900 mots)</option>
+        </select>
+      </div>
+      <div class="field-wrap">
+        <label for="g-date">Date de publication</label>
+        <input type="date" id="g-date" onchange="updateResult()">
+      </div>
+    </div>
+
+    <div class="result-section">
+      <div class="result-bar">
+        <button class="btn-toggle-result" id="toggle-result-btn" onclick="toggleResult()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="toggle-result-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          <span id="toggle-result-label">Masquer</span>
+        </button>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <div class="result-label">Prompt généré :</div>
+          <button class="btn-copy" id="copy-btn" onclick="copyResult()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copier le prompt
+          </button>
+          <button class="btn-copy" id="claude-btn" onclick="sendToClaude()" style="background:#d97757;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            Envoyer à Claude
+          </button>
+        </div>
+      </div>
+      <div id="result-wrap">
+        <textarea class="result-box" id="result" spellcheck="false" placeholder="Le prompt apparaîtra ici — vous pouvez le modifier avant de copier."></textarea>
+      </div>
+      <div class="toast ok" id="claude-toast">✅ <b>Prompt copié.</b> Claude.ai s'ouvre — colle le prompt avec Ctrl+V (ou ⌘V sur Mac).</div>
+
+      <!-- PANNEAU GENERATION DIRECTE -->
+      <div class="ai-api-panel" id="api-panel">
+        <div class="ai-api-header">
+          <select class="ai-model-select" id="model-select" onchange="modelChange()">
+            <option value="claude">🟠 Générer avec Claude</option>
+            <option value="gemini">🔵 Générer avec Gemini</option>
+          </select>
+        </div>
+        <div class="ai-api-key-wrap">
+          <input type="password" id="api-key" placeholder="Clé API" autocomplete="off">
+          <button class="btn-run-ai" id="run-btn" onclick="runAi()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Générer
+          </button>
+        </div>
+        <div class="api-key-save-hint">🔒 La clé reste dans votre navigateur, elle n'est pas stockée.</div>
+        <div class="ai-error" id="api-error"></div>
+        <div class="ai-response-wrap" id="response-wrap" style="display:none;">
+          <div class="ai-response-edit-hint" id="response-edit-hint">✏️ Vous pouvez cliquer dans le texte ci-dessous et le modifier avant de le mettre en forme.</div>
+          <div class="ai-response-box" id="response-box"></div>
+          <div class="ai-response-actions">
+            <button class="btn-copy ann" onclick="copyRawResponse(this)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copier la réponse brute
+            </button>
+            <button class="btn-copy" id="build-preview-btn" onclick="buildPreview()" style="background:var(--blue);">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              Mettre en forme l'article
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="preview-section" id="preview-section">
+    <div class="preview-bar">
+      <div class="preview-bar-title">Aperçu de l'article</div>
+      <div class="preview-actions">
+        <button class="btn-copy" style="background:var(--text2);" onclick="copyArticleText(this)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copier le texte
+        </button>
+        <button class="btn-copy ann" onclick="copyArticleHtml(this)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          Copier le code HTML
+        </button>
+        <button class="btn-copy admin" onclick="saveDraft()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Sauvegarder le brouillon
+        </button>
+      </div>
+    </div>
+    <div class="article-frame">
+      <h1 id="art-title">—</h1>
+      <div class="article-meta" id="art-meta">—</div>
+      <div class="article-body" id="art-body"></div>
+    </div>
+    <div class="toast ok" id="save-toast"></div>
+  </div>
+
+  <div class="drafts-section">
+    <div class="drafts-header">
+      <h2>Mes brouillons</h2>
+    </div>
+    <div class="draft-list" id="draft-list"></div>
+    <div class="drafts-empty" id="drafts-empty" style="display:none;">Aucun brouillon enregistré pour le moment.</div>
+  </div>
+
+</div>
+
+<script>
+// ── DONNEES : MODELES D'ARTICLES ─────────────────────────────────────────────
+const categories = ["Tous", "Marché immobilier", "Conseils pratiques", "Vie locale", "Gastronomie & Terroir"];
+const CAT_CLS = { "Marché immobilier": "ann", "Conseils pratiques": "prosp", "Vie locale": "social", "Gastronomie & Terroir": "admin" };
+
+// Bloc d'instructions commun à tous les modèles : format de sortie et règles éditoriales.
+const SHARED_RULES = `
+
+FORMAT DE RÉPONSE (à respecter à la lettre, sans texte avant ni après) :
+TITRE: <titre de l'article, factuel, sans emoji ni point d'exclamation>
+META: <description SEO de 150 à 160 caractères résumant l'article>
+---
+<corps de l'article, en Markdown simple uniquement : "## " pour chaque intertitre, "- " pour une liste à puces, "1. " pour une liste numérotée, texte brut pour les paragraphes. Pas de balises HTML.>
+
+RÈGLES ÉDITORIALES (strictes) :
+- Ton [Ton], factuel et objectif, jamais promotionnel ni exagéré.
+- Aucun point d'exclamation, aucun émoji, aucun adjectif inventé ou superlatif non justifié.
+- Longueur cible : [Longueur].
+- N'invente aucun chiffre, date, nom ou fait absent des informations fournies ci-dessus. Si une information nécessaire manque, écris exactement [INFORMATION A COMPLETER] à cet endroit plutôt que d'inventer.
+- Termine par un court paragraphe de conclusion invitant à contacter l'agence Laforêt Pithiviers pour un accompagnement personnalisé, sans inventer de coordonnées.
+CHAQUE GENERATION EST INDEPENDANTE : ne tiens pas compte d'échanges précédents.`;
+
+const templates = [
+  {
+    id: 1, cat: "Marché immobilier",
+    title: "Tendances du marché local",
+    desc: "Fait le point sur l'évolution des prix, des taux et de la demande dans votre secteur.",
+    fields: ["Ville / secteur concerné", "Période concernée", "Chiffres et tendances observées", "Angle éditorial souhaité"],
+    ft: { "Chiffres et tendances observées": "ta" },
+    tmpl: `Tu es rédacteur pour le blog de l'agence Laforêt Pithiviers. Rédige un article d'actualité sur les tendances du marché immobilier à/dans [Ville / secteur concerné], pour la période suivante : [Période concernée].
+
+Chiffres et tendances observées à intégrer (n'en invente aucun autre) :
+[Chiffres et tendances observées]
+
+Angle éditorial souhaité : [Angle éditorial souhaité].
+
+Structure attendue : une introduction qui situe le contexte, deux à trois intertitres développant les tendances (taux, demande, typologie de biens recherchés...), et une conclusion.`
+  },
+  {
+    id: 2, cat: "Marché immobilier",
+    title: "Réglementation & fiscalité immobilière",
+    desc: "Explique un changement réglementaire ou fiscal et son impact concret pour les propriétaires ou acquéreurs.",
+    fields: ["Sujet réglementaire ou fiscal", "Ville / secteur concerné", "Points clés à expliquer", "Date d'entrée en vigueur"],
+    ft: { "Points clés à expliquer": "ta" },
+    tmpl: `Tu es rédacteur pour le blog de l'agence Laforêt Pithiviers. Rédige un article expliquant le sujet réglementaire ou fiscal suivant : [Sujet réglementaire ou fiscal], entrant en vigueur le [Date d'entrée en vigueur], et son impact pour les propriétaires et acquéreurs à/dans [Ville / secteur concerné].
+
+Points clés à expliquer (n'en invente aucun autre) :
+[Points clés à expliquer]
+
+Structure attendue : une introduction présentant le changement, des intertitres détaillant les points clés et leurs conséquences concrètes, et une conclusion.`
+  },
+  {
+    id: 3, cat: "Conseils pratiques",
+    title: "Guide pratique acheteur / vendeur",
+    desc: "Article conseils, étape par étape, pour accompagner un projet immobilier.",
+    fields: ["Profil visé (acheteur, vendeur, investisseur)", "Étapes à couvrir", "Ville / secteur concerné"],
+    ft: { "Étapes à couvrir": "ta" },
+    tmpl: `Tu es rédacteur pour le blog de l'agence Laforêt Pithiviers. Rédige un article de conseils pratiques destiné à un profil [Profil visé (acheteur, vendeur, investisseur)] menant un projet immobilier à/dans [Ville / secteur concerné].
+
+Étapes à couvrir (n'en invente aucune autre) :
+[Étapes à couvrir]
+
+Structure attendue : une introduction, une liste numérotée des étapes avec pour chacune une explication concise, et une conclusion.`
+  },
+  {
+    id: 4, cat: "Conseils pratiques",
+    title: "Financement et aides",
+    desc: "Présente un dispositif de financement ou d'aide (prêt, subvention, dispositif fiscal).",
+    fields: ["Nom du dispositif", "Conditions clés", "Public concerné"],
+    ft: { "Conditions clés": "ta" },
+    tmpl: `Tu es rédacteur pour le blog de l'agence Laforêt Pithiviers. Rédige un article présentant le dispositif suivant : [Nom du dispositif], destiné à [Public concerné].
+
+Conditions clés à présenter (n'en invente aucune autre) :
+[Conditions clés]
+
+Structure attendue : une introduction présentant le dispositif, des intertitres détaillant les conditions et modalités, et une conclusion invitant à se renseigner auprès de l'agence.`
+  },
+  {
+    id: 5, cat: "Vie locale",
+    title: "Portrait d'une commune ou d'un quartier",
+    desc: "Met en avant une commune ou un quartier du secteur : cadre de vie, atouts, patrimoine.",
+    fields: ["Nom de la commune / du quartier", "Points d'intérêt (commerces, écoles, transports...)", "Cadre de vie et ambiance"],
+    ft: { "Points d'intérêt (commerces, écoles, transports...)": "ta", "Cadre de vie et ambiance": "ta" },
+    tmpl: `Tu es rédacteur pour le blog de l'agence Laforêt Pithiviers. Rédige un article présentant la commune/le quartier suivant : [Nom de la commune / du quartier].
+
+Points d'intérêt à mentionner (n'en invente aucun autre) :
+[Points d'intérêt (commerces, écoles, transports...)]
+
+Cadre de vie et ambiance :
+[Cadre de vie et ambiance]
+
+Structure attendue : une introduction, des intertitres sur le cadre de vie et les commodités, un intertitre sur l'intérêt pour un projet immobilier local, et une conclusion.`
+  },
+  {
+    id: 6, cat: "Vie locale",
+    title: "Événement ou patrimoine culturel",
+    desc: "Valorise un événement culturel, historique ou patrimonial de la région.",
+    fields: ["Nom de l'événement ou du site", "Dates", "Lieu précis", "Description factuelle"],
+    ft: { "Description factuelle": "ta" },
+    tmpl: `Tu es rédacteur pour le blog de l'agence Laforêt Pithiviers. Rédige un article présentant l'événement ou le site suivant : [Nom de l'événement ou du site], qui se déroule/se situe à [Lieu précis], le [Dates].
+
+Description factuelle à intégrer (n'invente aucun autre fait) :
+[Description factuelle]
+
+Structure attendue : une introduction, des intertitres développant l'intérêt culturel ou patrimonial, les informations pratiques, et une conclusion.`
+  },
+  {
+    id: 7, cat: "Gastronomie & Terroir",
+    title: "Adresse ou produit du terroir",
+    desc: "Présente un restaurant, un marché ou un producteur local.",
+    fields: ["Nom de l'établissement ou du produit", "Spécialité", "Adresse / lieu", "Anecdote ou particularité"],
+    ft: { "Anecdote ou particularité": "ta" },
+    tmpl: `Tu es rédacteur pour le blog de l'agence Laforêt Pithiviers. Rédige un article présentant [Nom de l'établissement ou du produit], situé à [Adresse / lieu], connu pour [Spécialité].
+
+Anecdote ou particularité à intégrer (n'invente aucun autre fait) :
+[Anecdote ou particularité]
+
+Structure attendue : une introduction, un développement sur la spécialité et son contexte local, les informations pratiques, et une conclusion.`
+  },
+  {
+    id: 8, cat: "Gastronomie & Terroir",
+    title: "Recette ou tradition locale",
+    desc: "Article autour d'une tradition culinaire ou saisonnière de la région.",
+    fields: ["Thème (recette ou tradition)", "Saison ou occasion", "Détails factuels à inclure"],
+    ft: { "Détails factuels à inclure": "ta" },
+    tmpl: `Tu es rédacteur pour le blog de l'agence Laforêt Pithiviers. Rédige un article sur le thème suivant : [Thème (recette ou tradition)], en lien avec [Saison ou occasion].
+
+Détails factuels à inclure (n'en invente aucun autre) :
+[Détails factuels à inclure]
+
+Structure attendue : une introduction, un développement sur l'origine et la particularité locale, et une conclusion.`
+  }
+];
+
+// ── ETAT ──────────────────────────────────────────────────────────────────
+let currentCat = "Tous";
+let selectedId = null;
+let resultVisible = true;
+const DRAFTS_KEY = 'laforet_blog_drafts';
+
+window.onload = function() {
+  initTheme();
+  document.getElementById('g-date').value = new Date().toISOString().slice(0,10);
+  renderCats();
+  renderGrid();
+  renderDrafts();
+};
+
+// ── THEME ─────────────────────────────────────────────────────────────────
+function initTheme() {
+  const saved = localStorage.getItem('theme');
+  const sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme:dark)').matches;
+  const theme = saved || (sysDark ? 'dark' : 'light');
+  document.documentElement.setAttribute('data-theme', theme);
+  updateThemeUI(theme);
+}
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'light';
+  const next = current === 'light' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+  updateThemeUI(next);
+}
+function updateThemeUI(theme) {
+  const icon = document.getElementById('theme-icon');
+  const label = document.getElementById('theme-label');
+  if (theme === 'dark') {
+    icon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+    label.textContent = "Mode clair";
+  } else {
+    icon.innerHTML = '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
+    label.textContent = "Mode sombre";
+  }
+}
+
+// ── ECHAPPEMENT HTML ──────────────────────────────────────────────────────
+function escapeHTML(str) {
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// ── CATEGORIES & GRILLE ───────────────────────────────────────────────────
+function renderCats() {
+  const wrap = document.getElementById('cats');
+  wrap.innerHTML = categories.map(c => {
+    const cls = c === currentCat ? 'cat-btn active' : 'cat-btn';
+    const dotCls = CAT_CLS[c];
+    const dot = dotCls ? `<span class="cat-dot ${dotCls}"></span>` : '';
+    return `<button class="${cls}" data-cat="${c}" onclick="setCat('${c}')">${dot}${escapeHTML(c)}</button>`;
+  }).join('');
+}
+function setCat(cat) {
+  currentCat = cat;
+  renderCats();
+  renderGrid();
+}
+function renderGrid() {
+  const grid = document.getElementById('grid');
+  const list = templates.filter(t => currentCat === "Tous" || t.cat === currentCat);
+  grid.innerHTML = list.map(t => {
+    const cls = t.id === selectedId ? 'tpl-card selected' : 'tpl-card';
+    return `<div class="${cls}" data-cat="${t.cat}" onclick="selectTemplate(${t.id})">
+      <div class="card-cat-row"><span class="cat-dot ${CAT_CLS[t.cat]}"></span><span class="card-cat-label">${escapeHTML(t.cat)}</span></div>
+      <div class="card-title">${escapeHTML(t.title)}</div>
+      <div class="card-desc">${escapeHTML(t.desc)}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── SELECTION D'UN MODELE ─────────────────────────────────────────────────
+function selectTemplate(id) {
+  if (selectedId === id) {
+    selectedId = null;
+    renderGrid();
+    document.getElementById('editor').style.display = 'none';
+    document.getElementById('preview-section').style.display = 'none';
+    return;
+  }
+  selectedId = id;
+  const t = templates.find(x => x.id === id);
+  renderGrid();
+
+  const editor = document.getElementById('editor');
+  editor.style.display = 'block';
+  document.getElementById('editor-dot').style.background = `var(--c-${CAT_CLS[t.cat]})`;
+  document.getElementById('editor-title').textContent = t.title;
+
+  const fieldsWrap = document.getElementById('fields');
+  fieldsWrap.innerHTML = t.fields.map(f => {
+    const isTa = t.ft && t.ft[f] === 'ta';
+    const id2 = 'f_' + f.replace(/[^a-zA-Z0-9]/g, '_');
+    const wideCls = isTa ? 'field-wrap wide' : 'field-wrap';
+    const control = isTa
+      ? `<textarea id="${id2}" data-field="${escapeHTML(f)}" oninput="updateResult()" placeholder="${escapeHTML(f)}"></textarea>`
+      : `<input type="text" id="${id2}" data-field="${escapeHTML(f)}" oninput="updateResult()" placeholder="${escapeHTML(f)}">`;
+    return `<div class="${wideCls}"><label for="${id2}">${escapeHTML(f)}</label>${control}</div>`;
+  }).join('');
+
+  document.getElementById('preview-section').style.display = 'none';
+  document.getElementById('response-wrap').style.display = 'none';
+  document.getElementById('api-error').style.display = 'none';
+
+  updateResult();
+  editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  setTimeout(() => {
+    const first = fieldsWrap.querySelector('input, textarea');
+    if (first) first.focus();
+  }, 350);
+}
+
+// ── CONSTRUCTION DU PROMPT ────────────────────────────────────────────────
+function updateResult() {
+  const t = templates.find(x => x.id === selectedId);
+  if (!t) return;
+  let text = t.tmpl + SHARED_RULES;
+
+  document.querySelectorAll('#fields [data-field]').forEach(inp => {
+    const val = inp.value.trim() || '[' + inp.dataset.field + ']';
+    text = text.split('[' + inp.dataset.field + ']').join(val);
+  });
+
+  const ton = document.getElementById('g-ton').value;
+  const longueur = document.getElementById('g-longueur').value;
+  text = text.split('[Ton]').join(ton).split('[Longueur]').join(longueur);
+
+  document.getElementById('result').value = text;
+  resetCopyBtn();
+}
+function resetCopyBtn() {
+  const t = templates.find(x => x.id === selectedId);
+  if (!t) return;
+  const cls = CAT_CLS[t.cat] || 'ann';
+  const btn = document.getElementById('copy-btn');
+  btn.className = `btn-copy ${cls}`;
+  btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copier le prompt`;
+}
+
+// Feedback visuel générique : passe le bouton en vert + change le libellé, puis restaure l'état d'origine.
+function flashCopyFeedback(btn, label, restore) {
+  if (!btn) return;
+  const original = btn.innerHTML;
+  btn.classList.add('copied');
+  btn.innerHTML = label || '✓ Copié !';
+  clearTimeout(btn._copyTimer);
+  btn._copyTimer = setTimeout(() => {
+    btn.classList.remove('copied');
+    if (restore) restore(); else btn.innerHTML = original;
+  }, 1800);
+}
+
+function copyResult() {
+  const txt = document.getElementById('result').value;
+  const btn = document.getElementById('copy-btn');
+  navigator.clipboard.writeText(txt).then(() => {
+    flashCopyFeedback(btn, '✓ Copié dans le presse-papiers !', resetCopyBtn);
+  });
+}
+function sendToClaude() {
+  const txt = document.getElementById('result').value;
+  const btn = document.getElementById('claude-btn');
+  const toast = document.getElementById('claude-toast');
+  navigator.clipboard.writeText(txt).then(() => {
+    toast.style.display = 'block';
+    flashCopyFeedback(btn, '✓ Ouverture…');
+    setTimeout(() => { toast.style.display = 'none'; }, 6000);
+    window.open('https://claude.ai/new', '_blank', 'noopener,noreferrer');
+  });
+}
+function toggleResult() {
+  resultVisible = !resultVisible;
+  document.getElementById('result-wrap').style.display = resultVisible ? 'block' : 'none';
+  const icon = document.getElementById('toggle-result-icon');
+  const label = document.getElementById('toggle-result-label');
+  if (resultVisible) {
+    icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+    label.textContent = 'Masquer';
+  } else {
+    icon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>';
+    label.textContent = 'Afficher';
+  }
+}
+
+// ── GENERATION DIRECTE — CLAUDE / GEMINI (BYOK) ──────────────────────────
+function modelChange() {
+  const model = document.getElementById('model-select').value;
+  document.getElementById('api-panel').classList.toggle('model-gemini', model === 'gemini');
+  document.getElementById('api-key').placeholder = model === 'claude' ? 'Clé API Anthropic' : 'Clé API Gemini';
+}
+
+async function runAi() {
+  const model = document.getElementById('model-select').value;
+  const prompt = document.getElementById('result').value;
+  const apiKey = document.getElementById('api-key').value.trim();
+  const btn = document.getElementById('run-btn');
+  const errorEl = document.getElementById('api-error');
+  const wrapEl = document.getElementById('response-wrap');
+  const boxEl = document.getElementById('response-box');
+
+  if (!apiKey) {
+    showApiError(errorEl, model === 'claude' ? 'Veuillez saisir votre clé API Anthropic.' : 'Veuillez saisir votre clé API Gemini.');
+    return;
+  }
+
+  errorEl.style.display = 'none';
+  btn.disabled = true;
+  btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> Génération…';
+  wrapEl.style.display = 'block';
+  boxEl.textContent = '';
+  boxEl.contentEditable = false;
+  boxEl.classList.add('streaming');
+  document.getElementById('response-edit-hint').style.display = 'none';
+
+  try {
+    if (model === 'claude') {
+      await streamClaude(prompt, apiKey, boxEl);
+    } else {
+      await streamGemini(prompt, apiKey, boxEl);
+    }
+    // Une fois la génération terminée, le texte devient modifiable directement dans la zone.
+    boxEl.contentEditable = true;
+    document.getElementById('response-edit-hint').style.display = 'block';
+  } catch (err) {
+    wrapEl.style.display = 'none';
+    let msg = err.message || 'Erreur inconnue.';
+    if (msg.includes('401') || msg.includes('403') || msg.includes('authentication') || msg.includes('API_KEY_INVALID')) msg = 'Clé API invalide ou expirée.';
+    if (msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED')) msg = 'Limite de requêtes atteinte — réessayez dans quelques secondes.';
+    if (msg.includes('fetch') || msg.includes('network')) msg = 'Erreur réseau — vérifiez votre connexion.';
+    showApiError(errorEl, msg);
+  } finally {
+    boxEl.classList.remove('streaming');
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Générer';
+  }
+}
+
+async function streamClaude(prompt, apiKey, boxEl) {
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 2000,
+      stream: true,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `Erreur ${response.status}`);
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop();
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const data = line.slice(6).trim();
+      if (data === '[DONE]') continue;
+      try {
+        const json = JSON.parse(data);
+        if (json.type === 'content_block_delta' && json.delta?.text) {
+          boxEl.textContent += json.delta.text;
+        }
+      } catch {}
+    }
+  }
+}
+
+async function streamGemini(prompt, apiKey, boxEl) {
+  const model = 'gemini-2.5-flash';
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `Erreur ${response.status}`);
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop();
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const data = line.slice(6).trim();
+      if (!data) continue;
+      try {
+        const json = JSON.parse(data);
+        const parts = json?.candidates?.[0]?.content?.parts || [];
+        for (const part of parts) { if (part.text) boxEl.textContent += part.text; }
+      } catch {}
+    }
+  }
+}
+
+function showApiError(el, msg) {
+  el.textContent = '⚠️ ' + msg;
+  el.style.display = 'block';
+}
+function copyRawResponse(btn) {
+  const txt = document.getElementById('response-box').textContent;
+  navigator.clipboard.writeText(txt);
+  flashCopyFeedback(btn, '✓ Copié !');
+}
+
+// ── MISE EN FORME DE L'ARTICLE (parsing TITRE / META / corps) ────────────
+let currentArticle = null; // { title, meta, bodyHtml, bodyText, cat }
+
+function parseArticle(raw) {
+  const titreMatch = raw.match(/TITRE\s*:\s*(.+)/i);
+  const metaMatch = raw.match(/META\s*:\s*(.+)/i);
+  const sepIndex = raw.indexOf('---');
+  const title = titreMatch ? titreMatch[1].trim() : 'Article sans titre';
+  const meta = metaMatch ? metaMatch[1].trim() : '';
+  const body = sepIndex !== -1 ? raw.slice(sepIndex + 3).trim() : raw.replace(/TITRE\s*:.+/i, '').replace(/META\s*:.+/i, '').trim();
+  return { title, meta, body };
+}
+
+function inlineFormat(str) {
+  return escapeHTML(str).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+}
+
+function markdownToHtml(body) {
+  const lines = body.split('\n');
+  let html = '';
+  let listType = null; // 'ul' | 'ol'
+  let paragraphBuf = [];
+
+  function flushParagraph() {
+    if (paragraphBuf.length) {
+      html += `<p>${inlineFormat(paragraphBuf.join(' '))}</p>`;
+      paragraphBuf = [];
+    }
+  }
+  function closeList() {
+    if (listType) { html += `</${listType}>`; listType = null; }
+  }
+
+  for (let raw of lines) {
+    const line = raw.trim();
+    if (!line) { flushParagraph(); closeList(); continue; }
+    if (line.startsWith('## ')) {
+      flushParagraph(); closeList();
+      html += `<h2>${inlineFormat(line.slice(3).trim())}</h2>`;
+    } else if (/^[-*]\s+/.test(line)) {
+      flushParagraph();
+      if (listType !== 'ul') { closeList(); html += '<ul>'; listType = 'ul'; }
+      html += `<li>${inlineFormat(line.replace(/^[-*]\s+/, ''))}</li>`;
+    } else if (/^\d+[.)]\s+/.test(line)) {
+      flushParagraph();
+      if (listType !== 'ol') { closeList(); html += '<ol>'; listType = 'ol'; }
+      html += `<li>${inlineFormat(line.replace(/^\d+[.)]\s+/, ''))}</li>`;
+    } else {
+      closeList();
+      paragraphBuf.push(line);
+    }
+  }
+  flushParagraph(); closeList();
+  return html;
+}
+
+function estimateReadingMinutes(text) {
+  const words = text.trim().split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.round(words / 200));
+}
+
+function formatDateFr(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function buildPreview() {
+  const raw = document.getElementById('response-box').textContent;
+  if (!raw.trim()) return;
+  const { title, meta, body } = parseArticle(raw);
+  const bodyHtml = markdownToHtml(body);
+  const dateIso = document.getElementById('g-date').value;
+  const minutes = estimateReadingMinutes(body);
+  const t = templates.find(x => x.id === selectedId);
+
+  currentArticle = {
+    title, meta, body, bodyHtml,
+    dateLabel: `Mis à jour le ${formatDateFr(dateIso)} • ${minutes} minute${minutes > 1 ? 's' : ''} de lecture`,
+    cat: t ? t.cat : ''
+  };
+
+  document.getElementById('art-title').textContent = title;
+  document.getElementById('art-meta').textContent = currentArticle.dateLabel;
+  document.getElementById('art-body').innerHTML = bodyHtml;
+  document.getElementById('preview-section').style.display = 'block';
+  document.getElementById('preview-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── COPIE TEXTE / HTML DE L'ARTICLE ───────────────────────────────────────
+function copyArticleText(btn) {
+  if (!currentArticle) return;
+  const plain = currentArticle.body
+    .replace(/^## (.+)$/gm, '$1')
+    .replace(/^[-*]\s+/gm, '• ')
+    .replace(/\*\*(.+?)\*\*/g, '$1');
+  const text = `${currentArticle.title}\n\n${currentArticle.dateLabel}\n\n${plain}`;
+  navigator.clipboard.writeText(text);
+  flashSaveToast('✅ Texte de l\'article copié dans le presse-papiers.');
+  flashCopyFeedback(btn, '✓ Copié !');
+}
+
+function copyArticleHtml(btn) {
+  if (!currentArticle) return;
+  const html = `<article style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:680px;margin:0 auto;">
+  <h1 style="font-size:24px;font-weight:800;color:#0f1b50;line-height:1.3;margin:0 0 8px;">${escapeHTML(currentArticle.title)}</h1>
+  <div style="font-size:13px;color:#7c86a3;margin:0 0 20px;padding-bottom:14px;border-bottom:1px solid #e2e7f0;">${escapeHTML(currentArticle.dateLabel)}</div>
+  <div style="font-size:15px;color:#525d7a;line-height:1.7;">
+${currentArticle.bodyHtml.replace(/<h2>/g, '<h2 style="font-size:18px;font-weight:700;color:#161d33;margin:22px 0 8px;">').replace(/<p>/g, '<p style="margin:0 0 12px;">').replace(/<ul>/g, '<ul style="margin:0 0 14px 1.2rem;">').replace(/<ol>/g, '<ol style="margin:0 0 14px 1.2rem;">').replace(/<li>/g, '<li style="margin-bottom:6px;">')}
+  </div>
+  <div style="margin-top:24px;padding-top:16px;border-top:1px solid #e2e7f0;font-size:13px;color:#7c86a3;">Agence Laforêt Pithiviers</div>
+</article>`;
+  navigator.clipboard.writeText(html);
+  flashSaveToast('✅ Code HTML de l\'article copié dans le presse-papiers.');
+  flashCopyFeedback(btn, '✓ Copié !');
+}
+
+function flashSaveToast(msg) {
+  const t = document.getElementById('save-toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.style.display = 'none', 3500);
+}
+
+// ── BROUILLONS (localStorage) ──────────────────────────────────────────────
+function getDrafts() {
+  try { return JSON.parse(localStorage.getItem(DRAFTS_KEY) || '[]'); } catch { return []; }
+}
+function setDrafts(list) { localStorage.setItem(DRAFTS_KEY, JSON.stringify(list)); }
+
+function saveDraft() {
+  if (!currentArticle) return;
+  const drafts = getDrafts();
+  drafts.unshift({
+    id: Date.now(),
+    title: currentArticle.title,
+    meta: currentArticle.meta,
+    dateLabel: currentArticle.dateLabel,
+    body: currentArticle.body,
+    bodyHtml: currentArticle.bodyHtml,
+    cat: currentArticle.cat,
+    savedAt: new Date().toISOString()
+  });
+  setDrafts(drafts);
+  renderDrafts();
+  flashSaveToast('✅ Brouillon sauvegardé localement.');
+}
+
+function renderDrafts() {
+  const drafts = getDrafts();
+  const list = document.getElementById('draft-list');
+  const empty = document.getElementById('drafts-empty');
+  if (!drafts.length) {
+    list.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  list.innerHTML = drafts.map(d => {
+    const dotCls = CAT_CLS[d.cat] || 'ann';
+    return `<div class="draft-item">
+      <span class="draft-dot" style="background:var(--c-${dotCls});"></span>
+      <div class="draft-info">
+        <div class="draft-title">${escapeHTML(d.title)}</div>
+        <div class="draft-sub">${escapeHTML(d.cat || '')} · ${escapeHTML(d.dateLabel || '')}</div>
+      </div>
+      <button class="draft-btn" onclick="loadDraft(${d.id})">Ouvrir</button>
+      <button class="draft-btn danger" onclick="deleteDraft(${d.id})">Supprimer</button>
+    </div>`;
+  }).join('');
+}
+
+function loadDraft(id) {
+  const d = getDrafts().find(x => x.id === id);
+  if (!d) return;
+  currentArticle = { title: d.title, meta: d.meta, body: d.body, bodyHtml: d.bodyHtml, dateLabel: d.dateLabel, cat: d.cat };
+  document.getElementById('art-title').textContent = d.title;
+  document.getElementById('art-meta').textContent = d.dateLabel;
+  document.getElementById('art-body').innerHTML = d.bodyHtml;
+  document.getElementById('preview-section').style.display = 'block';
+  document.getElementById('preview-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function deleteDraft(id) {
+  setDrafts(getDrafts().filter(x => x.id !== id));
+  renderDrafts();
+}
+</script>
+</body>
+</html>
