@@ -22,11 +22,32 @@ Ce dépôt héberge un ensemble d'outils web internes utilisés au quotidien par
 
 | Page | Description |
 |---|---|
-| [`index.html`](index.html) | Portail d'accueil — sélection de l'application à ouvrir. |
+| [`index.html`](index.html) | Portail d'accueil — sélection de l'application à ouvrir, avec barre de recherche. |
 | [`bibliotheque.html`](bibliotheque.html) | Bibliothèque de prompts IA (Claude & Gemini) : annonces, emails, réseaux sociaux, prospection et administratif. Comprend un générateur d'annonce centralisé et un mode sombre. |
 | [`photoimmo.html`](photoimmo.html) | PhotoImmo Pro — notation et gestion des photos de biens immobiliers pièce par pièce, avec guide de prise de vue et moteur de scoring multi-critères (netteté, exposition, contraste, balance des blancs, cadrage). |
+| [`dossier.html`](dossier.html) | Dossier des biens — fiche centralisée par bien : informations générales, statut, prix, notes, et liens automatiques vers les photos (PhotoImmo Pro) et la fiche descriptive (Bibliothèque de prompts). |
 | [`blog.html`](blog.html) | Générateur de blog — création d'articles pour le blog de l'agence à partir de modèles thématiques, génération directe via Claude ou Gemini (BYOK), mise en forme automatique et gestion de brouillons. |
 | [`documentation_bibliotheque.html`](documentation_bibliotheque.html) | Documentation d'utilisation de la bibliothèque de prompts. |
+
+## Dossier des biens (`dossier.html`)
+
+Fiche centralisée par bien immobilier, qui réunit au même endroit tout ce qui est produit par les autres applications du portail (photos, description/annonce) et le suivi commercial du dossier :
+
+- **Vue liste** sous forme de grille de cartes, une par bien, avec :
+  - une **miniature** (photo la mieux notée si disponible dans PhotoImmo Pro, sinon icône par défaut) ;
+  - un **badge de statut** coloré (À l'estimation, En mandat, Compromis signé, Vendu, En location, Loué, Archivé) ;
+  - des **chips d'état** : avancement des photos (ex. `4/6` pièces clés), présence ou non d'une fiche description, et prix/loyer si renseigné ;
+  - une **recherche** par adresse ou ville et un **filtre par statut** ;
+  - un bouton **Nouveau bien** ouvrant une modale de création rapide (adresse, ville, type, statut) ;
+  - suppression d'un bien directement depuis la carte, avec confirmation.
+- **Vue détail** par bien, accessible en cliquant sur une carte :
+  - **Informations générales** éditables : ville/quartier, type de bien, statut du dossier, prix/loyer, notes internes (sauvegardées automatiquement au changement) ;
+  - **Bloc Photos** : aperçu des meilleures photos et barre de progression des pièces clés photographiées, avec lien direct vers la fiche du bien dans PhotoImmo Pro (ouverture ou création si elle n'existe pas encore) ;
+  - **Bloc Description / annonce** : aperçu des informations clés de l'annonce (type, ville, pièces, surface, prix) si une fiche existe dans la Bibliothèque de prompts, avec lien direct vers celle-ci (ouverture ou création) ;
+  - suppression du dossier avec modale de confirmation, précisant que les données déjà créées dans PhotoImmo et la Bibliothèque ne sont pas supprimées.
+- **Registre partagé** (`localStorage`, clé `laforet_biens_registry`) : `dossier.html` est la source de vérité pour la liste des biens et leurs champs centraux (statut, prix, notes) ; il lit sans jamais les modifier les données existantes de PhotoImmo Pro (`photoimmo_pro_biens`) et de la Bibliothèque (`laforet_biens_saved`) pour rapprocher automatiquement un même bien entre les trois applications.
+- **Toasts de confirmation** (création, mise à jour, suppression, avertissement) et **icônes SVG inline** (aucun emoji), cohérents avec la charte graphique du portail.
+- **Mode sombre** synchronisé sur les préférences système, comme les autres pages.
 
 ## Générateur de blog (`blog.html`)
 
@@ -68,6 +89,7 @@ App-centrale/
 ├── bibliotheque.html                 # Bibliothèque de prompts IA
 ├── documentation_bibliotheque.html   # Doc de la bibliothèque
 ├── photoimmo.html                    # PhotoImmo Pro
+├── dossier.html                      # Dossier des biens (fiche centralisée)
 ├── blog.html                         # Générateur de blog
 ├── logo_laforet.png                  # Logo de l'agence
 └── README.md
