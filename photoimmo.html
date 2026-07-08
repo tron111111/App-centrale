@@ -947,7 +947,7 @@ function hydrateThumbs(root){
     if(url)img.src=url;
   });
 }
-const PLACEHOLDER_THUMB='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10" fill="%23e7e9f2"/></svg>';
+const PLACEHOLDER_THUMB='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10" fill="#e7e9f2"/></svg>');
 
 // Migration automatique (à l'ouverture) : si d'anciennes fiches contiennent
 // encore une vignette en base64 (entry.thumb, ancien format stocké dans
@@ -1608,7 +1608,7 @@ async function saveImage(entry){
 function openCompare(room){
   const b=getBien(currentBienId),ps=photosOf(b,room).slice().sort((a,c)=>c.score-a.score);
   if(!ps.length)return;
-  $('cmpTitle').textContent='Comparer · '+DATA[room].name;
+  $('cmpTitle').textContent='Comparer · '+ctxLabel(room);
   const best=ps[0].score;
   $('cmpBody').innerHTML='<div class="footer-note" style="margin:0 0 12px">Le meilleur angle est mis en avant. Tapez sur la photo à publier pour la retenir.</div><div class="cmp-grid">'+
     ps.map(p=>{const bd=band(p.score),isBest=p.score===best;
