@@ -187,6 +187,20 @@
   .eviter h3{color:#9a3b2e}.eviter li{color:#9a3b2e}
   .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#11203f;color:#fff;font-weight:700;font-size:14px;padding:12px 18px;border-radius:999px;z-index:300;box-shadow:0 6px 20px rgba(0,0,0,.3);opacity:0;transition:.25s;pointer-events:none}
   .toast.show{opacity:1}
+
+  /* Modale de confirmation (remplace les confirm() natifs du navigateur — même style que la Bibliothèque) */
+  #confirm-overlay{position:fixed;inset:0;background:rgba(15,20,40,.55);display:none;align-items:center;justify-content:center;z-index:99998;padding:20px;backdrop-filter:blur(2px)}
+  #confirm-overlay.show{display:flex}
+  #confirm-box{background:var(--card);border:1px solid var(--line);border-radius:16px;max-width:380px;width:100%;padding:22px 22px 18px;box-shadow:0 20px 50px rgba(15,20,40,.3);animation:confirmIn .18s ease}
+  @keyframes confirmIn{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+  #confirm-box h3{margin:0 0 8px;font-size:16px;font-weight:800;color:var(--ink)}
+  #confirm-box p{margin:0 0 18px;font-size:13.5px;line-height:1.5;color:var(--muted)}
+  #confirm-actions{display:flex;gap:10px;justify-content:flex-end}
+  #confirm-actions button{border-radius:9px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid var(--line);font-family:inherit}
+  #confirm-cancel-btn{background:var(--bg);color:var(--muted)}
+  #confirm-cancel-btn:hover{background:var(--line)}
+  #confirm-ok-btn{background:#dc2626;border-color:#dc2626;color:#fff}
+  #confirm-ok-btn:hover{background:#b91c1c}
   .footer-note{text-align:center;color:var(--muted);font-size:12px;margin-top:22px;line-height:1.6}
   /* fiche imprimable (export PDF local) */
   #printArea{display:none}
@@ -256,6 +270,17 @@
 <canvas id="work" style="display:none"></canvas>
 <div id="printArea"></div>
 <div class="toast" id="toast"></div>
+
+<div id="confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+  <div id="confirm-box">
+    <h3 id="confirm-title">Confirmer</h3>
+    <p id="confirm-text"></p>
+    <div id="confirm-actions">
+      <button id="confirm-cancel-btn" type="button">Annuler</button>
+      <button id="confirm-ok-btn" type="button">Confirmer</button>
+    </div>
+  </div>
+</div>
 
 <script>
 /* $ et état accessoires requis par le moteur */
@@ -829,6 +854,26 @@ let toastT;
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2200);}
 function fmtDate(t){const d=new Date(t),p=n=>String(n).padStart(2,'0');return p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear();}
 
+/* ---------- modale de confirmation (remplace les confirm() natifs) ---------- */
+let _confirmResolve=null;
+function customConfirm(title,text,okLabel){
+  return new Promise(resolve=>{
+    _confirmResolve=resolve;
+    $('confirm-title').textContent=title;
+    $('confirm-text').textContent=text;
+    $('confirm-ok-btn').textContent=okLabel||'Supprimer';
+    $('confirm-overlay').classList.add('show');
+  });
+}
+function confirmClose(result){
+  $('confirm-overlay').classList.remove('show');
+  if(_confirmResolve){const r=_confirmResolve;_confirmResolve=null;r(result);}
+}
+$('confirm-cancel-btn').onclick=()=>confirmClose(false);
+$('confirm-ok-btn').onclick=()=>confirmClose(true);
+$('confirm-overlay').addEventListener('click',e=>{if(e.target.id==='confirm-overlay')confirmClose(false);});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('confirm-overlay').classList.contains('show'))confirmClose(false);});
+
 /* ---------- modèle ---------- */
 const BKEY='photoimmo_pro_biens';
 function loadBiens(){try{return JSON.parse(localStorage.getItem(BKEY))||[];}catch(e){return[];}}
@@ -1118,11 +1163,11 @@ async function updateStorageInfo(){
 }
 function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
-$('home').addEventListener('click',e=>{
+$('home').addEventListener('click',async e=>{
   if(e.target.closest('#newBienBtn'))return openNewBien();
   if(e.target.closest('#rulesBtn'))return openRules();
   const del=e.target.closest('[data-delbien]');
-  if(del){e.stopPropagation();const b=getBien(del.dataset.delbien);if(b&&confirm('Supprimer le bien « '+b.address+' » et ses photos ?')){idbDelMany((b.photos||[]).map(p=>p.id));saveBiens(loadBiens().filter(x=>x.id!==del.dataset.delbien));renderHome();}return;}
+  if(del){e.stopPropagation();const b=getBien(del.dataset.delbien);if(b&&await customConfirm('Supprimer ce bien ?','Supprimer le bien « '+b.address+' » et ses photos ? Cette action est irréversible.','Supprimer')){idbDelMany((b.photos||[]).map(p=>p.id));saveBiens(loadBiens().filter(x=>x.id!==del.dataset.delbien));renderHome();}return;}
   const card=e.target.closest('[data-bien]');if(card)openBien(card.dataset.bien);
 });
 
