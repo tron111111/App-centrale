@@ -167,11 +167,11 @@ header .header-info h1 { color: #fff !important; }
    d'autre, par ex.) */
 #confirm-overlay-bien{position:fixed;inset:0;background:rgba(15,20,40,.55);display:none;align-items:center;justify-content:center;z-index:99998;padding:20px;backdrop-filter:blur(2px);}
 #confirm-overlay-bien.show{display:flex;}
-#confirm-box-bien{background:var(--surface);border:1px solid var(--border);border-radius:16px;max-width:380px;width:100%;padding:22px 22px 18px;box-shadow:0 20px 50px rgba(15,20,40,.3);animation:confirmIn .18s ease;}
+#confirm-box-bien{background:var(--surface);border:1px solid var(--border);border-radius:16px;max-width:380px;width:100%;max-height:min(92dvh,92vh);overflow-y:auto;-webkit-overflow-scrolling:touch;padding:22px 22px 18px;box-shadow:0 20px 50px rgba(15,20,40,.3);animation:confirmIn .18s ease;}
 #confirm-box-bien h3{margin:0 0 8px;font-size:16px;font-weight:800;color:var(--text);}
 #confirm-box-bien p{margin:0 0 18px;font-size:13.5px;line-height:1.5;color:var(--text2);}
-#confirm-actions-bien{display:flex;gap:10px;justify-content:flex-end;}
-#confirm-actions-bien button{border-radius:9px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid var(--border);}
+#confirm-actions-bien{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;}
+#confirm-actions-bien button{flex:1 1 auto;min-width:120px;border-radius:9px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid var(--border);}
 #confirm-keep-btn{background:var(--bg);color:var(--text2);}
 #confirm-keep-btn:hover{background:var(--border);}
 #confirm-reset-btn{background:#dc2626;border-color:#dc2626;color:#fff;}
@@ -1615,6 +1615,7 @@ window.onload = function() {
 // d'autre, ex : une fiche précédente jamais réinitialisée), on demande d'abord
 // si on réinitialise le formulaire avant de le préremplir pour ce nouveau bien.
 let pendingIncomingBien = null;
+let pendingIncomingBienIdx = null; // idx dans getBiens() quand la fiche existe déjà
 
 function handleIncomingBienLink() {
   const params = new URLSearchParams(location.search);
@@ -1627,14 +1628,6 @@ function handleIncomingBienLink() {
   document.getElementById('hub').style.display = 'block';
   document.getElementById('hub').classList.remove('collapsed');
 
-  if (idx >= 0) {
-    loadBien(idx);
-    showSaveToast('🔗 Bien retrouvé depuis PhotoImmo Pro.', true);
-    return;
-  }
-
-  pendingIncomingBien = { label, type: params.get('type') || '', ville: params.get('ville') || '' };
-
   const hasData = HUB_IDS.some(id => {
     const el = document.getElementById(id);
     if (!el) return false;
@@ -1642,9 +1635,34 @@ function handleIncomingBienLink() {
     return el.value.trim() !== '';
   });
 
+  if (idx >= 0) {
+    if (hasData) {
+      // Le générateur contient déjà du texte non sauvegardé : on demande
+      // confirmation avant de l'écraser avec la fiche existante trouvée.
+      pendingIncomingBienIdx = idx;
+      document.getElementById('confirm-title-bien').textContent = 'Du texte est déjà présent';
+      document.getElementById('confirm-text-bien').textContent =
+        'Le générateur d\'annonces contient déjà du texte non sauvegardé. Charger la fiche existante de « ' + biens[idx].name + ' » va le remplacer. Continuer ?';
+      document.getElementById('confirm-keep-btn').textContent = 'Garder le texte actuel';
+      document.getElementById('confirm-reset-btn').textContent = 'Charger quand même';
+      document.getElementById('confirm-overlay-bien').classList.add('show');
+    } else {
+      loadBien(idx);
+      showSaveToast('🔗 Bien retrouvé depuis PhotoImmo Pro.', true);
+    }
+    return;
+  }
+
+  pendingIncomingBien = { label, type: params.get('type') || '', ville: params.get('ville') || '' };
+
   if (hasData) {
     // Du texte est déjà présent dans le générateur : on demande confirmation
     // avant d'écraser quoi que ce soit.
+    document.getElementById('confirm-title-bien').textContent = 'Du texte est déjà présent';
+    document.getElementById('confirm-text-bien').textContent =
+      'Le générateur d\'annonces contient déjà du texte — quelqu\'un a peut-être oublié de le vider après une précédente fiche. Voulez-vous le réinitialiser avant de créer la fiche de ce bien ? Le type (maison/appartement) et la ville seront renseignés dans tous les cas.';
+    document.getElementById('confirm-keep-btn').textContent = 'Garder le texte actuel';
+    document.getElementById('confirm-reset-btn').textContent = 'Réinitialiser';
     document.getElementById('confirm-overlay-bien').classList.add('show');
   } else {
     applyIncomingBienFields();
@@ -1665,18 +1683,34 @@ function applyIncomingBienFields() {
   pendingIncomingBien = null;
 }
 
-// L'utilisateur choisit de réinitialiser : on vide tout le générateur puis on
-// remet quand même le type (maison/appartement) et la ville du bien reçu.
+// L'utilisateur confirme l'action proposée par la modale.
+// - Si une fiche existante a été trouvée (pendingIncomingBienIdx) : on la
+//   charge maintenant, en écrasant le texte non sauvegardé.
+// - Sinon (nouveau bien) : on vide tout le générateur puis on remet quand
+//   même le type (maison/appartement) et la ville du bien reçu.
 function incomingBienResetConfirmed() {
   document.getElementById('confirm-overlay-bien').classList.remove('show');
+  if (pendingIncomingBienIdx !== null) {
+    const idx = pendingIncomingBienIdx;
+    pendingIncomingBienIdx = null;
+    loadBien(idx);
+    return;
+  }
   hubClear();
   applyIncomingBienFields();
 }
 
-// L'utilisateur choisit de garder le texte existant : on ne touche à rien
-// d'autre, on complète juste type/ville/nom par-dessus.
+// L'utilisateur choisit de garder le texte existant dans le générateur.
+// - Si une fiche existante avait été trouvée : on annule simplement, rien
+//   n'est chargé ni modifié.
+// - Sinon (nouveau bien) : on complète juste type/ville/nom par-dessus le
+//   texte conservé.
 function incomingBienResetCancel() {
   document.getElementById('confirm-overlay-bien').classList.remove('show');
+  if (pendingIncomingBienIdx !== null) {
+    pendingIncomingBienIdx = null;
+    return;
+  }
   applyIncomingBienFields();
 }
 
@@ -3288,7 +3322,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <div id="confirm-overlay-bien" role="dialog" aria-modal="true" aria-labelledby="confirm-title-bien">
   <div id="confirm-box-bien">
     <h3 id="confirm-title-bien">Du texte est déjà présent</h3>
-    <p>Le générateur d'annonces contient déjà du texte — quelqu'un a peut-être oublié de le vider après une précédente fiche. Voulez-vous le réinitialiser avant de créer la fiche de ce bien ? Le type (maison/appartement) et la ville seront renseignés dans tous les cas.</p>
+    <p id="confirm-text-bien">Le générateur d'annonces contient déjà du texte — quelqu'un a peut-être oublié de le vider après une précédente fiche. Voulez-vous le réinitialiser avant de créer la fiche de ce bien ? Le type (maison/appartement) et la ville seront renseignés dans tous les cas.</p>
     <div id="confirm-actions-bien">
       <button id="confirm-keep-btn" onclick="incomingBienResetCancel()">Garder le texte actuel</button>
       <button id="confirm-reset-btn" onclick="incomingBienResetConfirmed()">Réinitialiser</button>
