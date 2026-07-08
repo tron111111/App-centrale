@@ -674,7 +674,7 @@ function analyze(img, prof){
   const cv=$('work'); cv.width=TW; cv.height=TH;
   const ctx=cv.getContext('2d',{willReadFrequently:true});
   ctx.drawImage(img,0,0,TW,TH);
-  const thumb=cv.toDataURL('image/jpeg',0.62);
+  const thumb=cv.toDataURL(webpSupported()?'image/webp':'image/jpeg',0.62);
   const {data}=ctx.getImageData(0,0,TW,TH);
   const N=TW*TH;
 
@@ -853,6 +853,19 @@ function saveBiens(l){try{localStorage.setItem(BKEY,JSON.stringify(l));}catch(e)
    100% local, sans serveur ni dépendance externe.
    ============================================================ */
 const IDB_NAME='photoimmo_photos', IDB_STORE='thumbs', IDB_VERSION=1;
+
+// WebP compresse environ 25-30% mieux que JPEG à qualité équivalente : on
+// l'utilise pour les vignettes stockées dès que le navigateur le supporte
+// (repli automatique sur JPEG sinon, ex. anciens Safari).
+let _webpSupported=null;
+function webpSupported(){
+  if(_webpSupported!==null)return _webpSupported;
+  try{
+    const c=document.createElement('canvas');c.width=1;c.height=1;
+    _webpSupported=c.toDataURL('image/webp').indexOf('data:image/webp')===0;
+  }catch(e){ _webpSupported=false; }
+  return _webpSupported;
+}
 let _idbPromise=null;
 function idbOpen(){
   if(_idbPromise)return _idbPromise;
@@ -920,7 +933,8 @@ async function storeThumb(photoId,dataURL){
   const blob=dataURLtoBlob(dataURL);
   if(thumbUrlCache[photoId])URL.revokeObjectURL(thumbUrlCache[photoId]);
   thumbUrlCache[photoId]=URL.createObjectURL(blob);
-  await idbSet(photoId,blob);
+  const ok=await idbSet(photoId,blob);
+  if(!ok) toast('Espace de stockage plein : exportez puis videz d’anciens biens');
 }
 // Hydrate en différé toutes les <img data-photo-id> encore sur le
 // placeholder : on va chercher la vraie image dans IndexedDB puis on la
@@ -1082,8 +1096,25 @@ function renderHome(){
     });
   }
   html+='<div class="section-title">Aide</div><button class="btn btn-ghost" id="rulesBtn" style="width:100%">'+ic('star',18)+' Les 10 règles d’or du shooting</button>';
-  html+='<div class="footer-note">Analyse 100% locale — vos photos ne quittent pas l’appareil. Ajoutez l’app à l’écran d’accueil pour l’utiliser hors-ligne sur le terrain.</div>';
+  html+='<div class="footer-note">Analyse 100% locale — vos photos ne quittent pas l’appareil. Ajoutez l’app à l’écran d’accueil pour l’utiliser hors-ligne sur le terrain.<span id="storageInfo"></span></div>';
   $('home').innerHTML=html;
+  updateStorageInfo();
+}
+// Affiche l'espace de stockage réellement utilisé par le navigateur pour ce
+// site (photos incluses), quand l'API le permet. Purement informatif : aide
+// à anticiper avant d'atteindre la limite plutôt que de la découvrir via une
+// erreur. Discret et silencieux si l'API n'est pas disponible (ex. Safari
+// en navigation privée).
+async function updateStorageInfo(){
+  const el=$('storageInfo');if(!el)return;
+  try{
+    if(!(navigator.storage&&navigator.storage.estimate))return;
+    const {usage,quota}=await navigator.storage.estimate();
+    if(usage==null)return;
+    const fmt=n=>n<1024*1024?Math.round(n/1024)+' Ko':(n/1024/1024).toFixed(usage<50*1024*1024?1:0)+' Mo';
+    const pct=quota?Math.round(usage/quota*100):null;
+    el.textContent=' · Stockage utilisé : '+fmt(usage)+(pct!=null?' ('+pct+'% de l’espace disponible)':'');
+  }catch(e){/* silencieux : purement informatif */}
 }
 function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
