@@ -161,6 +161,21 @@ header .header-info h1 { color: #fff !important; }
 #confirm-cancel-btn:hover{background:var(--border);}
 #confirm-ok-btn{background:#dc2626;border-color:#dc2626;color:#fff;}
 #confirm-ok-btn:hover{background:#b91c1c;}
+
+/* Modale spécifique : arrivée d'un bien depuis le Dossier alors que le
+   générateur contient déjà du texte (laissé par erreur par quelqu'un
+   d'autre, par ex.) */
+#confirm-overlay-bien{position:fixed;inset:0;background:rgba(15,20,40,.55);display:none;align-items:center;justify-content:center;z-index:99998;padding:20px;backdrop-filter:blur(2px);}
+#confirm-overlay-bien.show{display:flex;}
+#confirm-box-bien{background:var(--surface);border:1px solid var(--border);border-radius:16px;max-width:380px;width:100%;padding:22px 22px 18px;box-shadow:0 20px 50px rgba(15,20,40,.3);animation:confirmIn .18s ease;}
+#confirm-box-bien h3{margin:0 0 8px;font-size:16px;font-weight:800;color:var(--text);}
+#confirm-box-bien p{margin:0 0 18px;font-size:13.5px;line-height:1.5;color:var(--text2);}
+#confirm-actions-bien{display:flex;gap:10px;justify-content:flex-end;}
+#confirm-actions-bien button{border-radius:9px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid var(--border);}
+#confirm-keep-btn{background:var(--bg);color:var(--text2);}
+#confirm-keep-btn:hover{background:var(--border);}
+#confirm-reset-btn{background:#dc2626;border-color:#dc2626;color:#fff;}
+#confirm-reset-btn:hover{background:#b91c1c;}
 .hub-icon { width: 28px; height: 28px; border-radius: 8px; background: var(--c-ann-bg); border: 1px solid var(--c-ann-border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .hub-icon svg { color: var(--c-ann); }
 .hub-title { font-size: 14px; font-weight: 700; color: var(--text); }
@@ -1594,8 +1609,13 @@ window.onload = function() {
   handleIncomingBienLink();
 };
 
-// Arrivée depuis un lien de PhotoImmo Pro (bibliotheque.html?bien=...&type=...&ville=...)
+// Arrivée depuis un lien du Dossier / PhotoImmo Pro (bibliotheque.html?bien=...&type=...&ville=...)
 // -> on charge la fiche si elle existe déjà, sinon on ouvre le générateur prérempli.
+// Si le générateur contient déjà du texte (laissé par erreur par quelqu'un
+// d'autre, ex : une fiche précédente jamais réinitialisée), on demande d'abord
+// si on réinitialise le formulaire avant de le préremplir pour ce nouveau bien.
+let pendingIncomingBien = null;
+
 function handleIncomingBienLink() {
   const params = new URLSearchParams(location.search);
   const label = params.get('bien');
@@ -1610,15 +1630,54 @@ function handleIncomingBienLink() {
   if (idx >= 0) {
     loadBien(idx);
     showSaveToast('🔗 Bien retrouvé depuis PhotoImmo Pro.', true);
-  } else {
-    const type = params.get('type') || '';
-    const ville = params.get('ville') || '';
-    document.getElementById('h-type').value = type.toLowerCase().startsWith('appart') ? 'Appartement' : (type ? 'Maison' : '');
-    document.getElementById('h-ville').value = ville;
-    document.getElementById('save-bien-name').value = label;
-    document.getElementById('hub').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    showSaveToast('🔗 Bien reçu — complétez la fiche puis sauvegardez pour la lier.', true);
+    return;
   }
+
+  pendingIncomingBien = { label, type: params.get('type') || '', ville: params.get('ville') || '' };
+
+  const hasData = HUB_IDS.some(id => {
+    const el = document.getElementById(id);
+    if (!el) return false;
+    if (el.tagName === 'SELECT') return el.selectedIndex > 0;
+    return el.value.trim() !== '';
+  });
+
+  if (hasData) {
+    // Du texte est déjà présent dans le générateur : on demande confirmation
+    // avant d'écraser quoi que ce soit.
+    document.getElementById('confirm-overlay-bien').classList.add('show');
+  } else {
+    applyIncomingBienFields();
+  }
+}
+
+// Remplit uniquement le type, la ville et le nom du bien reçu depuis le
+// Dossier — quel que soit le choix fait sur la modale de réinitialisation.
+function applyIncomingBienFields() {
+  if (!pendingIncomingBien) return;
+  const { label, type, ville } = pendingIncomingBien;
+  document.getElementById('h-type').value = type.toLowerCase().startsWith('appart') ? 'Appartement' : (type ? 'Maison' : '');
+  document.getElementById('h-ville').value = ville;
+  document.getElementById('save-bien-name').value = label;
+  document.getElementById('hub').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  showSaveToast('🔗 Bien reçu — complétez la fiche puis sauvegardez pour la lier.', true);
+  updateClearBtn();
+  pendingIncomingBien = null;
+}
+
+// L'utilisateur choisit de réinitialiser : on vide tout le générateur puis on
+// remet quand même le type (maison/appartement) et la ville du bien reçu.
+function incomingBienResetConfirmed() {
+  document.getElementById('confirm-overlay-bien').classList.remove('show');
+  hubClear();
+  applyIncomingBienFields();
+}
+
+// L'utilisateur choisit de garder le texte existant : on ne touche à rien
+// d'autre, on complète juste type/ville/nom par-dessus.
+function incomingBienResetCancel() {
+  document.getElementById('confirm-overlay-bien').classList.remove('show');
+  applyIncomingBienFields();
 }
 
 // MENU ⋯
@@ -3195,13 +3254,21 @@ function hubClearConfirmed() {
 
 // Fermer la modale avec Échap ou un clic sur le fond
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') hubClearCancel();
+  if (e.key !== 'Escape') return;
+  if (document.getElementById('confirm-overlay').classList.contains('show')) hubClearCancel();
+  if (document.getElementById('confirm-overlay-bien').classList.contains('show')) incomingBienResetCancel();
 });
 document.addEventListener('DOMContentLoaded', () => {
   const overlay = document.getElementById('confirm-overlay');
   if (overlay) {
     overlay.addEventListener('click', e => {
       if (e.target.id === 'confirm-overlay') hubClearCancel();
+    });
+  }
+  const overlayBien = document.getElementById('confirm-overlay-bien');
+  if (overlayBien) {
+    overlayBien.addEventListener('click', e => {
+      if (e.target.id === 'confirm-overlay-bien') incomingBienResetCancel();
     });
   }
 });
@@ -3214,6 +3281,17 @@ document.addEventListener('DOMContentLoaded', () => {
     <div id="confirm-actions">
       <button id="confirm-cancel-btn" onclick="hubClearCancel()">Annuler</button>
       <button id="confirm-ok-btn" onclick="hubClearConfirmed()">Réinitialiser</button>
+    </div>
+  </div>
+</div>
+
+<div id="confirm-overlay-bien" role="dialog" aria-modal="true" aria-labelledby="confirm-title-bien">
+  <div id="confirm-box-bien">
+    <h3 id="confirm-title-bien">Du texte est déjà présent</h3>
+    <p>Le générateur d'annonces contient déjà du texte — quelqu'un a peut-être oublié de le vider après une précédente fiche. Voulez-vous le réinitialiser avant de créer la fiche de ce bien ? Le type (maison/appartement) et la ville seront renseignés dans tous les cas.</p>
+    <div id="confirm-actions-bien">
+      <button id="confirm-keep-btn" onclick="incomingBienResetCancel()">Garder le texte actuel</button>
+      <button id="confirm-reset-btn" onclick="incomingBienResetConfirmed()">Réinitialiser</button>
     </div>
   </div>
 </div>
