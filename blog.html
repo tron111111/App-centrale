@@ -36,11 +36,11 @@ body { overflow-x: hidden; }
   --blue: #16266b; --blue-bg: #e9ecf7; --blue-border: #b9c2e0; --blue-dark: #0f1b50;
   --sky: #29a9e0; --sky-bg: #e4f4fc;
   --input-bg: #f4f6fa; --result-bg: #e9ecf7; --radius: 12px;
-  /* catégories d'articles — palette volontairement distincte de bibliotheque.html */
-  --c-ann: #0d9488; --c-ann-bg: #f0fdfa; --c-ann-border: #99f6e4;
-  --c-prosp: #e11d48; --c-prosp-bg: #fff1f2; --c-prosp-border: #fecdd3;
-  --c-social: #4f46e5; --c-social-bg: #eef2ff; --c-social-border: #c7d2fe;
-  --c-admin: #65a30d; --c-admin-bg: #f7fee7; --c-admin-border: #d9f99d;
+  /* catégories d'articles */
+  --c-ann: var(--blue); --c-ann-bg: var(--blue-bg); --c-ann-border: var(--blue-border);
+  --c-prosp: #d97706; --c-prosp-bg: #fffbeb; --c-prosp-border: #fde68a;
+  --c-social: #9333ea; --c-social-bg: #faf5ff; --c-social-border: #e9d5ff;
+  --c-admin: #059669; --c-admin-bg: #ecfdf5; --c-admin-border: #a7f3d0;
 }
 [data-theme="dark"] {
   --bg: #0f1117; --surface: #1a1f2e; --border: #2a3148; --border2: #3a4260;
@@ -48,10 +48,10 @@ body { overflow-x: hidden; }
   --blue: #29a9e0; --blue-bg: #1a2240; --blue-border: #2d3f70; --blue-dark: #5cc4ea;
   --sky: #29a9e0; --sky-bg: #0e2030;
   --input-bg: #232a42; --result-bg: #1a2240;
-  --c-ann: #2dd4bf; --c-ann-bg: #0b2e2b; --c-ann-border: #115e59;
-  --c-prosp: #fb7185; --c-prosp-bg: #2d1016; --c-prosp-border: #7f1d3a;
-  --c-social: #818cf8; --c-social-bg: #191c3f; --c-social-border: #3730a3;
-  --c-admin: #a3e635; --c-admin-bg: #1a2e05; --c-admin-border: #3f6212;
+  --c-ann: var(--blue); --c-ann-bg: var(--blue-bg); --c-ann-border: var(--blue-border);
+  --c-prosp: #fbbf24; --c-prosp-bg: #2d2010; --c-prosp-border: #7a5a10;
+  --c-social: #c084fc; --c-social-bg: #2d1a45; --c-social-border: #6b21a8;
+  --c-admin: #34d399; --c-admin-bg: #0a2e20; --c-admin-border: #0f5a3a;
 }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; transition: background .2s, color .2s; }
 
@@ -72,44 +72,13 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
   .theme-toggle span { display: none; }
   .theme-toggle { padding: 7px 9px; }
 
-  /* Marges resserrées pour laisser plus de place au contenu sur petit écran */
-  .container { padding: 1rem .75rem calc(2.5rem + env(safe-area-inset-bottom)); }
-
-  /* Les modèles d'articles passent en une seule colonne, plus lisible au doigt */
-  .tpl-grid { grid-template-columns: 1fr; }
-
-  /* Les champs du formulaire et les réglages globaux s'empilent verticalement */
-  .fields, .global-row { grid-template-columns: 1fr; }
-
-  .editor, .preview-section, .drafts-section, .intro { padding: 1rem .9rem 1.1rem; }
-  .article-frame { padding: 1.1rem 1rem 1.3rem; }
-
-  /* Barres d'actions : les boutons prennent toute la largeur pour rester faciles à toucher */
-  .preview-actions, .modal-actions { flex-direction: column; align-items: stretch; }
-  .preview-actions .btn-copy, .modal-actions button { width: 100%; justify-content: center; }
-
-  /* Panneau IA : le champ clé et le bouton "Générer" s'empilent au lieu de se serrer */
-  .ai-api-key-wrap { flex-wrap: wrap; }
-  .ai-api-key-wrap input { min-width: 0; flex-basis: 100%; }
-  .btn-run-ai { width: 100%; justify-content: center; }
-
-  /* Brouillons : titre au-dessus, boutons d'action en pleine largeur en dessous */
-  .draft-item { flex-direction: column; align-items: stretch; }
-  .draft-item .draft-info { order: -1; }
-  .draft-btn { flex: 1 1 auto; text-align: center; }
-
-  .drafts-header { flex-direction: column; align-items: stretch; }
-  #import-toggle-btn { width: 100%; text-align: center; }
-
-  /* Cibles tactiles un peu plus grandes pour un usage confortable au doigt */
-  .cat-btn, .btn-copy, .draft-btn, .btn-run-ai, .autosave-restore-btn, .btn-toggle-result { min-height: 38px; }
-}
-
-/* Très petits écrans (ex : iPhone SE) : on resserre encore un peu */
-@media (max-width: 380px) {
-  .header-info h1 { font-size: 13px; }
-  .card-title { font-size: 12.5px; }
-  .article-frame h1 { font-size: 18px; }
+  /* Panneau API Claude / Gemini */
+  .ai-api-key-wrap { flex-direction: column; gap: 8px; }
+  .ai-api-key-wrap input { font-size: 16px !important; width: 100%; }
+  .ai-model-btn { padding: 12px 10px; font-size: 13px; }
+  .btn-run-ai { width: 100%; justify-content: center; padding: 12px; font-size: 13px; }
+  .ai-response-actions { flex-direction: column; }
+  .ai-response-actions .btn-copy { width: 100%; justify-content: center; padding: 12px; font-size: 13px; }
 }
 
 .container { max-width: 1000px; margin: 0 auto; padding: 1.25rem 1rem calc(3rem + env(safe-area-inset-bottom)); }
@@ -179,53 +148,43 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
 .result-box { width: 100%; min-height: 160px; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--result-bg); color: var(--text); font-size: 12.5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; line-height: 1.55; resize: vertical; outline: none; }
 .result-box:focus { border-color: var(--blue); }
 
-/* PANNEAU IA */
-.ai-api-panel { border: 1.5px solid var(--c-ann-border); border-radius: 10px; overflow: hidden; margin-top: 12px; background: var(--surface); }
-.ai-api-panel.model-gemini { border-color: #93c5fd; }
-.ai-api-header { padding: 8px 14px; border-bottom: 1px solid var(--border); background: var(--bg); }
-.ai-model-select { width: 100%; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 12.5px; font-family: inherit; }
-.ai-api-key-wrap { display: flex; gap: 6px; padding: 10px 14px; align-items: center; }
-.ai-api-key-wrap input { flex: 1; padding: 8px 11px; border-radius: 8px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text); font-size: 13px; font-family: inherit; outline: none; }
-.ai-api-key-wrap input:focus { border-color: var(--blue); }
-.btn-run-ai { background: var(--blue); color: #fff; border: none; border-radius: 8px; padding: 8px 14px; font-size: 12.5px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.btn-run-ai:disabled { opacity: .6; cursor: default; }
+/* PANNEAU IA — accent dynamique selon le modèle (Claude / Gemini) */
+.ai-api-panel {
+  border: 1.5px solid var(--ai-accent-border, #f0e0d8);
+  border-radius: 10px; overflow: hidden; margin-top: 12px; background: var(--surface);
+  --ai-accent: #d97757; --ai-accent-bg: #fdf6f3; --ai-accent-border: #f0e0d8;
+}
+.ai-api-panel.model-gemini { --ai-accent: #1a73e8; --ai-accent-bg: #f3f8ff; --ai-accent-border: #d2e3fc; }
+[data-theme="dark"] .ai-api-panel { --ai-accent-bg: #2a1a12; --ai-accent-border: #5a3020; }
+[data-theme="dark"] .ai-api-panel.model-gemini { --ai-accent-bg: #15233a; --ai-accent-border: #2d4a7a; }
+.ai-api-header { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: var(--ai-accent-bg); border-bottom: 1px solid var(--ai-accent-border); }
+.ai-model-toggle { display: flex; gap: 6px; flex: 1; }
+.ai-model-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 10px; border-radius: 8px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text2); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; cursor: pointer; font-family: inherit; transition: all .15s; }
+.ai-model-btn:hover { border-color: var(--border2); }
+.ai-model-btn.active[data-model="claude"] { background: #d97757; border-color: #d97757; color: #fff; }
+.ai-model-btn.active[data-model="gemini"] { background: #1a73e8; border-color: #1a73e8; color: #fff; }
+.ai-api-key-wrap { display: flex; gap: 6px; padding: 10px 14px; border-bottom: 1px solid var(--ai-accent-border); align-items: center; }
+.ai-api-key-wrap input { flex: 1; font-size: 12px; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text); font-family: monospace; outline: none; transition: border-color .15s; }
+.ai-api-key-wrap input:focus { border-color: var(--ai-accent); }
+.ai-api-key-wrap input::placeholder { font-family: inherit; color: var(--text4); }
+.btn-run-ai { background: var(--ai-accent); color: #fff; border: none; border-radius: 8px; padding: 7px 14px; font-size: 12px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; transition: opacity .15s; }
+.btn-run-ai:hover { opacity: .88; }
+.btn-run-ai:disabled { opacity: .5; cursor: not-allowed; }
 .api-key-save-hint { font-size: 10px; color: var(--text3); margin-top: -2px; padding: 0 14px 8px; }
 .ai-error { display: none; margin: 0 14px 10px; padding: 8px 11px; background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; border-radius: 8px; font-size: 12px; }
 .ai-error::before { content: ''; display: inline-block; width: 12px; height: 12px; margin-right: 5px; vertical-align: -1px; background-color: currentColor; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z'/%3E%3Cline x1='12' y1='9' x2='12' y2='13'/%3E%3Cline x1='12' y1='17' x2='12.01' y2='17'/%3E%3C/svg%3E") no-repeat center / contain; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z'/%3E%3Cline x1='12' y1='9' x2='12' y2='13'/%3E%3Cline x1='12' y1='17' x2='12.01' y2='17'/%3E%3C/svg%3E") no-repeat center / contain; }
 [data-theme="dark"] .ai-error { background: #2d1010; border-color: #6e1f1f; color: #f87171; }
-
-/* BANDEAU HORS LIGNE — sticky sous le header, visible partout sur la page */
-.offline-banner { display: none; align-items: center; gap: 8px; justify-content: center; background: #b91c1c; color: #fff; font-size: 12.5px; font-weight: 600; padding: 8px 14px; text-align: center; position: sticky; top: 0; z-index: 200; }
-.offline-banner.show { display: flex; }
-.offline-banner.back-online { background: var(--c-admin, #059669); }
-.offline-banner svg { flex-shrink: 0; }
-.offline-banner .dot { width: 7px; height: 7px; border-radius: 50%; background: #fff; flex-shrink: 0; animation: offline-pulse 1.4s ease-in-out infinite; }
-@keyframes offline-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
-
-/* Bouton "Générer" désactivé pendant la coupure : évite de laisser croire que l'IA est juste lente */
-.btn-run-ai.is-offline { opacity: .6; cursor: not-allowed; }
-.ai-offline-note { display: none; margin: 0 14px 10px; padding: 8px 11px; background: var(--result-bg); border: 1px solid var(--border2); color: var(--text2); border-radius: 8px; font-size: 12px; }
-.ai-offline-note.show { display: block; }
-.ai-response-wrap { padding: 0 14px 14px; }
-.ai-response-box { background: var(--result-bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; font-size: 13px; line-height: 1.65; white-space: pre-wrap; color: var(--text); max-height: 420px; overflow-y: auto; }
-.ai-response-box.streaming::after { content: '▍'; animation: blink 1s step-end infinite; }
-.ai-response-box.skeleton { display: flex; flex-direction: column; gap: 11px; padding-top: 2px; }
-.skel-line { height: 12px; border-radius: 6px; background: linear-gradient(90deg, var(--border) 25%, var(--border2) 50%, var(--border) 75%); background-size: 200% 100%; animation: skel-shimmer 1.4s ease-in-out infinite; }
-.skel-line.w-40 { width: 40%; }
-.skel-line.w-60 { width: 60%; }
-.skel-line.w-70 { width: 70%; }
-.skel-line.w-88 { width: 88%; }
-.skel-line.w-92 { width: 92%; }
-.skel-line.w-95 { width: 95%; }
-.skel-line.title { height: 15px; margin-bottom: 2px; }
-.skel-line.gap-top { margin-top: 4px; }
-@keyframes skel-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+.ai-response-wrap { padding: 12px 14px; }
+.ai-response-box { background: var(--result-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; font-size: 13px; line-height: 1.8; white-space: pre-wrap; color: var(--text); min-height: 60px; max-height: 420px; overflow-y: auto; }
+.ai-response-box.streaming::after { content: '▌'; animation: blink .7s step-end infinite; color: var(--ai-accent); }
 @keyframes blink { 50% { opacity: 0; } }
 .ai-response-box[contenteditable="true"] { cursor: text; }
 .ai-response-box[contenteditable="true"]:hover { box-shadow: inset 0 0 0 1.5px var(--border2); }
-.ai-response-box[contenteditable="true"]:focus { outline: none; box-shadow: inset 0 0 0 1.5px var(--blue); }
+.ai-response-box[contenteditable="true"]:focus { outline: none; box-shadow: inset 0 0 0 1.5px var(--ai-accent); }
 .ai-response-edit-hint { font-size: 10.5px; color: var(--text3); margin-bottom: 6px; display: none; }
-.ai-response-actions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.ai-response-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+
+
 
 /* APERCU ARTICLE */
 .preview-section { display: none; background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 1.1rem 1.1rem 1.25rem; margin-bottom: 1.25rem; }
@@ -271,23 +230,9 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
 .import-form { display: none; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: .9rem; margin-bottom: 12px; }
 .import-form .fields { margin-bottom: .7rem; }
 
-/* AUTOSAVE INDICATOR */
-.autosave-bar { display: none; align-items: center; gap: 6px; font-size: 11px; color: var(--text3); padding: 5px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; margin-top: 10px; }
-.autosave-bar.visible { display: inline-flex; }
-.autosave-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--c-admin); flex-shrink: 0; }
-.autosave-bar.saving .autosave-dot { background: var(--c-prosp); animation: pulse-dot .8s ease-in-out infinite alternate; }
-@keyframes pulse-dot { from { opacity: 1; } to { opacity: .35; } }
-.autosave-restore-banner { display: none; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; background: var(--c-ann-bg); border: 1px solid var(--c-ann-border); border-radius: 10px; margin-bottom: 1rem; font-size: 12.5px; color: var(--text); flex-wrap: wrap; }
-.autosave-restore-banner.visible { display: flex; }
-.autosave-restore-actions { display: flex; gap: 8px; flex-shrink: 0; }
-.autosave-restore-btn { border: none; border-radius: 7px; padding: 5px 12px; font-size: 12px; font-weight: 600; cursor: pointer; }
-.autosave-restore-btn.primary { background: var(--blue); color: #fff; }
-.autosave-restore-btn.secondary { background: var(--surface); color: var(--text2); border: 1px solid var(--border); }
-
 .toast { display: none; align-items: flex-start; gap: 6px; margin-top: 10px; padding: 9px 13px; border-radius: 8px; font-size: 12px; line-height: 1.5; }
 .toast.ok { background: var(--c-admin-bg); border: 1px solid var(--c-admin-border); color: var(--c-admin); }
 .toast.warn { background: var(--c-prosp-bg); border: 1px solid var(--c-prosp-border); color: var(--c-prosp); }
-.toast.edit { background: var(--c-ann-bg); border: 1px solid var(--c-ann-border); color: var(--c-ann); }
 #save-toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 500; max-width: min(92vw, 480px); margin-top: 0; box-shadow: 0 6px 20px rgba(0,0,0,.18); }
 
 /* POPUP DE CONFIRMATION (suppression, remplacement...) */
@@ -312,21 +257,7 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
   </button>
 </header>
 
-<div class="offline-banner" id="offline-banner" role="status" aria-live="polite">
-  <span class="dot" id="offline-banner-dot"></span>
-  <span id="offline-banner-text">Vous êtes hors ligne — la génération IA est indisponible.</span>
-</div>
-
 <div class="container">
-
-  <!-- BANNIÈRE DE RESTAURATION DU BROUILLON TEMPORAIRE -->
-  <div class="autosave-restore-banner" id="autosave-restore-banner" role="alert">
-    <span><b>Brouillon temporaire récupéré</b> — un travail en cours a été trouvé. Souhaitez-vous le reprendre ?</span>
-    <div class="autosave-restore-actions">
-      <button class="autosave-restore-btn primary" onclick="restoreAutosave()">Reprendre</button>
-      <button class="autosave-restore-btn secondary" onclick="discardAutosave()">Ignorer</button>
-    </div>
-  </div>
 
   <div class="intro">
     <b>Comment ça marche :</b> choisissez un modèle d'article ci-dessous, renseignez les informations factuelles (aucune donnée n'est inventée par défaut), puis générez le prompt. Vous pouvez ensuite le copier vers Claude.ai, ou le lancer directement ici avec votre clé API Anthropic ou Gemini. L'article généré est mis en forme automatiquement et prêt à copier en texte ou en HTML pour votre page de blog.
@@ -347,16 +278,11 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
     <div class="global-row">
       <div class="field-wrap">
         <label for="g-ton">Ton</label>
-        <select id="g-ton" onchange="onTonChange()">
+        <select id="g-ton" onchange="updateResult()">
           <option value="factuel et professionnel">Factuel et professionnel</option>
           <option value="chaleureux et accessible">Chaleureux et accessible</option>
           <option value="institutionnel et sobre">Institutionnel et sobre</option>
-          <option value="__custom__">Ton personnalisé…</option>
         </select>
-      </div>
-      <div class="field-wrap" id="g-ton-custom-wrap" style="display:none;">
-        <label for="g-ton-custom">Précisez le ton souhaité</label>
-        <input type="text" id="g-ton-custom" placeholder="ex : dynamique, avec une pointe d'humour, orienté conseils pratiques" oninput="updateResult()">
       </div>
       <div class="field-wrap">
         <label for="g-longueur">Longueur cible</label>
@@ -398,9 +324,13 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
       <!-- PANNEAU GENERATION DIRECTE -->
       <div class="ai-api-panel" id="api-panel">
         <div class="ai-api-header">
-          <select class="ai-model-select" id="model-select" onchange="modelChange()">
-            <option value="claude">🟠 Générer avec Claude</option>
-            <option value="gemini">🔵 Générer avec Gemini</option>
+          <div class="ai-model-toggle">
+            <button type="button" class="ai-model-btn active" data-model="claude" onclick="selectAiModel(this, 'model-select')">Claude</button>
+            <button type="button" class="ai-model-btn" data-model="gemini" onclick="selectAiModel(this, 'model-select')">Gemini</button>
+          </div>
+          <select id="model-select" onchange="modelChange()" style="display:none" aria-hidden="true" tabindex="-1">
+            <option value="claude">Claude</option>
+            <option value="gemini">Gemini</option>
           </select>
         </div>
         <div class="ai-api-key-wrap">
@@ -412,7 +342,6 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
         </div>
         <div class="api-key-save-hint"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:2px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> La clé reste dans votre navigateur, elle n'est pas stockée.</div>
         <div class="ai-error" id="api-error"></div>
-        <div class="ai-offline-note" id="ai-offline-note"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:2px;"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg> Pas de connexion : le bouton "Générer" sera de nouveau actif dès que le réseau sera de retour.</div>
         <div class="ai-response-wrap" id="response-wrap" style="display:none;">
           <div class="ai-response-edit-hint" id="response-edit-hint"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:2px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Vous pouvez cliquer dans le texte ci-dessous et le modifier avant de le mettre en forme.</div>
           <div class="ai-response-box" id="response-box"></div>
@@ -427,11 +356,6 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
             </button>
           </div>
         </div>
-      </div>
-      <!-- INDICATEUR D'AUTO-SAVE -->
-      <div class="autosave-bar" id="autosave-bar" aria-live="polite">
-        <span class="autosave-dot"></span>
-        <span id="autosave-label">Brouillon temporaire sauvegardé</span>
       </div>
     </div>
   </div>
@@ -702,7 +626,6 @@ let selectedId = null;
 let resultVisible = true;
 const DRAFTS_KEY = 'laforet_blog_drafts';
 const DRAFT_SORT_KEY = 'laforet_blog_draft_sort';
-const AUTOSAVE_KEY = 'laforet_blog_brouillon_temporaire';
 
 window.onload = function() {
   initTheme();
@@ -718,7 +641,6 @@ window.onload = function() {
     catFilterEl.appendChild(opt);
   });
   renderDrafts();
-  initAutosave();
   // Sécurité : force le collage en texte brut dans la zone éditable de réponse IA,
   // pour éviter qu'un contenu HTML collé (ex: depuis une page malveillante) ne soit
   // inséré tel quel dans le DOM de la page.
@@ -756,143 +678,6 @@ function updateThemeUI(theme) {
     label.textContent = "Mode sombre";
   }
 }
-
-// ── AUTO-SAVE BROUILLON TEMPORAIRE ───────────────────────────────────────
-// Sauvegarde discrète toutes les 10 s dans localStorage sous AUTOSAVE_KEY.
-// Restaure le travail en cours si l'utilisateur a fermé l'onglet par accident.
-
-let _autosaveTimer = null;
-
-function getAutosaveData() {
-  const tpl = templates.find(x => x.id === selectedId);
-  if (!tpl) return null;
-  const fields = {};
-  document.querySelectorAll('#fields [data-field]').forEach(inp => {
-    fields[inp.dataset.field] = inp.value;
-  });
-  return {
-    selectedId,
-    fields,
-    ton: document.getElementById('g-ton').value,
-    tonCustom: document.getElementById('g-ton-custom').value,
-    longueur: document.getElementById('g-longueur').value,
-    date: document.getElementById('g-date').value,
-    aiResponse: document.getElementById('response-box').textContent || '',
-    savedAt: new Date().toISOString()
-  };
-}
-
-function triggerAutosave() {
-  const data = getAutosaveData();
-  if (!data) return;
-  const bar = document.getElementById('autosave-bar');
-  bar.classList.add('visible', 'saving');
-  document.getElementById('autosave-label').textContent = 'Sauvegarde…';
-  try {
-    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(data));
-    setTimeout(() => {
-      bar.classList.remove('saving');
-      const d = new Date();
-      document.getElementById('autosave-label').textContent =
-        'Brouillon temporaire sauvegardé à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-    }, 400);
-  } catch (e) {
-    bar.classList.remove('saving');
-    document.getElementById('autosave-label').textContent = 'Auto-save indisponible (quota atteint ?)';
-  }
-}
-
-function scheduleAutosave() {
-  clearTimeout(_autosaveTimer);
-  _autosaveTimer = setTimeout(triggerAutosave, 10000);
-}
-
-function clearAutosave() {
-  try { localStorage.removeItem(AUTOSAVE_KEY); } catch (e) {}
-  document.getElementById('autosave-bar').classList.remove('visible', 'saving');
-}
-
-function initAutosave() {
-  // Vérifie si un brouillon temporaire existe au chargement.
-  try {
-    const raw = localStorage.getItem(AUTOSAVE_KEY);
-    if (!raw) return;
-    const data = JSON.parse(raw);
-    if (!data || !data.selectedId) return;
-    // Affiche la bannière de restauration seulement si le modèle existe encore.
-    const tpl = templates.find(x => x.id === data.selectedId);
-    if (!tpl) { clearAutosave(); return; }
-    document.getElementById('autosave-restore-banner').classList.add('visible');
-  } catch (e) {}
-}
-
-function restoreAutosave() {
-  try {
-    const raw = localStorage.getItem(AUTOSAVE_KEY);
-    if (!raw) return;
-    const data = JSON.parse(raw);
-    document.getElementById('autosave-restore-banner').classList.remove('visible');
-    // Sélectionne le modèle
-    selectTemplate(data.selectedId);
-    // Restaure les champs après un tick (selectTemplate reconstruit le DOM)
-    setTimeout(() => {
-      if (data.fields) {
-        Object.entries(data.fields).forEach(([field, val]) => {
-          const inp = document.querySelector(`#fields [data-field="${CSS.escape(field)}"]`);
-          if (inp) inp.value = val;
-        });
-      }
-      if (data.ton) document.getElementById('g-ton').value = data.ton;
-      if (data.tonCustom) document.getElementById('g-ton-custom').value = data.tonCustom;
-      document.getElementById('g-ton-custom-wrap').style.display = (data.ton === '__custom__') ? '' : 'none';
-      if (data.longueur) document.getElementById('g-longueur').value = data.longueur;
-      if (data.date) document.getElementById('g-date').value = data.date;
-      updateResult();
-      // Restaure la réponse IA si elle existe
-      if (data.aiResponse) {
-        const box = document.getElementById('response-box');
-        box.textContent = data.aiResponse;
-        box.contentEditable = true;
-        document.getElementById('response-wrap').style.display = 'block';
-        document.getElementById('response-edit-hint').style.display = 'block';
-      }
-      // Affiche l'indicateur
-      const bar = document.getElementById('autosave-bar');
-      bar.classList.add('visible');
-      document.getElementById('autosave-label').textContent = 'Brouillon temporaire restauré';
-    }, 100);
-  } catch (e) {
-    document.getElementById('autosave-restore-banner').classList.remove('visible');
-  }
-}
-
-function discardAutosave() {
-  clearAutosave();
-  document.getElementById('autosave-restore-banner').classList.remove('visible');
-}
-
-// Indique s'il existe, à l'instant présent, un travail en cours qui mérite d'être
-// signalé avant de quitter la page : au moins un champ rempli ou une réponse IA générée.
-function hasUnsavedTempWork() {
-  const data = getAutosaveData();
-  if (!data) return false;
-  const hasFieldValue = Object.values(data.fields || {}).some(v => v && v.trim());
-  const hasAiResponse = !!(data.aiResponse && data.aiResponse.trim());
-  return hasFieldValue || hasAiResponse;
-}
-
-// Avertit l'utilisateur avant de fermer/rafraîchir l'onglet s'il perdrait un brouillon
-// temporaire non encore enregistré comme brouillon officiel (bouton "Sauvegarder le brouillon").
-window.addEventListener('beforeunload', function(e) {
-  // On force une dernière sauvegarde synchrone pour que le brouillon temporaire soit
-  // bien à jour dans le localStorage si l'utilisateur revient plus tard.
-  if (hasUnsavedTempWork()) {
-    try { localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(getAutosaveData())); } catch (err) {}
-    e.preventDefault();
-    e.returnValue = '';
-    return '';
-  }
-});
 
 // ── ECHAPPEMENT HTML ──────────────────────────────────────────────────────
 function escapeHTML(str) {
@@ -970,29 +755,6 @@ function selectTemplate(id) {
   }, 350);
 }
 
-// Affiche/masque le champ de saisie libre quand "Ton personnalisé…" est choisi.
-function onTonChange() {
-  const select = document.getElementById('g-ton');
-  const wrap = document.getElementById('g-ton-custom-wrap');
-  const isCustom = select.value === '__custom__';
-  wrap.style.display = isCustom ? '' : 'none';
-  if (isCustom) {
-    setTimeout(() => document.getElementById('g-ton-custom').focus(), 50);
-  }
-  updateResult();
-}
-
-// Retourne le ton effectif à insérer dans le prompt : soit une des valeurs
-// prédéfinies, soit le texte libre saisi par l'utilisateur (avec repli si vide).
-function getEffectiveTon() {
-  const select = document.getElementById('g-ton');
-  if (select.value === '__custom__') {
-    const custom = document.getElementById('g-ton-custom').value.trim();
-    return custom || 'factuel et professionnel';
-  }
-  return select.value;
-}
-
 // ── CONSTRUCTION DU PROMPT ────────────────────────────────────────────────
 function updateResult() {
   const t = templates.find(x => x.id === selectedId);
@@ -1004,13 +766,12 @@ function updateResult() {
     text = text.split('[' + inp.dataset.field + ']').join(val);
   });
 
-  const ton = getEffectiveTon();
+  const ton = document.getElementById('g-ton').value;
   const longueur = document.getElementById('g-longueur').value;
   text = text.split('[Ton]').join(ton).split('[Longueur]').join(longueur);
 
   document.getElementById('result').value = text;
   resetCopyBtn();
-  scheduleAutosave();
 }
 function resetCopyBtn() {
   const t = templates.find(x => x.id === selectedId);
@@ -1067,25 +828,28 @@ function toggleResult() {
 }
 
 // ── GENERATION DIRECTE — CLAUDE / GEMINI (BYOK) ──────────────────────────
+// Toggle tactile Claude/Gemini : met à jour le <select> caché (source de vérité) et son visuel.
+function selectAiModel(btn, selectId) {
+  const select = document.getElementById(selectId);
+  if (select.value !== btn.dataset.model) {
+    select.value = btn.dataset.model;
+    select.dispatchEvent(new Event('change'));
+  }
+}
+// Réaligne l'état visuel du toggle sur la valeur du <select> (utile après une synchro par code).
+function syncModelToggle(selectId) {
+  const select = document.getElementById(selectId);
+  const toggle = select.previousElementSibling;
+  if (!toggle || !toggle.classList.contains('ai-model-toggle')) return;
+  toggle.querySelectorAll('.ai-model-btn').forEach(b => b.classList.toggle('active', b.dataset.model === select.value));
+}
+
 function modelChange() {
+  syncModelToggle('model-select');
   const model = document.getElementById('model-select').value;
   document.getElementById('api-panel').classList.toggle('model-gemini', model === 'gemini');
   document.getElementById('api-key').placeholder = model === 'claude' ? 'Clé API Anthropic' : 'Clé API Gemini';
 }
-
-// Squelette de chargement affiché dans la zone de réponse IA le temps que
-// le premier fragment de texte arrive : donne une sensation de rapidité perçue,
-// plus rassurante qu'un simple spinner sur un fond vide.
-const SKELETON_HTML = `
-  <div class="skel-line title w-40"></div>
-  <div class="skel-line w-95"></div>
-  <div class="skel-line w-88"></div>
-  <div class="skel-line w-92"></div>
-  <div class="skel-line w-60"></div>
-  <div class="skel-line w-95 gap-top"></div>
-  <div class="skel-line w-70"></div>
-  <div class="skel-line w-40"></div>
-`;
 
 async function runAi() {
   const model = document.getElementById('model-select').value;
@@ -1101,34 +865,14 @@ async function runAi() {
     return;
   }
 
-  // Vérification immédiate : inutile de lancer un appel voué à échouer si le
-  // navigateur sait déjà qu'il n'y a pas de réseau — on le dit tout de suite,
-  // plutôt que de laisser tourner un spinner qui ferait croire à une simple lenteur.
-  if (!navigator.onLine) {
-    updateOnlineStatus(false);
-    showApiError(errorEl, 'Pas de connexion internet — impossible de lancer la génération.');
-    return;
-  }
-
   errorEl.style.display = 'none';
-  isCurrentlyGenerating = true;
   btn.disabled = true;
   btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> Génération…';
   wrapEl.style.display = 'block';
   boxEl.textContent = '';
   boxEl.contentEditable = false;
-  boxEl.classList.remove('streaming');
-  boxEl.classList.add('skeleton');
-  boxEl.innerHTML = SKELETON_HTML;
+  boxEl.classList.add('streaming');
   document.getElementById('response-edit-hint').style.display = 'none';
-
-  // Si la connexion tombe pendant la génération, on le signale tout de suite
-  // sur le bouton lui-même, au lieu de laisser le spinner tourner en silence.
-  const onDropDuringGeneration = () => {
-    btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg> Connexion perdue…';
-    updateOnlineStatus(false);
-  };
-  window.addEventListener('offline', onDropDuringGeneration);
 
   try {
     if (model === 'claude') {
@@ -1139,30 +883,17 @@ async function runAi() {
     // Une fois la génération terminée, le texte devient modifiable directement dans la zone.
     boxEl.contentEditable = true;
     document.getElementById('response-edit-hint').style.display = 'block';
-    triggerAutosave(); // sauvegarde immédiate après génération IA
   } catch (err) {
     wrapEl.style.display = 'none';
     let msg = err.message || 'Erreur inconnue.';
-    if (!navigator.onLine) {
-      // Cas prioritaire : la coupure réseau explique l'échec, plutôt que de
-      // laisser croire à un simple ralentissement du modèle.
-      msg = 'Connexion perdue pendant la génération. Reconnectez-vous puis relancez.';
-    } else if (msg.includes('401') || msg.includes('403') || msg.includes('authentication') || msg.includes('API_KEY_INVALID')) {
-      msg = 'Clé API invalide ou expirée.';
-    } else if (msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED')) {
-      msg = 'Limite de requêtes atteinte — réessayez dans quelques secondes.';
-    } else if (msg.includes('Failed to fetch') || msg.toLowerCase().includes('network')) {
-      msg = 'Erreur réseau — vérifiez votre connexion.';
-    }
+    if (msg.includes('401') || msg.includes('403') || msg.includes('authentication') || msg.includes('API_KEY_INVALID')) msg = 'Clé API invalide ou expirée.';
+    if (msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED')) msg = 'Limite de requêtes atteinte — réessayez dans quelques secondes.';
+    if (msg.includes('fetch') || msg.includes('network')) msg = 'Erreur réseau — vérifiez votre connexion.';
     showApiError(errorEl, msg);
   } finally {
-    window.removeEventListener('offline', onDropDuringGeneration);
-    isCurrentlyGenerating = false;
-    boxEl.classList.remove('streaming', 'skeleton');
-    btn.disabled = !navigator.onLine;
-    btn.classList.toggle('is-offline', !navigator.onLine);
+    boxEl.classList.remove('streaming');
+    btn.disabled = false;
     btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Générer';
-    updateOnlineStatus(false); // resynchronise le bandeau/bouton avec l'état réel une fois la génération terminée
   }
 }
 
@@ -1189,7 +920,6 @@ async function streamClaude(prompt, apiKey, boxEl) {
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
-  let firstChunk = true;
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -1203,22 +933,32 @@ async function streamClaude(prompt, apiKey, boxEl) {
       try {
         const json = JSON.parse(data);
         if (json.type === 'content_block_delta' && json.delta?.text) {
-          if (firstChunk) {
-            boxEl.classList.remove('skeleton');
-            boxEl.innerHTML = '';
-            boxEl.classList.add('streaming');
-            firstChunk = false;
-          }
           boxEl.textContent += json.delta.text;
         }
       } catch {}
     }
   }
-  if (firstChunk) { boxEl.classList.remove('skeleton'); boxEl.innerHTML = ''; }
 }
 
+const GEMINI_MODELS = ['gemini-3.5-flash', 'gemini-2.5-flash'];
+
 async function streamGemini(prompt, apiKey, boxEl) {
-  const model = 'gemini-2.5-flash';
+  let lastErr;
+  for (let i = 0; i < GEMINI_MODELS.length; i++) {
+    try {
+      await streamGeminiWithModel(GEMINI_MODELS[i], prompt, apiKey, boxEl);
+      return;
+    } catch (err) {
+      lastErr = err;
+      // On ne bascule sur le modèle de secours que si rien n'a encore été écrit
+      // (échec avant tout streaming) et qu'il reste un modèle à essayer.
+      if (boxEl.textContent.length > 0 || i === GEMINI_MODELS.length - 1) throw err;
+    }
+  }
+  throw lastErr;
+}
+
+async function streamGeminiWithModel(model, prompt, apiKey, boxEl) {
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
@@ -1231,7 +971,6 @@ async function streamGemini(prompt, apiKey, boxEl) {
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
-  let firstChunk = true;
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -1245,21 +984,10 @@ async function streamGemini(prompt, apiKey, boxEl) {
       try {
         const json = JSON.parse(data);
         const parts = json?.candidates?.[0]?.content?.parts || [];
-        for (const part of parts) {
-          if (part.text) {
-            if (firstChunk) {
-              boxEl.classList.remove('skeleton');
-              boxEl.innerHTML = '';
-              boxEl.classList.add('streaming');
-              firstChunk = false;
-            }
-            boxEl.textContent += part.text;
-          }
-        }
+        for (const part of parts) { if (part.text) boxEl.textContent += part.text; }
       } catch {}
     }
   }
-  if (firstChunk) { boxEl.classList.remove('skeleton'); boxEl.innerHTML = ''; }
 }
 
 function showApiError(el, msg) {
@@ -1394,7 +1122,7 @@ function persistInlineChanges() {
     }
     flashSaveToast('Modifications enregistrées dans le brouillon.');
   } else {
-    flashSaveToast('Aperçu mis à jour — clique sur "Sauvegarder le brouillon" pour le conserver.', 'edit');
+    flashSaveToast('Aperçu mis à jour — clique sur "Sauvegarder le brouillon" pour le conserver.');
   }
 }
 
@@ -1471,14 +1199,12 @@ ${currentArticle.bodyHtml.replace(/<h2>/g, '<h2 style="font-size:18px;font-weigh
 
 const TOAST_ICONS = {
   ok: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; flex-shrink:0;"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>',
-  warn: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; flex-shrink:0;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
-  edit: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; flex-shrink:0;"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>'
+  warn: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; flex-shrink:0;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
 };
 function flashSaveToast(msg, type) {
   const t = document.getElementById('save-toast');
   t.classList.toggle('warn', type === 'warn');
-  t.classList.toggle('edit', type === 'edit');
-  t.innerHTML = `${TOAST_ICONS[type] || TOAST_ICONS.ok} ${msg}`;
+  t.innerHTML = `${TOAST_ICONS[type === 'warn' ? 'warn' : 'ok']} ${msg}`;
   t.style.display = 'flex';
   clearTimeout(t._timer);
   t._timer = setTimeout(() => t.style.display = 'none', 3500);
@@ -1586,16 +1312,13 @@ function confirmFileImport(mode) {
   if (!pendingImportDrafts) return;
 
   // Nouveaux identifiants pour éviter toute collision avec les brouillons existants.
-  // Sécurité : on ne fait jamais confiance au bodyHtml d'un fichier importé
-  // (il pourrait contenir du HTML/JS arbitraire injecté via un fichier trafiqué).
-  // On le régénère systématiquement depuis le texte brut "body".
   const incoming = pendingImportDrafts.map((d, i) => ({
     id: Date.now() + i,
     title: d.title,
     meta: d.meta || '',
     dateLabel: d.dateLabel || '',
     body: d.body,
-    bodyHtml: markdownToHtml(d.body),
+    bodyHtml: d.bodyHtml || markdownToHtml(d.body),
     cat: d.cat || '',
     savedAt: d.savedAt || new Date().toISOString()
   }));
@@ -1689,9 +1412,7 @@ function toggleImportForm(show) {
   const btn = document.getElementById('import-toggle-btn');
   const willShow = typeof show === 'boolean' ? show : form.style.display !== 'block';
   form.style.display = willShow ? 'block' : 'none';
-  btn.innerHTML = willShow
-    ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg> Fermer'
-    : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;"><path d="M5 12h14"/><path d="M12 5v14"/></svg> Importer un texte';
+  btn.innerHTML = willShow ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Fermer' : '+ Importer un texte';
   if (willShow) {
     const dateEl = document.getElementById('imp-date');
     if (!dateEl.value) dateEl.value = new Date().toISOString().slice(0, 10);
@@ -1773,7 +1494,7 @@ function importDraft() {
     setDrafts(drafts);
     renderDrafts();
     toggleImportForm(false);
-    flashSaveToast('Brouillon modifié.', 'edit');
+    flashSaveToast('Brouillon modifié.');
     return;
   }
 
@@ -1814,7 +1535,6 @@ function saveDraft() {
   setDrafts(drafts);
   renderDrafts();
   currentDraftId = newId;
-  clearAutosave(); // le brouillon temporaire est maintenant enregistré officiellement
   flashSaveToast('Brouillon sauvegardé localement.');
 }
 
@@ -1843,7 +1563,7 @@ function renderDrafts() {
         <div class="draft-sub">${escapeHTML(d.cat || '')} · ${escapeHTML(d.dateLabel || '')}</div>
       </div>
       <button class="draft-btn" onclick="loadDraft(${d.id})">Ouvrir</button>
-      <button class="draft-btn" onclick="editDraft(${d.id})"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg> Modifier</button>
+      <button class="draft-btn" onclick="editDraft(${d.id})" style="display:inline-flex; align-items:center; gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Modifier</button>
       <button class="draft-btn danger" onclick="deleteDraft(${d.id})">Supprimer</button>
     </div>`;
   }).join('');
@@ -1869,54 +1589,6 @@ function deleteDraft(id) {
     renderDrafts();
   });
 }
-
-// ── MODE HORS LIGNE ────────────────────────────────────────────────────
-// But : signaler la perte de connexion tout de suite et clairement, avant
-// que l'utilisateur ne pense simplement que la génération IA est lente.
-let isCurrentlyGenerating = false;
-
-function setRunBtnOfflineState(offline) {
-  const btn = document.getElementById('run-btn');
-  const note = document.getElementById('ai-offline-note');
-  if (!btn || !note) return;
-  // On ne touche pas au bouton pendant une génération en cours : c'est le
-  // gestionnaire de flux (streamClaude/streamGemini) qui gère ce cas précis.
-  if (isCurrentlyGenerating) return;
-  btn.classList.toggle('is-offline', offline);
-  btn.disabled = offline;
-  note.classList.toggle('show', offline);
-}
-
-function updateOnlineStatus(justChanged) {
-  const banner = document.getElementById('offline-banner');
-  const dot = document.getElementById('offline-banner-dot');
-  const text = document.getElementById('offline-banner-text');
-  const online = navigator.onLine;
-
-  if (!online) {
-    banner.classList.remove('back-online');
-    banner.classList.add('show');
-    dot.style.display = '';
-    text.textContent = 'Vous êtes hors ligne — la génération IA est indisponible.';
-    setRunBtnOfflineState(true);
-  } else if (justChanged) {
-    // Reconnexion : petit message de confirmation, puis le bandeau se masque.
-    banner.classList.add('show', 'back-online');
-    dot.style.display = 'none';
-    text.textContent = 'Connexion rétablie.';
-    setRunBtnOfflineState(false);
-    setTimeout(() => {
-      banner.classList.remove('show', 'back-online');
-    }, 2500);
-  } else {
-    banner.classList.remove('show', 'back-online');
-    setRunBtnOfflineState(false);
-  }
-}
-
-window.addEventListener('online', () => updateOnlineStatus(true));
-window.addEventListener('offline', () => updateOnlineStatus(false));
-updateOnlineStatus(false); // état initial au chargement de la page
 </script>
 </body>
 </html>
