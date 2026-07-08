@@ -94,7 +94,8 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); border-bottom: n
 .bc-addr { font-size: 13.5px; font-weight: 700; color: var(--text); margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bc-sub { font-size: 11.5px; color: var(--text3); margin-bottom: 7px; }
 .bc-meta { display: flex; gap: 6px; flex-wrap: wrap; }
-.bc-chip { font-size: 10.5px; font-weight: 600; padding: 3px 8px; border-radius: 999px; background: var(--input-bg); color: var(--text2); white-space: nowrap; }
+.bc-chip { font-size: 10.5px; font-weight: 600; padding: 3px 8px; border-radius: 999px; background: var(--input-bg); color: var(--text2); white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+.bc-chip svg { flex-shrink: 0; }
 .bc-chip.ok { background: var(--st-vendu-bg); color: var(--st-vendu); }
 .bc-chip.warn { background: var(--st-compromis-bg); color: var(--st-compromis); }
 .bc-status { position: absolute; top: 10px; right: 10px; font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 999px; border: 1px solid; white-space: nowrap; }
@@ -173,7 +174,8 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); border-bottom: n
 #cd-confirm:hover { opacity: .9; }
 
 /* TOAST */
-.toast-dossier { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 10px 18px; border-radius: 999px; font-size: 13px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,.15); z-index: 9999; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; }
+.toast-dossier { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 10px 18px; border-radius: 999px; font-size: 13px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,.15); z-index: 9999; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; display: flex; align-items: center; gap: 8px; }
+.toast-dossier svg { flex-shrink: 0; }
 .toast-dossier.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 footer { text-align: center; padding: 2rem 1rem calc(2rem + env(safe-area-inset-bottom)); font-size: 12px; color: var(--text4); }
@@ -242,7 +244,7 @@ footer { text-align: center; padding: 2rem 1rem calc(2rem + env(safe-area-inset-
     </div>
 
     <div class="dcard">
-      <div class="dcard-title">🏷️ Informations générales</div>
+      <div class="dcard-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42Z"/><circle cx="7.5" cy="7.5" r=".6" fill="currentColor"/></svg> Informations générales</div>
       <div class="dgrid">
         <div class="dfield"><label>Ville / quartier</label><input type="text" id="d-ville" placeholder="Pithiviers…"></div>
         <div class="dfield"><label>Type de bien</label>
@@ -265,12 +267,12 @@ footer { text-align: center; padding: 2rem 1rem calc(2rem + env(safe-area-inset-
     </div>
 
     <div class="dcard">
-      <div class="dcard-title">📷 Photos — PhotoImmo Pro</div>
+      <div class="dcard-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Photos — PhotoImmo Pro</div>
       <div id="d-photo-content"></div>
     </div>
 
     <div class="dcard">
-      <div class="dcard-title">📝 Description / annonce — Bibliothèque de prompts</div>
+      <div class="dcard-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Description / annonce — Bibliothèque de prompts</div>
       <div id="d-desc-content"></div>
     </div>
 
@@ -310,7 +312,7 @@ footer { text-align: center; padding: 2rem 1rem calc(2rem + env(safe-area-inset-
 <!-- Modale confirmation de suppression -->
 <div id="confirm-del-overlay" role="dialog" aria-modal="true">
   <div id="confirm-del-box">
-    <h3>🗑️ Supprimer ce dossier ?</h3>
+    <h3><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg> Supprimer ce dossier ?</h3>
     <div id="confirm-del-text"></div>
     <div id="confirm-del-actions">
       <button id="cd-cancel" onclick="closeConfirmDelete()">Annuler</button>
@@ -333,7 +335,7 @@ footer { text-align: center; padding: 2rem 1rem calc(2rem + env(safe-area-inset-
 const REG_KEY = 'laforet_biens_registry';
 function normBienLabel(s) { return (s||'').trim().toLowerCase().replace(/\s+/g,' '); }
 function getBienRegistry() { try { return JSON.parse(localStorage.getItem(REG_KEY)) || []; } catch(e) { return []; } }
-function setBienRegistry(list) { try { localStorage.setItem(REG_KEY, JSON.stringify(list)); } catch(e) { showToast('⚠️ Impossible d’enregistrer (mémoire du navigateur pleine ?)'); } }
+function setBienRegistry(list) { try { localStorage.setItem(REG_KEY, JSON.stringify(list)); } catch(e) { showToast('warn', 'Impossible d’enregistrer (mémoire du navigateur pleine ?)'); } }
 function findEntryByNorm(norm) { return getBienRegistry().find(e => e.norm === norm) || null; }
 function guessVilleFromAddress(addr) {
   const parts = (addr||'').split(',');
@@ -464,14 +466,14 @@ function renderList() {
     return `
     <div class="bien-card" onclick="openDetail('${entry.norm.replace(/'/g,"\\'")}')">
       <span class="bc-status st-${statut}">${statutLabel(statut)}</span>
-      <div class="bc-thumb">${thumbs[0] ? `<img src="${thumbs[0]}" alt="">` : '🏠'}</div>
+      <div class="bc-thumb">${thumbs[0] ? `<img src="${thumbs[0]}" alt="">` : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text4)"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>'}</div>
       <div class="bc-main">
         <div class="bc-addr" title="${escHtml(entry.label)}">${escHtml(entry.label)}</div>
         <div class="bc-sub">${escHtml(ville)}${typeLabel ? ' · '+typeLabel : ''}</div>
         <div class="bc-meta">
-          <span class="bc-chip ${pr && pr.done===pr.total ? 'ok' : ''}">📷 ${pr ? pr.done+'/'+pr.total : '—'}</span>
-          <span class="bc-chip ${bibBien ? 'ok' : ''}">📝 ${bibBien ? 'Fiche prête' : 'Pas de fiche'}</span>
-          ${prix ? `<span class="bc-chip">💶 ${escHtml(prix)}</span>` : ''}
+          <span class="bc-chip ${pr && pr.done===pr.total ? 'ok' : ''}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> ${pr ? pr.done+'/'+pr.total : '—'}</span>
+          <span class="bc-chip ${bibBien ? 'ok' : ''}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> ${bibBien ? 'Fiche prête' : 'Pas de fiche'}</span>
+          ${prix ? `<span class="bc-chip"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h12"/><path d="M4 14h9"/><path d="M19 6a7.7 7.7 0 0 0-5.2-2A7.9 7.9 0 0 0 6 12a7.9 7.9 0 0 0 7.8 8 7.7 7.7 0 0 0 5.2-2"/></svg> ${escHtml(prix)}</span>` : ''}
         </div>
       </div>
       <button class="bc-del" title="Supprimer ce dossier" onclick="event.stopPropagation(); requestDeleteBien('${entry.norm.replace(/'/g,"\\'")}')">
@@ -527,12 +529,12 @@ function renderDetail() {
         <div class="link-pbar"><i style="width:${Math.round(pr.done/pr.total*100)}%"></i></div>
         <span style="font-size:12px;color:var(--text2);font-weight:700;white-space:nowrap">${pr.done}/${pr.total} pièces clés · ${pr.count} photo${pr.count>1?'s':''}</span>
       </div>
-      <a class="btn-link-open" style="margin-top:12px" href="${piUrl}">📷 Ouvrir dans PhotoImmo Pro →</a>
+      <a class="btn-link-open" style="margin-top:12px" href="${piUrl}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Ouvrir dans PhotoImmo Pro →</a>
     `;
   } else {
     dPhoto.innerHTML = `
       <div class="link-empty">Aucune fiche photo pour ce bien pour l'instant.</div>
-      <a class="btn-link-open" href="${piUrl}">📷 Créer la fiche photo dans PhotoImmo →</a>
+      <a class="btn-link-open" href="${piUrl}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Créer la fiche photo dans PhotoImmo →</a>
     `;
   }
 
@@ -546,12 +548,12 @@ function renderDetail() {
         <b>${escHtml(dp.type || '—')}</b> à ${escHtml(dp.ville || '—')}${dp.pieces ? ' · '+escHtml(dp.pieces)+' pièces' : ''}${dp.surface ? ' · '+escHtml(dp.surface)+' m²' : ''}<br>
         ${dp.prix ? (dp.mode==='location' ? 'Loyer : <b>'+escHtml(dp.prix)+'</b>' : 'Prix : <b>'+escHtml(dp.prix)+'</b>') : 'Prix non renseigné'}
       </div>
-      <a class="btn-link-open" href="${bibUrl}">📝 Ouvrir dans la Bibliothèque de prompts →</a>
+      <a class="btn-link-open" href="${bibUrl}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Ouvrir dans la Bibliothèque de prompts →</a>
     `;
   } else {
     dDesc.innerHTML = `
       <div class="link-empty">Aucune fiche description/annonce pour ce bien pour l'instant.</div>
-      <a class="btn-link-open" href="${bibUrl}">📝 Créer la fiche description →</a>
+      <a class="btn-link-open" href="${bibUrl}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Créer la fiche description →</a>
     `;
   }
 
@@ -566,7 +568,7 @@ function renderDetail() {
         prix: document.getElementById('d-prix').value.trim(),
         notes: document.getElementById('d-notes').value
       });
-      showToast('✅ Dossier mis à jour');
+      showToast('success', 'Dossier mis à jour');
     };
     el.onchange = handler;
   });
@@ -598,7 +600,7 @@ function confirmDelete() {
   if (!norm) { closeConfirmDelete(); return; }
   deleteCentralBien(norm);
   closeConfirmDelete();
-  showToast('🗑️ Dossier supprimé');
+  showToast('delete', 'Dossier supprimé');
   if (currentNorm === norm) {
     closeDetail();
   } else {
@@ -620,14 +622,14 @@ function openNewBienModal() {
 function closeNewBienModal() { document.getElementById('new-bien-overlay').classList.remove('show'); }
 function createBienFromModal() {
   const addr = document.getElementById('nb-addr').value.trim();
-  if (!addr) { showToast('⚠️ Indiquez une adresse'); return; }
+  if (!addr) { showToast('warn', 'Indiquez une adresse'); return; }
   const entry = upsertCentral(addr, {
     ville: document.getElementById('nb-ville').value.trim() || guessVilleFromAddress(addr),
     type: document.getElementById('nb-type').value,
     statut: document.getElementById('nb-statut').value
   });
   closeNewBienModal();
-  showToast('✅ Dossier créé');
+  showToast('success', 'Dossier créé');
   renderList();
   if (entry) openDetail(entry.norm);
 }
@@ -636,9 +638,14 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.g
 
 /* ============================== TOAST ============================== */
 let toastTimer;
-function showToast(msg) {
+const TOAST_ICONS = {
+  success: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="16 9 10.5 15 8 12.5"/></svg>',
+  warn: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+  delete: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>'
+};
+function showToast(type, msg) {
   const t = document.getElementById('toast');
-  t.textContent = msg;
+  t.innerHTML = (TOAST_ICONS[type] || '') + '<span>' + msg + '</span>';
   t.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.remove('show'), 2400);

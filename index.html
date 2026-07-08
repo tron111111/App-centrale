@@ -26,6 +26,7 @@
     --blue: #16266b;
     --blue-d: #0f1b50;
     --blue-l: #e9ecf7;
+    --icon-blue-l: #e2e6fa;
     --sky: #29a9e0;
     --sky-l: #e4f4fc;
     --gold: #a3760a;
@@ -41,13 +42,15 @@
   [data-theme="dark"]{
     --bg:#0f1117; --card:#1a1f2e; --ink:#e8ecf4; --muted:#8892aa;
     --line:#2a3148; --shadow:0 1px 3px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);
-    --blue-l:#1a2240; --sky-l:#0e2030; --gold-l:#2b230f;
+    --blue-l:#1a2240; --sky-l:#0e2030; --gold-l:#2b230f; --icon-blue-l:#1c2445;
   }
   [data-theme="dark"] body{
     background:#0f1117;
   }
   *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin: 0; padding: 0; height: 100%; }
+  html, body { margin: 0; padding: 0; min-height: 100%; }
+  html { background: #f8faff; }
+  [data-theme="dark"] html { background: #0f1117; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background: var(--bg);
@@ -94,6 +97,66 @@
     margin: 0 4px 14px;
   }
 
+  /* SEARCH */
+  .app-search {
+    position: relative;
+    margin: 0 0 18px;
+  }
+  .app-search svg {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    pointer-events: none;
+  }
+  .app-search input {
+    width: 100%;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--ink);
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 12px 16px 12px 40px;
+    outline: none;
+    box-shadow: var(--shadow);
+    transition: border-color .2s ease, box-shadow .2s ease;
+  }
+  .app-search input::placeholder { color: #a4addf; }
+  [data-theme="dark"] .app-search input::placeholder { color: #5a6484; }
+  .app-search input:focus { border-color: var(--sky); }
+  .app-search-clear {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: none;
+    background: var(--blue-l);
+    color: var(--muted);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+  }
+  .app-search-clear.show { display: flex; }
+  .app-search-clear:hover { background: var(--sky-l); color: var(--blue); }
+
+  .app-empty {
+    text-align: center;
+    color: var(--muted);
+    font-size: 13.5px;
+    padding: 34px 12px;
+    display: none;
+  }
+  .app-empty.show { display: block; }
+  .app-empty b { display: block; color: var(--ink); font-size: 15px; margin-bottom: 5px; }
+
+
   /* CARDS */
   .app-card{position:relative;background:var(--card);border:1px solid #e4e8f1;border-radius:18px;padding:22px 20px;display:flex;align-items:center;gap:18px;cursor:pointer;text-decoration:none;color:inherit;overflow:hidden;box-shadow:0 4px 10px rgba(22,38,107,.05),0 12px 28px rgba(22,38,107,.05);margin-bottom:16px;transition:transform .25s ease,box-shadow .25s ease,border-color .25s ease;}
   .app-card::before{content:"";position:absolute;left:0;top:18px;bottom:18px;width:5px;border-radius:20px;background:linear-gradient(180deg,var(--sky),var(--blue));transform:scaleY(.45);transition:.3s;}
@@ -111,7 +174,7 @@
     font-size: 28px;
     flex-shrink: 0;
   }
-  .icon-blue { background: var(--blue-l); }
+  .icon-blue { background: var(--icon-blue-l); }
   .icon-sky  { background: var(--sky-l); }
   .icon-gold { background: var(--gold-l); }
 
@@ -282,6 +345,15 @@ animation:pulse .8s ease-in-out infinite alternate;
 <main>
   <p class="section-label">Choisir une application</p>
 
+  <div class="app-search">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input type="text" id="appSearch" placeholder="Rechercher une application…" autocomplete="off">
+    <button class="app-search-clear" id="appSearchClear" title="Effacer" aria-label="Effacer la recherche">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+
+  <div id="appList">
   <a class="app-card" href="bibliotheque.html">
     <div class="app-icon icon-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
     <div class="app-info">
@@ -303,7 +375,7 @@ animation:pulse .8s ease-in-out infinite alternate;
   </a>
 
   <a class="app-card" href="dossier.html">
-    <div class="app-icon icon-sky"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h7v7H3z"/><path d="M14 3h7v7h-7z"/><path d="M14 14h7v7h-7z"/><path d="M3 14h7v7H3z"/></svg></div>
+    <div class="app-icon icon-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h7v7H3z"/><path d="M14 3h7v7h-7z"/><path d="M14 14h7v7h-7z"/><path d="M3 14h7v7H3z"/></svg></div>
     <div class="app-info">
       <p class="app-name">Dossier des biens</p>
       <p class="app-desc">Toutes les infos de chaque bien réunies au même endroit : photos, description, statut et notes.</p>
@@ -313,7 +385,7 @@ animation:pulse .8s ease-in-out infinite alternate;
   </a>
 
   <a class="app-card" href="blog.html">
-    <div class="app-icon icon-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
+    <div class="app-icon icon-sky"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
     <div class="app-info">
       <p class="app-name">Générateur de blog</p>
       <p class="app-desc">Créez des articles prêts à publier — actualités immobilières et vie locale de la région.</p>
@@ -321,6 +393,9 @@ animation:pulse .8s ease-in-out infinite alternate;
     </div>
     <span class="app-arrow">›</span>
   </a>
+  </div>
+
+  <div class="app-empty" id="appEmpty"><b>Aucune application trouvée</b>Essayez un autre mot-clé.</div>
 </main>
 
 <footer>Laforêt Pithiviers · Usage interne</footer>
@@ -365,6 +440,38 @@ document.addEventListener('DOMContentLoaded',function(){
       overlay.classList.add('show');
       setTimeout(()=>window.location.href=card.href,280);
     });
+  });
+
+  // Recherche d'applications
+  const searchInput=document.getElementById('appSearch');
+  const searchClear=document.getElementById('appSearchClear');
+  const emptyState=document.getElementById('appEmpty');
+  const cards=Array.from(document.querySelectorAll('.app-card'));
+
+  function normalize(str){
+    return (str||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  }
+
+  function filterApps(){
+    const q=normalize(searchInput.value.trim());
+    searchClear.classList.toggle('show', q.length>0);
+    let visibleCount=0;
+    cards.forEach(card=>{
+      const name=normalize(card.querySelector('.app-name')?.textContent);
+      const desc=normalize(card.querySelector('.app-desc')?.textContent);
+      const badge=normalize(card.querySelector('.app-badge')?.textContent);
+      const match=!q || name.includes(q) || desc.includes(q) || badge.includes(q);
+      card.style.display=match?'':'none';
+      if(match) visibleCount++;
+    });
+    emptyState.classList.toggle('show', visibleCount===0);
+  }
+
+  searchInput.addEventListener('input', filterApps);
+  searchClear.addEventListener('click',()=>{
+    searchInput.value='';
+    filterApps();
+    searchInput.focus();
   });
 
   // Correctif bouton retour : quand on revient sur cette page (ex. depuis
