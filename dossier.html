@@ -363,6 +363,55 @@ function deleteCentralBien(norm) {
 function getPhotoimmoBiens() { try { return JSON.parse(localStorage.getItem('photoimmo_pro_biens')) || []; } catch(e) { return []; } }
 function getBibliothequeBiens() { try { return JSON.parse(localStorage.getItem('laforet_biens_saved')) || []; } catch(e) { return []; } }
 
+/* ---------- Lecture (seule) des vignettes stockées par PhotoImmo Pro dans IndexedDB ----------
+   Depuis la migration IndexedDB, PhotoImmo Pro ne stocke plus les vignettes en
+   base64 dans localStorage (trop volumineux) mais des Blob binaires dans une
+   base IndexedDB dédiée, sur la même origine. Dossier des biens lit cette même
+   base, en lecture seule, pour afficher ses aperçus de miniatures. */
+const PI_IDB_NAME='photoimmo_photos', PI_IDB_STORE='thumbs';
+let _piIdbPromise=null;
+function piIdbOpen(){
+  if(_piIdbPromise) return _piIdbPromise;
+  _piIdbPromise=new Promise((resolve,reject)=>{
+    if(!('indexedDB' in window)){reject(new Error('IndexedDB indisponible'));return;}
+    const req=indexedDB.open(PI_IDB_NAME,1);
+    req.onupgradeneeded=()=>{ if(!req.result.objectStoreNames.contains(PI_IDB_STORE)) req.result.createObjectStore(PI_IDB_STORE); };
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>reject(req.error);
+  });
+  return _piIdbPromise;
+}
+function piIdbGet(id){
+  return piIdbOpen().then(db=>new Promise((res,rej)=>{
+    if(!db.objectStoreNames.contains(PI_IDB_STORE)){res(null);return;}
+    const tx=db.transaction(PI_IDB_STORE,'readonly');
+    const rq=tx.objectStore(PI_IDB_STORE).get(id);
+    rq.onsuccess=()=>res(rq.result||null);
+    rq.onerror=()=>rej(rq.error);
+  })).catch(()=>null);
+}
+const piThumbUrlCache={};
+async function piThumbURL(photoId){
+  if(!photoId) return null;
+  if(piThumbUrlCache[photoId]) return piThumbUrlCache[photoId];
+  const blob=await piIdbGet(photoId);
+  if(!blob) return null;
+  const url=URL.createObjectURL(blob);
+  piThumbUrlCache[photoId]=url;
+  return url;
+}
+// Hydrate en différé toutes les <img data-photo-id> du DOM une fois la vraie
+// image lue depuis IndexedDB (affichage immédiat de la liste, images ensuite).
+function piHydrateThumbs(root){
+  const imgs=(root||document).querySelectorAll('img[data-photo-id]');
+  imgs.forEach(async img=>{
+    const id=img.getAttribute('data-photo-id');
+    const url=await piThumbURL(id);
+    if(url) img.src=url;
+  });
+}
+const PI_PLACEHOLDER='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10" fill="%23e7e9f2"/></svg>';
+
 function matchPhotoimmoBien(entry) {
   const list = getPhotoimmoBiens();
   if (entry.links && entry.links.photoimmo) {
@@ -398,7 +447,10 @@ function bestThumbs(piBien, max) {
   piBien.photos.forEach(p => {
     if (!byRoom[p.room] || (p.kept && !byRoom[p.room].kept) || (!byRoom[p.room].kept && p.score > byRoom[p.room].score)) byRoom[p.room] = p;
   });
-  return Object.values(byRoom).slice(0, max).map(p => p.thumb);
+  // p.thumb (ancien format base64) reste utilisable si présent (biens pas
+  // encore migrés côté PhotoImmo) ; sinon on renvoie l'id pour lecture
+  // différée depuis IndexedDB via piThumbURL().
+  return Object.values(byRoom).slice(0, max).map(p => ({ id: p.id, legacyThumb: p.thumb || null }));
 }
 function descPreview(bibBien) {
   if (!bibBien) return null;
@@ -466,7 +518,7 @@ function renderList() {
     return `
     <div class="bien-card" onclick="openDetail('${entry.norm.replace(/'/g,"\\'")}')">
       <span class="bc-status st-${statut}">${statutLabel(statut)}</span>
-      <div class="bc-thumb">${thumbs[0] ? `<img src="${thumbs[0]}" alt="">` : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text4)"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>'}</div>
+      <div class="bc-thumb">${thumbs[0] ? `<img src="${thumbs[0].legacyThumb||PI_PLACEHOLDER}" data-photo-id="${thumbs[0].id}" alt="">` : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text4)"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>'}</div>
       <div class="bc-main">
         <div class="bc-addr" title="${escHtml(entry.label)}">${escHtml(entry.label)}</div>
         <div class="bc-sub">${escHtml(ville)}${typeLabel ? ' · '+typeLabel : ''}</div>
@@ -481,6 +533,7 @@ function renderList() {
       </button>
     </div>`;
   }).join('');
+  piHydrateThumbs(grid);
 }
 function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
@@ -523,7 +576,7 @@ function renderDetail() {
     const thumbs = bestThumbs(piBien, 8);
     dPhoto.innerHTML = `
       <div class="link-box" style="margin-bottom:10px">
-        <div class="link-thumbs">${thumbs.length ? thumbs.map(t=>`<div class="link-thumb"><img src="${t}" alt=""></div>`).join('') : '<span class="link-empty" style="margin:0">Aucune photo retenue pour le moment.</span>'}</div>
+        <div class="link-thumbs">${thumbs.length ? thumbs.map(t=>`<div class="link-thumb"><img src="${t.legacyThumb||PI_PLACEHOLDER}" data-photo-id="${t.id}" alt=""></div>`).join('') : '<span class="link-empty" style="margin:0">Aucune photo retenue pour le moment.</span>'}</div>
       </div>
       <div class="link-box">
         <div class="link-pbar"><i style="width:${Math.round(pr.done/pr.total*100)}%"></i></div>
@@ -531,6 +584,7 @@ function renderDetail() {
       </div>
       <a class="btn-link-open" style="margin-top:12px" href="${piUrl}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Ouvrir dans PhotoImmo Pro →</a>
     `;
+    piHydrateThumbs(dPhoto);
   } else {
     dPhoto.innerHTML = `
       <div class="link-empty">Aucune fiche photo pour ce bien pour l'instant.</div>

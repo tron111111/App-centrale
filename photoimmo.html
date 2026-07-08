@@ -833,6 +833,126 @@ function fmtDate(t){const d=new Date(t),p=n=>String(n).padStart(2,'0');return p(
 const BKEY='photoimmo_pro_biens';
 function loadBiens(){try{return JSON.parse(localStorage.getItem(BKEY))||[];}catch(e){return[];}}
 function saveBiens(l){try{localStorage.setItem(BKEY,JSON.stringify(l));}catch(e){toast('Mémoire pleine : exportez puis videz d’anciens biens');}}
+
+/* ============================================================
+   STOCKAGE DES VIGNETTES — IndexedDB (au lieu de localStorage)
+   ------------------------------------------------------------
+   Avant : chaque vignette (JPEG ~640px) était encodée en base64
+   et stockée directement dans le JSON de localStorage. Le quota
+   de localStorage est très limité (5-10 Mo, PARTAGÉ avec toutes
+   les autres pages du portail) et le base64 gonfle la taille
+   réelle de l'image d'environ 33%. Résultat : le quota était
+   vite atteint avec quelques dizaines de biens seulement.
+
+   Maintenant : localStorage ne garde que les métadonnées légères
+   de chaque photo (score, pièce, date, id...). L'image elle-même
+   (Blob binaire, donc plus compacte) est stockée dans une base
+   IndexedDB dédiée, dont le quota est largement supérieur
+   (généralement plusieurs centaines de Mo à quelques Go selon le
+   navigateur et l'espace disque disponible) — tout en restant
+   100% local, sans serveur ni dépendance externe.
+   ============================================================ */
+const IDB_NAME='photoimmo_photos', IDB_STORE='thumbs', IDB_VERSION=1;
+let _idbPromise=null;
+function idbOpen(){
+  if(_idbPromise)return _idbPromise;
+  _idbPromise=new Promise((resolve,reject)=>{
+    if(!('indexedDB' in window)){reject(new Error('IndexedDB indisponible'));return;}
+    const req=indexedDB.open(IDB_NAME,IDB_VERSION);
+    req.onupgradeneeded=()=>{ if(!req.result.objectStoreNames.contains(IDB_STORE)) req.result.createObjectStore(IDB_STORE); };
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>reject(req.error);
+  });
+  return _idbPromise;
+}
+function idbSet(id,blob){
+  return idbOpen().then(db=>new Promise((res,rej)=>{
+    const tx=db.transaction(IDB_STORE,'readwrite');
+    tx.objectStore(IDB_STORE).put(blob,id);
+    tx.oncomplete=()=>res(true);
+    tx.onerror=()=>rej(tx.error);
+  })).catch(e=>{console.warn('[idbSet] échec écriture IndexedDB:',e);return false;});
+}
+function idbGet(id){
+  return idbOpen().then(db=>new Promise((res,rej)=>{
+    const tx=db.transaction(IDB_STORE,'readonly');
+    const rq=tx.objectStore(IDB_STORE).get(id);
+    rq.onsuccess=()=>res(rq.result||null);
+    rq.onerror=()=>rej(rq.error);
+  })).catch(e=>{console.warn('[idbGet] échec lecture IndexedDB:',e);return null;});
+}
+function idbDel(id){
+  return idbOpen().then(db=>new Promise(res=>{
+    const tx=db.transaction(IDB_STORE,'readwrite');
+    tx.objectStore(IDB_STORE).delete(id);
+    tx.oncomplete=()=>res(true);
+    tx.onerror=()=>res(false);
+  })).catch(()=>false);
+}
+function idbDelMany(ids){return Promise.all((ids||[]).map(idbDel));}
+
+// dataURL (base64, issue de canvas.toDataURL) -> Blob binaire, pour l'écriture en IndexedDB
+function dataURLtoBlob(dataURL){
+  const [head,b64]=dataURL.split(',');
+  const mime=/data:(.*?);base64/.exec(head)[1];
+  const bin=atob(b64);
+  const arr=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+  return new Blob([arr],{type:mime});
+}
+
+// Cache mémoire des object URL déjà résolues depuis IndexedDB, pour éviter
+// de relire la base à chaque re-rendu d'un écran.
+const thumbUrlCache={};
+async function thumbURL(photoId){
+  if(!photoId)return null;
+  if(thumbUrlCache[photoId])return thumbUrlCache[photoId];
+  const blob=await idbGet(photoId);
+  if(!blob)return null;
+  const url=URL.createObjectURL(blob);
+  thumbUrlCache[photoId]=url;
+  return url;
+}
+// Stocke une vignette (dataURL base64 obtenue via canvas.toDataURL) dans
+// IndexedDB et alimente immédiatement le cache mémoire, pour un affichage
+// instantané juste après la prise de vue sans attendre une lecture IndexedDB.
+async function storeThumb(photoId,dataURL){
+  const blob=dataURLtoBlob(dataURL);
+  if(thumbUrlCache[photoId])URL.revokeObjectURL(thumbUrlCache[photoId]);
+  thumbUrlCache[photoId]=URL.createObjectURL(blob);
+  await idbSet(photoId,blob);
+}
+// Hydrate en différé toutes les <img data-photo-id> encore sur le
+// placeholder : on va chercher la vraie image dans IndexedDB puis on la
+// branche dès qu'elle est prête, sans bloquer l'affichage de la liste.
+function hydrateThumbs(root){
+  const imgs=(root||document).querySelectorAll('img[data-photo-id]');
+  imgs.forEach(async img=>{
+    const id=img.getAttribute('data-photo-id');
+    const url=await thumbURL(id);
+    if(url)img.src=url;
+  });
+}
+const PLACEHOLDER_THUMB='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10" fill="%23e7e9f2"/></svg>';
+
+// Migration automatique (à l'ouverture) : si d'anciennes fiches contiennent
+// encore une vignette en base64 (entry.thumb, ancien format stocké dans
+// localStorage), on la bascule vers IndexedDB une bonne fois pour toutes
+// puis on l'efface de localStorage pour libérer immédiatement de la place.
+async function migrateThumbsToIDB(){
+  const l=loadBiens();
+  let changed=false;
+  for(const b of l){
+    for(const p of (b.photos||[])){
+      if(p.thumb){
+        try{ await storeThumb(p.id,p.thumb); }catch(e){ console.warn('[migration] échec sur',p.id,e); continue; }
+        delete p.thumb;
+        changed=true;
+      }
+    }
+  }
+  if(changed){ saveBiens(l); console.info('[PhotoImmo] Vignettes migrées vers IndexedDB (localStorage allégé).'); }
+}
 function getBien(id){return loadBiens().find(b=>b.id===id);}
 const sessionFull={};   // id photo -> {file,url} (session courante, plein écran/PDF)
 
@@ -971,7 +1091,7 @@ $('home').addEventListener('click',e=>{
   if(e.target.closest('#newBienBtn'))return openNewBien();
   if(e.target.closest('#rulesBtn'))return openRules();
   const del=e.target.closest('[data-delbien]');
-  if(del){e.stopPropagation();const b=getBien(del.dataset.delbien);if(b&&confirm('Supprimer le bien « '+b.address+' » et ses photos ?')){saveBiens(loadBiens().filter(x=>x.id!==del.dataset.delbien));renderHome();}return;}
+  if(del){e.stopPropagation();const b=getBien(del.dataset.delbien);if(b&&confirm('Supprimer le bien « '+b.address+' » et ses photos ?')){idbDelMany((b.photos||[]).map(p=>p.id));saveBiens(loadBiens().filter(x=>x.id!==del.dataset.delbien));renderHome();}return;}
   const card=e.target.closest('[data-bien]');if(card)openBien(card.dataset.bien);
 });
 
@@ -1285,7 +1405,8 @@ async function handleImportFiles(fileList,room){
       const bmp=await createImageBitmap(file,{imageOrientation:'from-image'}).catch(()=>loadImg(file));
       const res=analyze(bmp,prof);
       const url=URL.createObjectURL(file);
-      const entry={id:'p'+Date.now()+Math.floor(Math.random()*1e3),room,score:res.overall,metrics:res.metrics,thumb:res.thumb,t:Date.now(),kept:false};
+      const entry={id:'p'+Date.now()+Math.floor(Math.random()*1e3),room,score:res.overall,metrics:res.metrics,t:Date.now(),kept:false};
+      await storeThumb(entry.id,res.thumb);
       const b=getBien(currentBienId);b.photos=b.photos||[];b.photos.push(entry);
       const l=loadBiens();const idx=l.findIndex(x=>x.id===currentBienId);l[idx]=b;saveBiens(l);
       sessionFull[entry.id]={file,url};
@@ -1306,7 +1427,8 @@ async function handlePhoto(file,room){
     const bmp=await createImageBitmap(file,{imageOrientation:'from-image'}).catch(()=>loadImg(file));
     const res=analyze(bmp,prof);
     const url=URL.createObjectURL(file);
-    const entry={id:'p'+Date.now()+Math.floor(Math.random()*1e3),room,score:res.overall,metrics:res.metrics,thumb:res.thumb,t:Date.now(),kept:false};
+    const entry={id:'p'+Date.now()+Math.floor(Math.random()*1e3),room,score:res.overall,metrics:res.metrics,t:Date.now(),kept:false};
+    await storeThumb(entry.id,res.thumb);
     const b=getBien(currentBienId);b.photos=b.photos||[];b.photos.push(entry);
     const l=loadBiens();const idx=l.findIndex(x=>x.id===currentBienId);l[idx]=b;saveBiens(l);
     sessionFull[entry.id]={file,url};
@@ -1358,7 +1480,7 @@ async function fixThumbOrientation(imgEl, file){
 async function rotatePhoto(entry){
   try{
     const sf=sessionFull[entry.id];
-    const srcUrl=(sf&&sf.url)||entry.thumb;
+    const srcUrl=(sf&&sf.url)||thumbUrlCache[entry.id]||await thumbURL(entry.id);
     const img=new Image();
     await new Promise((res,rej)=>{img.onload=res;img.onerror=rej;img.src=srcUrl;});
     const w=img.naturalWidth,h=img.naturalHeight;
@@ -1373,7 +1495,8 @@ async function rotatePhoto(entry){
     const prof=profileFor(entry.room);
     const bmp=await createImageBitmap(file,{imageOrientation:'from-image'}).catch(()=>loadImg(file));
     const res=analyze(bmp,prof);
-    entry.score=res.overall;entry.metrics=res.metrics;entry.thumb=res.thumb;
+    entry.score=res.overall;entry.metrics=res.metrics;
+    await storeThumb(entry.id,res.thumb);
     const b=getBien(currentBienId);
     const idx=(b.photos||[]).findIndex(p=>p.id===entry.id);
     if(idx>-1){b.photos[idx]=entry;const l=loadBiens();const li=l.findIndex(x=>x.id===currentBienId);l[li]=b;saveBiens(l);}
@@ -1390,11 +1513,11 @@ function renderScore(entry,isNew){
   const prio=fix.length?`<div class="priority"><span class="pt">${ic('target',15)} À corriger en priorité : ${fix[0].name} · ${fix[0].score}/100</span>${fix[0].tip||''}</div>`:`<div class="priority good"><span class="pt">${ic('target',15)} Rien à corriger</span>Tous les critères sont au vert.</div>`;
   const mh=metrics.map(m=>{const bd=band(m.score),tip=m.tip?`<div class="mtip${m.score<55?' warn':''}">${m.tip}</div>`:'';
     return `<div class="metric"><div class="top"><span class="mname">${m.name}</span><span class="mscore" style="color:${bd==='ok'?'#0f6b3f':bd==='mid'?'#b07d12':'#9a3b2e'}">${m.score}<span style="color:#aab">/100</span></span></div><div class="bar ${bd}"><i style="width:${m.score}%"></i></div>${tip}</div>`;}).join('');
-  const url=(sessionFull[entry.id]&&sessionFull[entry.id].url)||entry.thumb;
+  const url=(sessionFull[entry.id]&&sessionFull[entry.id].url)||thumbUrlCache[entry.id]||PLACEHOLDER_THUMB;
   const ps=photosOf(getBien(currentBienId),entry.room);
   $('scoreBody').innerHTML=`
     <div style="text-align:center;margin-bottom:6px"><span style="background:var(--green-l);color:var(--green);font-weight:700;font-size:12px;padding:4px 11px;border-radius:999px">${ic('mappin',12)} ${DATA[entry.room].name}</span></div>
-    <div class="thumb-wrap"><img class="thumb" id="scoreImg" src="${url}" alt=""><canvas id="ovCanvas" style="display:none"></canvas></div>
+    <div class="thumb-wrap"><img class="thumb" id="scoreImg" data-photo-id="${entry.id}" src="${url}" alt=""><canvas id="ovCanvas" style="display:none"></canvas></div>
     <div class="ov-toggle"><button id="ovPhoto" aria-pressed="true">Photo</button><button id="ovDef">${ic('search',14)} Voir les défauts</button></div>
     <div class="score-hero"><div class="gauge"><svg width="160" height="160" viewBox="0 0 160 160"><circle cx="80" cy="80" r="${R}" fill="none" stroke="#eceef3" stroke-width="12"/><circle cx="80" cy="80" r="${R}" fill="none" stroke="${v.c}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${off}"/></svg><div class="val"><div class="num" style="color:${v.c}">${o}</div><div class="den">/ 100</div></div></div>
     <div class="verdict" style="color:${v.c}">${v.t}</div><div class="verdict-sub">${v.s}</div></div>
@@ -1407,10 +1530,11 @@ function renderScore(entry,isNew){
       ${ps.length>1?`<button id="cmpBtn">${ic('scale',16)} Comparer (${ps.length})</button>`:''}
     </div>
     <button class="btn btn-ghost" id="saveImgBtn" style="width:100%;margin-top:4px">${ic('download',16)} Enregistrer la photo</button>`;
+  if(url===PLACEHOLDER_THUMB) hydrateThumbs($('scoreBody'));
   const ring=$('scoreBody').querySelector('circle:last-of-type');ring.style.transition='none';ring.setAttribute('stroke-dashoffset',C);
   requestAnimationFrame(()=>{ring.style.transition='stroke-dashoffset 1s ease';ring.setAttribute('stroke-dashoffset',off);});
   $('ovPhoto').onclick=()=>setOverlay(false);
-  $('ovDef').onclick=()=>setOverlay(true,url);
+  $('ovDef').onclick=()=>setOverlay(true,$('scoreImg').src);
   $('retakeBtn').onclick=()=>{closeScreen('scoreScreen');openCam(entry.room);};
   $('reimportBtn').onclick=()=>{closeScreen('scoreScreen');triggerImport(entry.room);};
   $('rotateBtn').onclick=()=>rotatePhoto(entry);
@@ -1444,7 +1568,9 @@ async function saveImage(entry){
   try{
     if(sf&&sf.file&&navigator.canShare&&navigator.canShare({files:[sf.file]})){await navigator.share({files:[new File([sf.file],name,{type:'image/jpeg'})],title:name});return;}
   }catch(e){if(e&&e.name==='AbortError')return;}
-  const a=document.createElement('a');a.href=(sf&&sf.url)||entry.thumb;a.download=name;document.body.appendChild(a);a.click();a.remove();
+  const href=(sf&&sf.url)||await thumbURL(entry.id);
+  if(!href){toast('Photo introuvable');return;}
+  const a=document.createElement('a');a.href=href;a.download=name;document.body.appendChild(a);a.click();a.remove();
 }
 
 /* ============================ COMPARER ============================ */
@@ -1455,10 +1581,12 @@ function openCompare(room){
   const best=ps[0].score;
   $('cmpBody').innerHTML='<div class="footer-note" style="margin:0 0 12px">Le meilleur angle est mis en avant. Tapez sur la photo à publier pour la retenir.</div><div class="cmp-grid">'+
     ps.map(p=>{const bd=band(p.score),isBest=p.score===best;
+      const src=(sessionFull[p.id]&&sessionFull[p.id].url)||thumbUrlCache[p.id]||PLACEHOLDER_THUMB;
       return `<div class="cmp-card ${p.kept?'kept':(isBest?'best':'')}" data-pid="${p.id}">
-        <img src="${(sessionFull[p.id]&&sessionFull[p.id].url)||p.thumb}" alt="">
+        <img src="${src}" data-photo-id="${p.id}" alt="">
         <div class="cmp-info"><div class="cmp-score" style="color:${bd==='ok'?'#0f6b3f':bd==='mid'?'#b07d12':'#9a3b2e'}">${p.score}<span style="font-size:13px;color:#aab">/100</span> ${isBest?ic('star',14):''}</div>
         <div class="cmp-actions"><div class="cmp-state">${p.kept?ic('check',13)+' Retenue':'Tapez pour retenir'}</div><button class="cmp-save" data-save="${p.id}" title="Enregistrer la photo">${ic('download',17)}</button></div></div></div>`;}).join('')+'</div>';
+  hydrateThumbs($('cmpBody'));
   $('cmpBody').onclick=e=>{
     const sv=e.target.closest('[data-save]');
     if(sv){const p=photosOf(getBien(currentBienId),room).find(x=>x.id===sv.dataset.save);if(p)saveImage(p);return;}
@@ -1516,16 +1644,17 @@ function lbDist(t){return Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1]
 /* ============================ EXPORT PDF (100% LOCAL) ============================ */
 /* Aucune dépendance externe : on construit une fiche imprimable et on laisse le
    navigateur l'« Enregistrer au format PDF ». Rien ne quitte l'appareil. */
-function exportBien(id){
+async function exportBien(id){
   const b=getBien(id);if(!b||!(b.photos||[]).length){toast('Aucune photo à exporter');return;}
   const {req,extra}=roomsForBien(b);const order=req.concat(extra);
   let cells='';
-  order.forEach(k=>{
-    const ps=photosOf(b,k);if(!ps.length)return;
+  for(const k of order){
+    const ps=photosOf(b,k);if(!ps.length)continue;
     const pick=ps.find(p=>p.kept)||ps.slice().sort((a,c)=>c.score-a.score)[0];
-    const src=(sessionFull[pick.id]&&sessionFull[pick.id].url)||pick.thumb;
+    const src=(sessionFull[pick.id]&&sessionFull[pick.id].url)||await thumbURL(pick.id);
+    if(!src)continue;
     cells+=`<figure><img src="${src}" alt=""><figcaption>${esc(DATA[k].name)} — ${pick.score}/100</figcaption></figure>`;
-  });
+  }
   $('printArea').innerHTML=`<div class="pa-head"><h2>PhotoImmo — ${esc(b.address)}</h2>`+
     `<div class="pa-sub">${b.type==='appartement'?'Appartement':'Maison'} · ${fmtDate(b.created)} · Laforêt Pithiviers</div></div>`+
     `<div class="pa-grid">${cells}</div>`;
@@ -1539,6 +1668,10 @@ if('serviceWorker' in navigator && location.protocol==='https:'){
 }
 /* init */
 renderHome();
+// Migration silencieuse des vignettes stockées à l'ancien format (base64 en
+// localStorage) vers IndexedDB. Se fait en tâche de fond : la liste des
+// biens s'affiche déjà normalement pendant que ça tourne.
+migrateThumbsToIDB();
 
 // Arrivée depuis un lien de la Bibliothèque de prompts (bibliotheque.html?bien=...)
 // -> on ouvre directement la fiche si elle existe déjà, sinon on propose de la créer.
