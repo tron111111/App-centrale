@@ -534,6 +534,7 @@ footer { text-align: center; padding: 2rem 1rem calc(2rem + env(safe-area-inset-
   .saved-bien-name { width: 100%; font-size: 13px; }
   .saved-bien-date { font-size: 11px; flex: 1; }
   .btn-load-bien { flex: 2; justify-content: center; padding: 9px; font-size: 12px; }
+  .btn-photo-bien { flex: 1.4; }
   .btn-del-bien { flex: 1; justify-content: center; padding: 9px; font-size: 12px; }
   .rename-bien-input { font-size: 16px !important; width: 100%; }
   .btn-rename-confirm, .btn-rename-cancel { padding: 9px 12px; font-size: 13px; }
@@ -674,11 +675,15 @@ footer { text-align: center; padding: 2rem 1rem calc(2rem + env(safe-area-inset-
             Sauvegarder / Charger un bien
           </div>
           <div class="save-bien-row">
-            <input type="text" class="save-bien-input" id="save-bien-name" placeholder="Nom du bien (ex: Maison Pithiviers 4p)" maxlength="60">
+            <input type="text" class="save-bien-input" id="save-bien-name" list="save-bien-datalist" placeholder="Nom du bien — existant ou nouveau" maxlength="60">
+            <datalist id="save-bien-datalist"></datalist>
             <button class="btn-save-bien" onclick="saveBien()">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
               Sauvegarder
             </button>
+          </div>
+          <div id="save-bien-hint" style="font-size:11.5px;color:var(--text3);margin-top:7px;">
+            Choisissez un bien existant dans les suggestions, ou tapez un nouveau nom : il sera automatiquement créé dans le <a href="dossier.html" style="color:var(--c-admin);font-weight:700;">Dossier des biens</a>.
           </div>
           <div class="save-bien-toast" id="save-bien-toast"></div>
           <div class="saved-bien-list" id="saved-bien-list"></div>
@@ -1586,7 +1591,35 @@ window.onload = function() {
   document.getElementById('include-vitrine').addEventListener('change', function() {
     if (currentHubFormat === 'internet' && currentWizStep === 3) hubGen('internet');
   });
+  handleIncomingBienLink();
 };
+
+// Arrivée depuis un lien de PhotoImmo Pro (bibliotheque.html?bien=...&type=...&ville=...)
+// -> on charge la fiche si elle existe déjà, sinon on ouvre le générateur prérempli.
+function handleIncomingBienLink() {
+  const params = new URLSearchParams(location.search);
+  const label = params.get('bien');
+  if (!label) return;
+  history.replaceState(null, '', location.pathname); // nettoie l'URL pour éviter un re-déclenchement au rechargement
+
+  const biens = getBiens();
+  const idx = biens.findIndex(b => normBienLabel(b.name) === normBienLabel(label));
+  document.getElementById('hub').style.display = 'block';
+  document.getElementById('hub').classList.remove('collapsed');
+
+  if (idx >= 0) {
+    loadBien(idx);
+    showSaveToast('🔗 Bien retrouvé depuis PhotoImmo Pro.', true);
+  } else {
+    const type = params.get('type') || '';
+    const ville = params.get('ville') || '';
+    document.getElementById('h-type').value = type.toLowerCase().startsWith('appart') ? 'Appartement' : (type ? 'Maison' : '');
+    document.getElementById('h-ville').value = ville;
+    document.getElementById('save-bien-name').value = label;
+    document.getElementById('hub').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    showSaveToast('🔗 Bien reçu — complétez la fiche puis sauvegardez pour la lier.', true);
+  }
+}
 
 // MENU ⋯
 function toggleMoreMenu(e) {
@@ -2393,6 +2426,27 @@ async function streamGeminiWithModel(model, prompt, apiKey, boxEl) {
 // ── SAUVEGARDE / CHARGEMENT DES BIENS ────────────────────────────────────────
 const BIENS_KEY = 'laforet_biens_saved';
 
+/* ===== Liaison inter-apps (Bibliothèque <-> PhotoImmo Pro) =====
+   Même registre partagé que celui utilisé par photoimmo.html (même origine).
+   Voir photoimmo.html pour le détail du fonctionnement. */
+const REG_KEY = 'laforet_biens_registry';
+function normBienLabel(s) { return (s||'').trim().toLowerCase().replace(/\s+/g,' '); }
+function getBienRegistry() { try { return JSON.parse(localStorage.getItem(REG_KEY)) || []; } catch(e) { return []; } }
+function setBienRegistry(list) { try { localStorage.setItem(REG_KEY, JSON.stringify(list)); } catch(e) {} }
+function upsertBienLink(label, appKey, appValue) {
+  const norm = normBienLabel(label);
+  if (!norm) return null;
+  const reg = getBienRegistry();
+  let entry = reg.find(e => e.norm === norm);
+  if (!entry) { entry = { norm, label: label.trim(), createdAt: Date.now(), links: {} }; reg.unshift(entry); }
+  else entry.label = label.trim();
+  entry.links[appKey] = appValue;
+  entry.updatedAt = Date.now();
+  setBienRegistry(reg);
+  return entry;
+}
+function findBienLink(label) { return getBienRegistry().find(e => e.norm === normBienLabel(label)) || null; }
+
 // Échappement HTML générique : neutralise <, >, &, ", ' avant toute insertion
 // dans innerHTML. À utiliser pour TOUTE donnée saisie par l'utilisateur
 // (noms de biens, etc.) avant de l'injecter dans un template HTML.
@@ -2419,6 +2473,9 @@ function saveBien() {
     showSaveToast('⚠️ Donnez un nom au bien avant de sauvegarder.', false);
     return;
   }
+  const norm = normBienLabel(name);
+  const isNew = !getBienRegistry().some(e => e.norm === norm);
+
   // Collecte les valeurs actuelles du hub
   const data = {};
   HUB_IDS.forEach(id => {
@@ -2429,7 +2486,7 @@ function saveBien() {
 
   const biens = getBiens();
   // Remplace si même nom existe
-  const idx = biens.findIndex(b => b.name === name);
+  const idx = biens.findIndex(b => normBienLabel(b.name) === norm);
   const entry = {
     name,
     data,
@@ -2440,11 +2497,53 @@ function saveBien() {
     showSaveToast('✅ Bien "' + name + '" mis à jour.', true);
   } else {
     biens.unshift(entry);
-    showSaveToast('✅ Bien "' + name + '" sauvegardé.', true);
+    showSaveToast(isNew ? '✅ Bien "' + name + '" créé et sauvegardé.' : '✅ Bien "' + name + '" sauvegardé.', true);
   }
   setBiens(biens);
-  nameEl.value = '';
+  upsertBienLink(name, 'bibliotheque', name);
+  // Nouveau bien : on seed aussitôt ses infos centrales (type/ville) pour
+  // qu'il apparaisse correctement rempli dans le Dossier des biens sans
+  // action supplémentaire.
+  if (isNew) {
+    upsertCentral(name, {
+      type: guessTypeFromHub(),
+      ville: (document.getElementById('h-ville').value || '').trim() || guessVilleFromAddress(name)
+    });
+  }
   renderBienList();
+}
+
+/* Devine le type (maison/appartement) à partir du champ libre "Type de bien"
+   du hub, avec la même convention que le reste du portail. */
+function guessTypeFromHub() {
+  const v = (document.getElementById('h-type').value || '').trim().toLowerCase();
+  return v.startsWith('appart') ? 'appartement' : (v ? 'maison' : '');
+}
+
+/* Crée ou met à jour un dossier central (statut/prix/notes/ville/type) —
+   même logique que dans dossier.html, pour que bibliotheque.html puisse
+   créer un bien "à la volée" tout en gardant le Dossier à jour. */
+function upsertCentral(label, fields) {
+  const norm = normBienLabel(label);
+  if (!norm) return null;
+  const reg = getBienRegistry();
+  let entry = reg.find(e => e.norm === norm);
+  if (!entry) { entry = { norm, label: label.trim(), createdAt: Date.now(), links: {}, central: {} }; reg.unshift(entry); }
+  if (!entry.central) entry.central = {};
+  Object.assign(entry.central, fields);
+  entry.updatedAt = Date.now();
+  setBienRegistry(reg);
+  return entry;
+}
+
+/* Alimente la liste de suggestions (autocomplete) avec les biens déjà
+   connus du registre central — pratique pour retrouver un bien existant,
+   sans empêcher de taper un nom nouveau pour en créer un. */
+function renderSaveBienDatalist() {
+  const dl = document.getElementById('save-bien-datalist');
+  if (!dl) return;
+  const reg = getBienRegistry().slice().sort((a, b) => a.label.localeCompare(b.label, 'fr'));
+  dl.innerHTML = reg.map(e => `<option value="${escapeHTML(e.label)}">`).join('');
 }
 
 function loadBien(idx) {
@@ -2488,59 +2587,32 @@ function renderBienList() {
   const biens = getBiens();
   if (!biens.length) {
     list.innerHTML = '<div class="save-bien-empty">Aucun bien sauvegardé pour le moment.</div>';
+    renderSaveBienDatalist();
     return;
   }
-  list.innerHTML = biens.map((b, i) => `
+  list.innerHTML = biens.map((b, i) => {
+    const link = findBienLink(b.name);
+    const linked = !!(link && link.links && link.links.photoimmo);
+    const photoUrl = 'photoimmo.html?bien=' + encodeURIComponent(b.name);
+    return `
     <div class="saved-bien-item" id="bien-item-${i}">
-      <span class="saved-bien-name" title="${escapeHTML(b.name)}">🏠 ${escapeHTML(b.name)}</span>
+      <span class="saved-bien-name" title="${escapeHTML(b.name)}">🏠 ${escapeHTML(b.name)}${linked ? ' <span title="Lié à une fiche PhotoImmo" style="font-size:12px">🔗</span>' : ''}</span>
       <span class="saved-bien-date">${escapeHTML(b.savedAt)}</span>
-      <button class="btn-rename-bien" onclick="renameBien(${i})" title="Renommer">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-      </button>
+      <a class="btn-load-bien btn-photo-bien" href="${photoUrl}" title="${linked ? 'Ouvrir les photos liées' : 'Créer/lier les photos dans PhotoImmo'}" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        Photos
+      </a>
       <button class="btn-load-bien" onclick="loadBien(${i})">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Charger
       </button>
-      <button class="btn-del-bien" onclick="deleteBien(${i})" title="Supprimer">
+      <button class="btn-del-bien" onclick="deleteBien(${i})" title="Supprimer cette fiche (le bien reste dans le Dossier des biens)">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
       </button>
     </div>
-  `).join('');
-}
-
-function renameBien(idx) {
-  const biens = getBiens();
-  const entry = biens[idx];
-  if (!entry) return;
-  const item = document.getElementById('bien-item-' + idx);
-  // Remplace le contenu de l'item par un champ inline
-  item.innerHTML = `
-    <input class="rename-bien-input" id="rename-input-${idx}" type="text" value="${escapeHTML(entry.name)}" maxlength="60">
-    <button class="btn-rename-confirm" onclick="confirmRename(${idx})">✓ OK</button>
-    <button class="btn-rename-cancel" onclick="renderBienList()">✕</button>
   `;
-  const inp = document.getElementById('rename-input-' + idx);
-  inp.focus();
-  inp.select();
-  // Valider avec Entrée
-  inp.addEventListener('keydown', e => {
-    if (e.key === 'Enter') confirmRename(idx);
-    if (e.key === 'Escape') renderBienList();
-  });
-}
-
-function confirmRename(idx) {
-  const inp = document.getElementById('rename-input-' + idx);
-  if (!inp) return;
-  const newName = inp.value.trim();
-  if (!newName) { showSaveToast('⚠️ Le nom ne peut pas être vide.', false); return; }
-  const biens = getBiens();
-  if (!biens[idx]) return;
-  const oldName = biens[idx].name;
-  biens[idx].name = newName;
-  setBiens(biens);
-  renderBienList();
-  showSaveToast('✏️ "' + oldName + '" renommé en "' + newName + '".', true);
+  }).join('');
+  renderSaveBienDatalist();
 }
 
 function showSaveToast(msg, success) {

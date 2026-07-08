@@ -836,6 +836,49 @@ function saveBiens(l){try{localStorage.setItem(BKEY,JSON.stringify(l));}catch(e)
 function getBien(id){return loadBiens().find(b=>b.id===id);}
 const sessionFull={};   // id photo -> {file,url} (session courante, plein écran/PDF)
 
+/* ===== Liaison inter-apps (PhotoImmo <-> Bibliothèque de prompts) =====
+   Registre partagé en localStorage — même origine que les autres apps du
+   portail Laforêt, donc lisible/écrivable par bibliotheque.html. Il associe
+   un même bien entre les deux outils via un libellé normalisé (l'adresse
+   ici, le nom du bien côté Bibliothèque). Aucune donnée sensible : juste
+   le libellé et l'identifiant local de chaque côté. */
+const REG_KEY='laforet_biens_registry';
+function normBienLabel(s){return (s||'').trim().toLowerCase().replace(/\s+/g,' ');}
+function getBienRegistry(){try{return JSON.parse(localStorage.getItem(REG_KEY))||[];}catch(e){return[];}}
+function setBienRegistry(list){try{localStorage.setItem(REG_KEY,JSON.stringify(list));}catch(e){}}
+function upsertBienLink(label,appKey,appValue){
+  const norm=normBienLabel(label);if(!norm)return null;
+  const reg=getBienRegistry();
+  let entry=reg.find(e=>e.norm===norm);
+  if(!entry){entry={norm,label:label.trim(),createdAt:Date.now(),links:{}};reg.unshift(entry);}
+  else entry.label=label.trim();
+  entry.links[appKey]=appValue;
+  entry.updatedAt=Date.now();
+  setBienRegistry(reg);
+  return entry;
+}
+function findBienLink(label){return getBienRegistry().find(e=>e.norm===normBienLabel(label))||null;}
+/* Crée ou met à jour les infos centrales (type/ville/statut/prix/notes)
+   d'un bien dans le registre partagé — même logique que dans dossier.html.
+   Permet à PhotoImmo de créer un bien "à la volée" tout en le faisant
+   apparaître correctement rempli dans le Dossier des biens. */
+function upsertCentral(label,fields){
+  const norm=normBienLabel(label);if(!norm)return null;
+  const reg=getBienRegistry();
+  let entry=reg.find(e=>e.norm===norm);
+  if(!entry){entry={norm,label:label.trim(),createdAt:Date.now(),links:{},central:{}};reg.unshift(entry);}
+  if(!entry.central)entry.central={};
+  Object.assign(entry.central,fields);
+  entry.updatedAt=Date.now();
+  setBienRegistry(reg);
+  return entry;
+}
+/* Devine une ville à partir d'une adresse "12 rue des Lilas, Pithiviers" -> "Pithiviers" */
+function guessVilleFromAddress(addr){
+  const parts=(addr||'').split(',');
+  return parts.length>1?parts[parts.length-1].trim():'';
+}
+
 const REQUIRED={
   maison:['facade','entree','salon','cuisine','sam','chambre','sdb','bureau','jardin','terrasse','garage','vue'],
   appartement:['entree','salon','cuisine','sam','chambre','sdb','bureau','terrasse','vue']
@@ -908,9 +951,10 @@ function renderHome(){
     html+='<div class="section-title">Mes biens</div>';
     list.forEach(b=>{
       const pr=progress(b),pct=Math.round(pr.done/pr.total*100),n=(b.photos||[]).length;
+      const linked=findBienLink(b.address)?.links?.bibliotheque;
       html+=`<div class="bien-card" data-bien="${b.id}">
         <div class="bien-ic">${ic(b.type==='appartement'?'building':'home',26)}</div>
-        <div class="bien-main"><div class="bien-addr">${esc(b.address)}</div>
+        <div class="bien-main"><div class="bien-addr">${esc(b.address)}${linked?' <span title="Lié à une fiche dans la Bibliothèque de prompts" style="font-size:12px">🔗</span>':''}</div>
           <div class="bien-sub">${b.type==='appartement'?'Appartement':'Maison'} · ${n} photo${n>1?'s':''} · ${fmtDate(b.created)}</div>
           <div class="pbar"><i style="width:${pct}%"></i></div></div>
         <div class="bien-prog">${pr.done}/${pr.total}</div>
@@ -931,8 +975,13 @@ $('home').addEventListener('click',e=>{
   const card=e.target.closest('[data-bien]');if(card)openBien(card.dataset.bien);
 });
 
-/* ---------- nouveau bien (modal) ---------- */
-function openNewBien(){
+/* ---------- nouveau bien / choisir un bien existant (modal) ----------
+   On peut créer un bien directement ici : la fiche PhotoImmo est créée
+   ET le bien est aussitôt enregistré dans le registre central (avec
+   type/ville) pour apparaître automatiquement dans le Dossier des biens.
+   On peut aussi choisir un bien déjà créé (Dossier, Bibliothèque) pour
+   lui ajouter directement une fiche photo. */
+function openNewBien(prefillAddr,prefillType){
   let m=$('newBienModal');
   if(!m){m=document.createElement('div');m.id='newBienModal';m.className='screen';
     m.innerHTML=`<div class="s-head"><button class="s-back" data-close="newBienModal">‹ Annuler</button><h2 class="s-title">Nouveau bien</h2></div>
@@ -942,28 +991,77 @@ function openNewBien(){
         <div class="section-title">Type</div>
         <div class="btn-row" id="nbType"><button class="btn btn-ghost" data-t="maison" aria-pressed="true">${ic('home',17)} Maison</button><button class="btn btn-ghost" data-t="appartement">${ic('building',17)} Appartement</button></div>
         <button class="btn btn-primary" id="nbCreate" style="margin-top:18px">Créer le bien</button>
+
+        <div class="section-title" style="margin-top:26px">Ou choisir un bien déjà créé (Dossier / Bibliothèque)</div>
+        <input id="nbSearch" placeholder="Rechercher une adresse…" style="width:100%;padding:12px;font-size:15px;border:1.5px solid var(--line);border-radius:12px;margin-bottom:10px">
+        <div id="nbList"></div>
       </div>`;
     document.body.appendChild(m);
     let type='maison';
-    m.querySelector('#nbType').addEventListener('click',ev=>{const b=ev.target.closest('[data-t]');if(!b)return;type=b.dataset.t;m.querySelectorAll('#nbType .btn').forEach(x=>x.setAttribute('aria-pressed',x===b));x:1;});
+    m.querySelector('#nbType').addEventListener('click',ev=>{const b=ev.target.closest('[data-t]');if(!b)return;type=b.dataset.t;m._type=type;m.querySelectorAll('#nbType .btn').forEach(x=>x.setAttribute('aria-pressed',x===b));x:1;});
+    m._type=type;
     m.querySelector('#nbCreate').onclick=()=>{
       const addr=m.querySelector('#nbAddr').value.trim();if(!addr){toast('Indiquez une adresse');return;}
-      const b={id:'b'+Date.now(),address:addr,type,created:Date.now(),photos:[]};
+      const b={id:'b'+Date.now(),address:addr,type:m._type,created:Date.now(),photos:[]};
       const l=loadBiens();l.unshift(b);saveBiens(l);
+      upsertBienLink(addr,'photoimmo',b.id);
+      // Seed immédiat des infos centrales : le bien apparaît complet
+      // dans le Dossier des biens sans action supplémentaire.
+      upsertCentral(addr,{type:m._type,ville:guessVilleFromAddress(addr)});
       m.querySelector('#nbAddr').value='';closeScreen('newBienModal');renderHome();openBien(b.id);
     };
+    m.querySelector('#nbSearch').addEventListener('input',()=>renderNbList(m));
+    m.querySelector('#nbList').addEventListener('click',ev=>{
+      const card=ev.target.closest('[data-pick]');if(!card)return;
+      const entry=getBienRegistry().find(e=>e.norm===card.dataset.pick);
+      if(!entry)return;
+      const t=(entry.central&&entry.central.type)||m._type||'maison';
+      const b={id:'b'+Date.now(),address:entry.label,type:t,created:Date.now(),photos:[]};
+      const l=loadBiens();l.unshift(b);saveBiens(l);
+      upsertBienLink(entry.label,'photoimmo',b.id);
+      closeScreen('newBienModal');renderHome();openBien(b.id);
+    });
   }
-  openScreen('newBienModal');setTimeout(()=>m.querySelector('#nbAddr').focus(),250);
+  // Préremplissage (arrivée depuis un lien de la Bibliothèque ou du Dossier)
+  m.querySelector('#nbAddr').value=prefillAddr||'';
+  const wantType=(prefillType||'').toLowerCase().startsWith('appart')?'appartement':'maison';
+  m._type=wantType;
+  m.querySelectorAll('#nbType .btn').forEach(x=>x.setAttribute('aria-pressed',x.dataset.t===wantType?'true':'false'));
+  m.querySelector('#nbSearch').value='';
+  renderNbList(m);
+  openScreen('newBienModal');
+  setTimeout(()=>m.querySelector('#nbAddr').focus(),250);
+}
+function renderNbList(m){
+  const q=normBienLabel(m.querySelector('#nbSearch').value);
+  const reg=getBienRegistry().filter(e=>!(e.links&&e.links.photoimmo));
+  const filtered=(q?reg.filter(e=>e.norm.includes(q)):reg).slice().sort((a,b)=>a.label.localeCompare(b.label,'fr'));
+  const listEl=m.querySelector('#nbList');
+  if(!filtered.length){
+    listEl.innerHTML='<div class="empty">'+(reg.length?'Aucun résultat pour cette recherche.':'Aucun autre bien disponible pour l’instant.')+'</div>';
+    return;
+  }
+  listEl.innerHTML=filtered.map(e=>{
+    const t=(e.central&&e.central.type)||'';
+    const norm=e.norm.replace(/"/g,'&quot;');
+    return `<div class="bien-card" data-pick="${norm}" style="cursor:pointer">
+      <div class="bien-ic">${ic(t==='appartement'?'building':'home',24)}</div>
+      <div class="bien-main"><div class="bien-addr">${esc(e.label)}</div>
+      <div class="bien-sub">${t==='appartement'?'Appartement':(t==='maison'?'Maison':'Type non renseigné')}</div></div>
+    </div>`;
+  }).join('');
 }
 
 /* ============================ BIEN ============================ */
 function openBien(id){currentBienId=id;renderBien();openScreen('bienScreen');}
 function renderBien(){
   const b=getBien(currentBienId);if(!b)return;
-  $('bienTitle').textContent=b.address;
+  const linked=findBienLink(b.address)?.links?.bibliotheque;
+  $('bienTitle').textContent=b.address+(linked?' 🔗':'');
   const{req,extra}=roomsForBien(b),pr=progress(b),pct=Math.round(pr.done/pr.total*100);
   let html=`<div class="gcard"><div style="display:flex;justify-content:space-between;align-items:baseline"><b>Avancement</b><span style="font-weight:800;color:var(--green)">${pr.done}/${pr.total} pièces clés</span></div><div class="pbar" style="margin-top:9px"><i style="width:${pct}%"></i></div></div>`;
   html+='<button class="btn btn-gold" id="exportBtn" style="margin-bottom:6px">'+ic('filetext',18)+' Générer le PDF du bien</button>';
+  html+=`<a class="btn btn-ghost" id="genAnnonceBtn" href="bibliotheque.html?bien=${encodeURIComponent(b.address)}&type=${encodeURIComponent(b.type)}&ville=${encodeURIComponent(guessVilleFromAddress(b.address))}" style="margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:6px;text-decoration:none">${ic('filetext',17)} ${linked?'Ouvrir la fiche annonce liée':"Générer l'annonce (Bibliothèque)"}</a>`;
   html+='<div class="section-title">Pièces clés à shooter</div><div class="roomlist">'+req.map(k=>roomRow(b,k)).join('')+'</div>';
   html+='<div class="section-title">Autres pièces / extérieurs</div><div class="roomlist">'+extra.map(k=>roomRow(b,k)).join('')+'</div>';
   $('bienBody').innerHTML=html;
@@ -1441,6 +1539,24 @@ if('serviceWorker' in navigator && location.protocol==='https:'){
 }
 /* init */
 renderHome();
+
+// Arrivée depuis un lien de la Bibliothèque de prompts (bibliotheque.html?bien=...)
+// -> on ouvre directement la fiche si elle existe déjà, sinon on propose de la créer.
+(function handleIncomingBienLink(){
+  const params=new URLSearchParams(location.search);
+  const label=params.get('bien');
+  if(!label)return;
+  history.replaceState(null,'',location.pathname); // nettoie l'URL pour éviter un re-déclenchement au rechargement
+  const link=findBienLink(label);
+  const existing=link&&link.links.photoimmo?getBien(link.links.photoimmo):null;
+  if(existing){
+    openBien(existing.id);
+    toast('🔗 Bien retrouvé depuis la Bibliothèque de prompts');
+  }else{
+    openNewBien(label,params.get('type')||'');
+    toast('🔗 Bien reçu depuis la Bibliothèque — complétez et créez la fiche pour le lier');
+  }
+})();
 
 // Filet de sécurité bfcache : si le navigateur restaure cette page depuis son
 // cache mémoire (ex. retour arrière après avoir quitté avec la caméra ouverte),

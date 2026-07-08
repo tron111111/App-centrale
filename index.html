@@ -20,7 +20,7 @@
 -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'self'">
 <title>Laforêt Pithiviers — Applications</title>
-<meta name="description" content="Portail des applications internes Laforêt Pithiviers : bibliothèque de prompts IA et gestion des photos immobilières.">
+<meta name="description" content="Portail des applications internes Laforêt Pithiviers : bibliothèque de prompts IA, gestion des photos immobilières et dossier centralisé des biens.">
 <style>
   :root {
     --blue: #16266b;
@@ -28,6 +28,8 @@
     --blue-l: #e9ecf7;
     --sky: #29a9e0;
     --sky-l: #e4f4fc;
+    --gold: #a3760a;
+    --gold-l: #fdf4e3;
     --bg: #eef1fa;
     --card: #fff;
     --ink: #161d33;
@@ -39,7 +41,7 @@
   [data-theme="dark"]{
     --bg:#0f1117; --card:#1a1f2e; --ink:#e8ecf4; --muted:#8892aa;
     --line:#2a3148; --shadow:0 1px 3px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);
-    --blue-l:#1a2240; --sky-l:#0e2030;
+    --blue-l:#1a2240; --sky-l:#0e2030; --gold-l:#2b230f;
   }
   [data-theme="dark"] body{
     background:#0f1117;
@@ -111,6 +113,7 @@
   }
   .icon-blue { background: var(--blue-l); }
   .icon-sky  { background: var(--sky-l); }
+  .icon-gold { background: var(--gold-l); }
 
   .app-info { flex: 1; min-width: 0; }
   .app-name {
@@ -143,6 +146,7 @@
   }
   .badge-blue { background: var(--blue-l); color: var(--blue); }
   .badge-sky  { background: var(--sky-l);  color: #0f7ab0; }
+  .badge-gold { background: var(--gold-l); color: var(--gold); }
 
   /* FOOTER */
   footer {
@@ -177,6 +181,7 @@ filter .28s ease;
 .app-card:nth-of-type(1){animation-delay:.15s;}
 .app-card:nth-of-type(2){animation-delay:.28s;}
 .app-card:nth-of-type(3){animation-delay:.41s;}
+.app-card:nth-of-type(4){animation-delay:.54s;}
 .app-card:hover .app-icon{
 transform:translateY(-2px) scale(1.08) rotate(-4deg);
 transition:transform .3s cubic-bezier(.2,.8,.2,1);
@@ -293,6 +298,16 @@ animation:pulse .8s ease-in-out infinite alternate;
       <p class="app-name">PhotoImmo Pro</p>
       <p class="app-desc">Notez et gérez vos photos de biens immobiliers pièce par pièce, avec guide de prise de vue.</p>
       <span class="app-badge badge-sky">Photos · Biens</span>
+    </div>
+    <span class="app-arrow">›</span>
+  </a>
+
+  <a class="app-card" href="dossier.html">
+    <div class="app-icon icon-sky"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h7v7H3z"/><path d="M14 3h7v7h-7z"/><path d="M14 14h7v7h-7z"/><path d="M3 14h7v7H3z"/></svg></div>
+    <div class="app-info">
+      <p class="app-name">Dossier des biens</p>
+      <p class="app-desc">Toutes les infos de chaque bien réunies au même endroit : photos, description, statut et notes.</p>
+      <span class="app-badge badge-sky">Centralisation</span>
     </div>
     <span class="app-arrow">›</span>
   </a>

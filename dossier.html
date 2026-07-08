@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<script>
+  // Applique le thème AVANT le premier rendu, pour éviter un flash en clair
+  (function(){
+    const saved = localStorage.getItem('theme');
+    const sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme:dark)').matches;
+    const theme = saved || (sysDark ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  })();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#16266b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Dossier biens">
+<!--
+  Content-Security-Policy : cette page ne fait AUCUN appel réseau (pas d'IA ici,
+  juste de la lecture/écriture de localStorage partagé avec les autres apps du
+  portail). connect-src 'self' suffit donc, contrairement à bibliotheque.html/blog.html.
+-->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'self'">
+<title>Dossier des biens — Laforêt Pithiviers</title>
+<meta name="description" content="Fiche centralisée par bien : photos, description/annonce, statut et notes — Laforêt Pithiviers.">
+<link rel="icon" type="image/png" href="logo_laforet.png">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html { overflow-x: hidden; }
+body { overflow-x: hidden; }
+:root {
+  --bg: #f4f6fa; --surface: #fff; --border: #e2e7f0; --border2: #c7d0e4;
+  --text: #161d33; --text2: #525d7a; --text3: #7c86a3; --text4: #a8b0c4;
+  --blue: #16266b; --blue-bg: #e9ecf7; --blue-border: #b9c2e0; --blue-dark: #0f1b50;
+  --sky: #29a9e0; --sky-bg: #e4f4fc;
+  --input-bg: #f4f6fa; --result-bg: #e9ecf7; --radius: 12px;
+  /* statuts de dossier */
+  --st-estim: #64748b; --st-estim-bg: #f1f5f9; --st-estim-border: #dbe2ec;
+  --st-mandat: var(--blue); --st-mandat-bg: var(--blue-bg); --st-mandat-border: var(--blue-border);
+  --st-compromis: #d97706; --st-compromis-bg: #fffbeb; --st-compromis-border: #fde68a;
+  --st-vendu: #059669; --st-vendu-bg: #ecfdf5; --st-vendu-border: #a7f3d0;
+  --st-location: #0e7490; --st-location-bg: #ecfeff; --st-location-border: #a5f3fc;
+  --st-loue: #0d9488; --st-loue-bg: #f0fdfa; --st-loue-border: #99f6e4;
+  --st-archive: #94a3b8; --st-archive-bg: #f8fafc; --st-archive-border: #e2e8f0;
+}
+[data-theme="dark"] {
+  --bg: #0f1117; --surface: #1a1f2e; --border: #2a3148; --border2: #3a4260;
+  --text: #e8ecf4; --text2: #8892aa; --text3: #6b7594; --text4: #4a5474;
+  --blue: #29a9e0; --blue-bg: #1a2240; --blue-border: #2d3f70; --blue-dark: #5cc4ea;
+  --sky: #29a9e0; --sky-bg: #0e2030;
+  --input-bg: #232a42; --result-bg: #1a2240;
+  --st-estim: #94a3b8; --st-estim-bg: #1c2130; --st-estim-border: #333c54;
+  --st-mandat: var(--blue); --st-mandat-bg: var(--blue-bg); --st-mandat-border: var(--blue-border);
+  --st-compromis: #fbbf24; --st-compromis-bg: #2d2010; --st-compromis-border: #7a5a10;
+  --st-vendu: #34d399; --st-vendu-bg: #0a2e20; --st-vendu-border: #0f5a3a;
+  --st-location: #22d3ee; --st-location-bg: #0b2530; --st-location-border: #0e4a5c;
+  --st-loue: #2dd4bf; --st-loue-bg: #0b2e2b; --st-loue-border: #115e59;
+  --st-archive: #6b7594; --st-archive-bg: #1c2130; --st-archive-border: #333c54;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; transition: background .2s, color .2s; }
+
+/* HEADER — identique aux autres apps du portail */
+header { background: linear-gradient(135deg, #0f1b50, #16266b); border-bottom: none; box-shadow: 0 2px 16px rgba(15,27,80,.3); padding: calc(.85rem + env(safe-area-inset-top)) 1.25rem .85rem; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 100; flex-wrap: wrap; }
+.back-home { background: rgba(255,255,255,.16); border: none; color: #fff; font-size: 13px; font-weight: 700; padding: 7px 13px; border-radius: 999px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; white-space: nowrap; }
+.header-logo { width: 46px; height: 46px; border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,.18); flex-shrink: 0; background: #fff; }
+.header-logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.header-info h1 { font-size: 18px; font-weight: 800; color: #fff; line-height: 1.2; letter-spacing: .2px; }
+.header-info span { font-size: 12px; color: rgba(255,255,255,.75); }
+.header-right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.theme-toggle { background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.18); border-radius: 20px; padding: 5px 12px; font-size: 12px; color: #fff; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.theme-toggle:hover { background: rgba(255,255,255,.22); }
+
+.container { max-width: 1100px; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
+
+/* TOOLBAR */
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 1.1rem; }
+.btn-new-bien { background: var(--blue); color: #fff; border: none; border-radius: 10px; padding: 10px 16px; font-size: 13px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; transition: opacity .15s; }
+.btn-new-bien:hover { opacity: .9; }
+.toolbar-search { flex: 1; min-width: 180px; position: relative; }
+.toolbar-search input { width: 100%; background: var(--input-bg); border: 1px solid var(--border); border-radius: 20px; padding: 9px 14px 9px 32px; font-size: 13px; color: var(--text); font-family: inherit; outline: none; transition: border-color .15s; }
+.toolbar-search input:focus { border-color: var(--blue); }
+.toolbar-search svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--text4); pointer-events: none; }
+.toolbar-filter select { background: var(--input-bg); border: 1px solid var(--border); border-radius: 20px; padding: 9px 14px; font-size: 13px; color: var(--text); font-family: inherit; outline: none; cursor: pointer; }
+
+/* GRID DE BIENS */
+.bien-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.bien-card { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 12px 12px 36px; cursor: pointer; display: flex; gap: 12px; align-items: flex-start; transition: border-color .15s, box-shadow .15s, transform .15s; position: relative; }
+.bien-card:hover { border-color: var(--border2); box-shadow: 0 4px 14px rgba(22,38,107,.08); transform: translateY(-2px); }
+.bc-thumb { width: 56px; height: 56px; border-radius: 10px; overflow: hidden; flex-shrink: 0; background: var(--input-bg); display: flex; align-items: center; justify-content: center; font-size: 22px; }
+.bc-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.bc-main { flex: 1; min-width: 0; }
+.bc-addr { font-size: 13.5px; font-weight: 700; color: var(--text); margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bc-sub { font-size: 11.5px; color: var(--text3); margin-bottom: 7px; }
+.bc-meta { display: flex; gap: 6px; flex-wrap: wrap; }
+.bc-chip { font-size: 10.5px; font-weight: 600; padding: 3px 8px; border-radius: 999px; background: var(--input-bg); color: var(--text2); white-space: nowrap; }
+.bc-chip.ok { background: var(--st-vendu-bg); color: var(--st-vendu); }
+.bc-chip.warn { background: var(--st-compromis-bg); color: var(--st-compromis); }
+.bc-status { position: absolute; top: 10px; right: 10px; font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 999px; border: 1px solid; white-space: nowrap; }
+.bc-del { position: absolute; bottom: 10px; right: 10px; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--text3); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background .15s, color .15s, border-color .15s; padding: 0; }
+.bc-del:hover { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
+[data-theme="dark"] .bc-del:hover { background: #2d1010; border-color: #5a1f1f; }
+
+/* Badges de statut */
+.st-estimation { color: var(--st-estim); background: var(--st-estim-bg); border-color: var(--st-estim-border); }
+.st-mandat { color: var(--st-mandat); background: var(--st-mandat-bg); border-color: var(--st-mandat-border); }
+.st-compromis { color: var(--st-compromis); background: var(--st-compromis-bg); border-color: var(--st-compromis-border); }
+.st-vendu { color: var(--st-vendu); background: var(--st-vendu-bg); border-color: var(--st-vendu-border); }
+.st-location { color: var(--st-location); background: var(--st-location-bg); border-color: var(--st-location-border); }
+.st-loue { color: var(--st-loue); background: var(--st-loue-bg); border-color: var(--st-loue-border); }
+.st-archive { color: var(--st-archive); background: var(--st-archive-bg); border-color: var(--st-archive-border); }
+
+.empty-state { text-align: center; padding: 3rem 1rem; color: var(--text3); font-size: 13.5px; grid-column: 1/-1; }
+.empty-state b { color: var(--text2); display: block; margin-bottom: 6px; font-size: 15px; }
+
+/* DETAIL VIEW */
+#detail-view { display: none; }
+.detail-back { background: none; border: none; color: var(--text2); font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; margin-bottom: 14px; padding: 6px 0; }
+.detail-back:hover { color: var(--text); }
+.detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 4px; flex-wrap: wrap; }
+.detail-addr { font-size: 20px; font-weight: 800; color: var(--text); }
+.detail-addr-note { font-size: 11px; color: var(--text4); margin-bottom: 1.1rem; }
+
+.dcard { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 1.1rem; margin-bottom: 1rem; }
+.dcard-title { font-size: 12.5px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 12px; display: flex; align-items: center; gap: 7px; }
+.dgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+.dfield label { display: block; font-size: 11px; font-weight: 600; color: var(--text3); margin-bottom: 4px; text-transform: uppercase; letter-spacing: .04em; }
+.dfield input, .dfield select, .dfield textarea { width: 100%; font-size: 13.5px; padding: 9px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text); outline: none; font-family: inherit; resize: vertical; transition: border-color .15s; }
+.dfield input:focus, .dfield select:focus, .dfield textarea:focus { border-color: var(--blue); background: var(--surface); }
+.dfield.full { grid-column: 1 / -1; }
+
+.link-box { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.link-thumbs { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; min-width: 160px; }
+.link-thumb { width: 46px; height: 46px; border-radius: 8px; overflow: hidden; background: var(--input-bg); }
+.link-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.link-pbar { flex: 1; min-width: 120px; height: 7px; border-radius: 99px; background: var(--input-bg); overflow: hidden; }
+.link-pbar i { display: block; height: 100%; background: var(--st-vendu); border-radius: 99px; transition: width .3s; }
+.link-empty { color: var(--text3); font-size: 13px; margin-bottom: 10px; }
+.link-preview { font-size: 12.5px; color: var(--text2); line-height: 1.7; margin-bottom: 10px; }
+.link-preview b { color: var(--text); }
+.btn-link-open { display: inline-flex; align-items: center; gap: 6px; background: var(--blue-bg); color: var(--blue); border: 1px solid var(--blue-border); border-radius: 8px; padding: 8px 13px; font-size: 12.5px; font-weight: 700; text-decoration: none; white-space: nowrap; transition: opacity .15s; }
+.btn-link-open:hover { opacity: .85; }
+
+.btn-danger { background: none; border: 1px solid var(--st-compromis-border, #fecaca); color: #dc2626; border-radius: 8px; padding: 9px 14px; font-size: 12.5px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background .15s; }
+.btn-danger:hover { background: #fef2f2; }
+[data-theme="dark"] .btn-danger:hover { background: #2d1010; }
+
+/* MODALE NOUVEAU BIEN */
+#new-bien-overlay { position: fixed; inset: 0; background: rgba(15,20,40,.55); display: none; align-items: center; justify-content: center; z-index: 9998; padding: 20px; backdrop-filter: blur(2px); }
+#new-bien-overlay.show { display: flex; }
+#new-bien-box { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; max-width: 420px; width: 100%; padding: 22px; box-shadow: 0 20px 50px rgba(15,20,40,.3); }
+#new-bien-box h3 { font-size: 16px; font-weight: 800; color: var(--text); margin-bottom: 14px; }
+#new-bien-box .dfield { margin-bottom: 12px; }
+#new-bien-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 6px; }
+#new-bien-actions button { border-radius: 9px; padding: 9px 16px; font-size: 13px; font-weight: 700; cursor: pointer; border: 1px solid var(--border); font-family: inherit; }
+#nb-cancel { background: var(--bg); color: var(--text2); }
+#nb-cancel:hover { background: var(--border); }
+#nb-create { background: var(--blue); border-color: var(--blue); color: #fff; }
+#nb-create:hover { opacity: .9; }
+
+/* MODALE CONFIRMATION SUPPRESSION */
+#confirm-del-overlay { position: fixed; inset: 0; background: rgba(15,20,40,.55); display: none; align-items: center; justify-content: center; z-index: 9998; padding: 20px; backdrop-filter: blur(2px); }
+#confirm-del-overlay.show { display: flex; }
+#confirm-del-box { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; max-width: 400px; width: 100%; padding: 22px; box-shadow: 0 20px 50px rgba(15,20,40,.3); }
+#confirm-del-box h3 { font-size: 16px; font-weight: 800; color: var(--text); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+#confirm-del-text { font-size: 13.5px; color: var(--text2); line-height: 1.6; margin-bottom: 18px; }
+#confirm-del-actions { display: flex; gap: 10px; justify-content: flex-end; }
+#confirm-del-actions button { border-radius: 9px; padding: 9px 16px; font-size: 13px; font-weight: 700; cursor: pointer; border: 1px solid var(--border); font-family: inherit; }
+#cd-cancel { background: var(--bg); color: var(--text2); }
+#cd-cancel:hover { background: var(--border); }
+#cd-confirm { background: #dc2626; border-color: #dc2626; color: #fff; }
+#cd-confirm:hover { opacity: .9; }
+
+/* TOAST */
+.toast-dossier { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 10px 18px; border-radius: 999px; font-size: 13px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,.15); z-index: 9999; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; }
+.toast-dossier.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+footer { text-align: center; padding: 2rem 1rem calc(2rem + env(safe-area-inset-bottom)); font-size: 12px; color: var(--text4); }
+
+@media (max-width: 640px) {
+  .header-info span { display: none; }
+  .bien-grid { grid-template-columns: 1fr; }
+  .detail-addr { font-size: 17px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back-home" href="index.html" title="Retour à l'accueil">← Accueil</a>
+  <div class="header-logo"><img src="logo_laforet.png" alt="Laforêt"></div>
+  <div class="header-info">
+    <h1>Dossier des biens</h1>
+    <span>Photos, description &amp; suivi centralisés par bien</span>
+  </div>
+  <div class="header-right">
+    <button class="theme-toggle" onclick="toggleTheme()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="theme-icon"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      <span id="theme-label">Mode sombre</span>
+    </button>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- ===== VUE LISTE ===== -->
+  <div id="list-view">
+    <div class="toolbar">
+      <button class="btn-new-bien" onclick="openNewBienModal()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Nouveau bien
+      </button>
+      <div class="toolbar-search">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="search-input" placeholder="Rechercher une adresse, une ville…" oninput="renderList()">
+      </div>
+      <div class="toolbar-filter">
+        <select id="statut-filter" onchange="renderList()">
+          <option value="">Tous les statuts</option>
+          <option value="estimation">À l'estimation</option>
+          <option value="mandat">En mandat</option>
+          <option value="compromis">Compromis signé</option>
+          <option value="vendu">Vendu</option>
+          <option value="location">En location</option>
+          <option value="loue">Loué</option>
+          <option value="archive">Archivé</option>
+        </select>
+      </div>
+    </div>
+    <div class="bien-grid" id="bien-grid"></div>
+  </div>
+
+  <!-- ===== VUE DÉTAIL ===== -->
+  <div id="detail-view">
+    <button class="detail-back" onclick="closeDetail()">‹ Tous les biens</button>
+    <div class="detail-head">
+      <div>
+        <div class="detail-addr" id="d-addr"></div>
+        <div class="detail-addr-note">Adresse d'origine — sert à relier PhotoImmo et la Bibliothèque, non modifiable ici.</div>
+      </div>
+    </div>
+
+    <div class="dcard">
+      <div class="dcard-title">🏷️ Informations générales</div>
+      <div class="dgrid">
+        <div class="dfield"><label>Ville / quartier</label><input type="text" id="d-ville" placeholder="Pithiviers…"></div>
+        <div class="dfield"><label>Type de bien</label>
+          <select id="d-type"><option value="">—</option><option value="maison">Maison</option><option value="appartement">Appartement</option></select>
+        </div>
+        <div class="dfield"><label>Statut du dossier</label>
+          <select id="d-statut">
+            <option value="estimation">À l'estimation</option>
+            <option value="mandat">En mandat</option>
+            <option value="compromis">Compromis signé</option>
+            <option value="vendu">Vendu</option>
+            <option value="location">En location</option>
+            <option value="loue">Loué</option>
+            <option value="archive">Archivé</option>
+          </select>
+        </div>
+        <div class="dfield"><label>Prix / loyer</label><input type="text" id="d-prix" placeholder="ex : 245 000 € ou 780 €/mois"></div>
+        <div class="dfield full"><label>Notes internes</label><textarea id="d-notes" rows="3" placeholder="Contact propriétaire, contraintes, historique des visites…"></textarea></div>
+      </div>
+    </div>
+
+    <div class="dcard">
+      <div class="dcard-title">📷 Photos — PhotoImmo Pro</div>
+      <div id="d-photo-content"></div>
+    </div>
+
+    <div class="dcard">
+      <div class="dcard-title">📝 Description / annonce — Bibliothèque de prompts</div>
+      <div id="d-desc-content"></div>
+    </div>
+
+    <button class="btn-danger" onclick="deleteCurrentBien()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+      Supprimer ce dossier
+    </button>
+  </div>
+
+</div>
+
+<footer>Laforêt Pithiviers · Usage interne</footer>
+
+<!-- Modale Nouveau bien -->
+<div id="new-bien-overlay" role="dialog" aria-modal="true">
+  <div id="new-bien-box">
+    <h3>Nouveau bien</h3>
+    <div class="dfield"><label>Adresse</label><input type="text" id="nb-addr" placeholder="12 rue des Lilas, Pithiviers"></div>
+    <div class="dfield"><label>Ville / quartier</label><input type="text" id="nb-ville" placeholder="Pithiviers…"></div>
+    <div class="dfield"><label>Type de bien</label>
+      <select id="nb-type"><option value="maison">Maison</option><option value="appartement">Appartement</option></select>
+    </div>
+    <div class="dfield"><label>Statut</label>
+      <select id="nb-statut">
+        <option value="estimation">À l'estimation</option>
+        <option value="mandat">En mandat</option>
+        <option value="location">En location</option>
+      </select>
+    </div>
+    <div id="new-bien-actions">
+      <button id="nb-cancel" onclick="closeNewBienModal()">Annuler</button>
+      <button id="nb-create" onclick="createBienFromModal()">Créer le dossier</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modale confirmation de suppression -->
+<div id="confirm-del-overlay" role="dialog" aria-modal="true">
+  <div id="confirm-del-box">
+    <h3>🗑️ Supprimer ce dossier ?</h3>
+    <div id="confirm-del-text"></div>
+    <div id="confirm-del-actions">
+      <button id="cd-cancel" onclick="closeConfirmDelete()">Annuler</button>
+      <button id="cd-confirm" onclick="confirmDelete()">Supprimer</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-dossier" id="toast"></div>
+
+<script>
+/* ============================================================
+   REGISTRE PARTAGÉ — même clé/format que dans photoimmo.html et
+   bibliotheque.html. Cette app EST la source de vérité pour la
+   liste des biens et pour les champs "centraux" (statut, prix,
+   notes, ville/type par défaut) ; elle ne fait que LIRE les
+   données de PhotoImmo (photoimmo_pro_biens) et de la Bibliothèque
+   (laforet_biens_saved) pour les afficher — jamais les modifier.
+   ============================================================ */
+const REG_KEY = 'laforet_biens_registry';
+function normBienLabel(s) { return (s||'').trim().toLowerCase().replace(/\s+/g,' '); }
+function getBienRegistry() { try { return JSON.parse(localStorage.getItem(REG_KEY)) || []; } catch(e) { return []; } }
+function setBienRegistry(list) { try { localStorage.setItem(REG_KEY, JSON.stringify(list)); } catch(e) { showToast('⚠️ Impossible d’enregistrer (mémoire du navigateur pleine ?)'); } }
+function findEntryByNorm(norm) { return getBienRegistry().find(e => e.norm === norm) || null; }
+function guessVilleFromAddress(addr) {
+  const parts = (addr||'').split(',');
+  return parts.length > 1 ? parts[parts.length-1].trim() : '';
+}
+
+/* Crée ou met à jour un dossier central (statut/prix/notes/ville/type) */
+function upsertCentral(label, fields) {
+  const norm = normBienLabel(label);
+  if (!norm) return null;
+  const reg = getBienRegistry();
+  let entry = reg.find(e => e.norm === norm);
+  if (!entry) { entry = { norm, label: label.trim(), createdAt: Date.now(), links: {}, central: {} }; reg.unshift(entry); }
+  if (!entry.central) entry.central = {};
+  Object.assign(entry.central, fields);
+  entry.updatedAt = Date.now();
+  setBienRegistry(reg);
+  return entry;
+}
+function deleteCentralBien(norm) {
+  setBienRegistry(getBienRegistry().filter(e => e.norm !== norm));
+}
+
+/* ---------- Lecture (seule) des données de PhotoImmo et de la Bibliothèque ---------- */
+function getPhotoimmoBiens() { try { return JSON.parse(localStorage.getItem('photoimmo_pro_biens')) || []; } catch(e) { return []; } }
+function getBibliothequeBiens() { try { return JSON.parse(localStorage.getItem('laforet_biens_saved')) || []; } catch(e) { return []; } }
+
+function matchPhotoimmoBien(entry) {
+  const list = getPhotoimmoBiens();
+  if (entry.links && entry.links.photoimmo) {
+    const b = list.find(x => x.id === entry.links.photoimmo);
+    if (b) return b;
+  }
+  return list.find(x => normBienLabel(x.address) === entry.norm) || null;
+}
+function matchBibliothequeBien(entry) {
+  const list = getBibliothequeBiens();
+  if (entry.links && entry.links.bibliotheque) {
+    const b = list.find(x => x.name === entry.links.bibliotheque);
+    if (b) return b;
+  }
+  return list.find(x => normBienLabel(x.name) === entry.norm) || null;
+}
+
+/* Progression photo — miroir simplifié de photoimmo.html (pas besoin des icônes/libellés ici) */
+const REQUIRED_ROOMS = {
+  maison: ['facade','entree','salon','cuisine','sam','chambre','sdb','bureau','jardin','terrasse','garage','vue'],
+  appartement: ['entree','salon','cuisine','sam','chambre','sdb','bureau','terrasse','vue']
+};
+function photoProgress(piBien) {
+  if (!piBien) return null;
+  const req = REQUIRED_ROOMS[piBien.type] || REQUIRED_ROOMS.maison;
+  const doneRooms = new Set((piBien.photos||[]).map(p => p.room));
+  const done = req.filter(r => doneRooms.has(r)).length;
+  return { done, total: req.length, count: (piBien.photos||[]).length };
+}
+function bestThumbs(piBien, max) {
+  if (!piBien || !piBien.photos || !piBien.photos.length) return [];
+  const byRoom = {};
+  piBien.photos.forEach(p => {
+    if (!byRoom[p.room] || (p.kept && !byRoom[p.room].kept) || (!byRoom[p.room].kept && p.score > byRoom[p.room].score)) byRoom[p.room] = p;
+  });
+  return Object.values(byRoom).slice(0, max).map(p => p.thumb);
+}
+function descPreview(bibBien) {
+  if (!bibBien) return null;
+  const d = bibBien.data || {};
+  const mode = d['__mode'] || 'vente';
+  const prix = mode === 'location' ? d['h-loyer-cc'] : d['h-prix'];
+  return { type: d['h-type']||'', ville: d['h-ville']||'', pieces: d['h-pieces']||'', surface: d['h-surface']||'', prix: prix||'', mode };
+}
+
+/* Valeurs par défaut "intelligentes" : central > donnée liée > deviné depuis l'adresse */
+function effectiveVille(entry, piBien, bibBien) {
+  if (entry.central && entry.central.ville) return entry.central.ville;
+  if (bibBien && bibBien.data && bibBien.data['h-ville']) return bibBien.data['h-ville'];
+  return guessVilleFromAddress(entry.label);
+}
+function effectiveType(entry, piBien, bibBien) {
+  if (entry.central && entry.central.type) return entry.central.type;
+  if (piBien) return piBien.type;
+  if (bibBien && bibBien.data && bibBien.data['h-type']) return bibBien.data['h-type'].toLowerCase().startsWith('appart') ? 'appartement' : 'maison';
+  return '';
+}
+function effectiveStatut(entry) { return (entry.central && entry.central.statut) || 'estimation'; }
+function effectivePrix(entry, bibBien) {
+  if (entry.central && entry.central.prix) return entry.central.prix;
+  const dp = descPreview(bibBien);
+  return dp ? dp.prix : '';
+}
+
+const STATUT_LABELS = { estimation:"À l'estimation", mandat:'En mandat', compromis:'Compromis signé', vendu:'Vendu', location:'En location', loue:'Loué', archive:'Archivé' };
+function statutLabel(s) { return STATUT_LABELS[s] || STATUT_LABELS.estimation; }
+
+/* ============================== RENDU LISTE ============================== */
+function renderList() {
+  const grid = document.getElementById('bien-grid');
+  const q = normBienLabel(document.getElementById('search-input').value);
+  const statutFilter = document.getElementById('statut-filter').value;
+  let entries = getBienRegistry();
+
+  entries = entries.map(entry => {
+    const piBien = matchPhotoimmoBien(entry);
+    const bibBien = matchBibliothequeBien(entry);
+    return { entry, piBien, bibBien };
+  });
+
+  if (q) entries = entries.filter(({entry, piBien, bibBien}) =>
+    entry.norm.includes(q) || normBienLabel(effectiveVille(entry, piBien, bibBien)).includes(q)
+  );
+  if (statutFilter) entries = entries.filter(({entry}) => effectiveStatut(entry) === statutFilter);
+
+  entries.sort((a,b) => (b.entry.updatedAt||b.entry.createdAt||0) - (a.entry.updatedAt||a.entry.createdAt||0));
+
+  if (!entries.length) {
+    grid.innerHTML = `<div class="empty-state"><b>Aucun bien pour l'instant</b>Créez un dossier, ou sauvegardez un bien dans PhotoImmo / la Bibliothèque : il apparaîtra ici automatiquement.</div>`;
+    return;
+  }
+
+  grid.innerHTML = entries.map(({entry, piBien, bibBien}) => {
+    const ville = effectiveVille(entry, piBien, bibBien);
+    const type = effectiveType(entry, piBien, bibBien);
+    const statut = effectiveStatut(entry);
+    const prix = effectivePrix(entry, bibBien);
+    const pr = photoProgress(piBien);
+    const thumbs = bestThumbs(piBien, 1);
+    const typeLabel = type === 'appartement' ? 'Appartement' : (type === 'maison' ? 'Maison' : '');
+    return `
+    <div class="bien-card" onclick="openDetail('${entry.norm.replace(/'/g,"\\'")}')">
+      <span class="bc-status st-${statut}">${statutLabel(statut)}</span>
+      <div class="bc-thumb">${thumbs[0] ? `<img src="${thumbs[0]}" alt="">` : '🏠'}</div>
+      <div class="bc-main">
+        <div class="bc-addr" title="${escHtml(entry.label)}">${escHtml(entry.label)}</div>
+        <div class="bc-sub">${escHtml(ville)}${typeLabel ? ' · '+typeLabel : ''}</div>
+        <div class="bc-meta">
+          <span class="bc-chip ${pr && pr.done===pr.total ? 'ok' : ''}">📷 ${pr ? pr.done+'/'+pr.total : '—'}</span>
+          <span class="bc-chip ${bibBien ? 'ok' : ''}">📝 ${bibBien ? 'Fiche prête' : 'Pas de fiche'}</span>
+          ${prix ? `<span class="bc-chip">💶 ${escHtml(prix)}</span>` : ''}
+        </div>
+      </div>
+      <button class="bc-del" title="Supprimer ce dossier" onclick="event.stopPropagation(); requestDeleteBien('${entry.norm.replace(/'/g,"\\'")}')">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+      </button>
+    </div>`;
+  }).join('');
+}
+function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+/* ============================== VUE DÉTAIL ============================== */
+let currentNorm = null;
+
+function openDetail(norm) {
+  currentNorm = norm;
+  renderDetail();
+  document.getElementById('list-view').style.display = 'none';
+  document.getElementById('detail-view').style.display = 'block';
+  window.scrollTo(0,0);
+}
+function closeDetail() {
+  currentNorm = null;
+  document.getElementById('detail-view').style.display = 'none';
+  document.getElementById('list-view').style.display = 'block';
+  renderList();
+}
+
+function renderDetail() {
+  const entry = findEntryByNorm(currentNorm);
+  if (!entry) { closeDetail(); return; }
+  const piBien = matchPhotoimmoBien(entry);
+  const bibBien = matchBibliothequeBien(entry);
+  const central = entry.central || {};
+
+  document.getElementById('d-addr').textContent = entry.label;
+  document.getElementById('d-ville').value = effectiveVille(entry, piBien, bibBien);
+  document.getElementById('d-type').value = effectiveType(entry, piBien, bibBien);
+  document.getElementById('d-statut').value = effectiveStatut(entry);
+  document.getElementById('d-prix').value = effectivePrix(entry, bibBien);
+  document.getElementById('d-notes').value = central.notes || '';
+
+  // ---- Bloc Photos ----
+  const piUrl = 'photoimmo.html?bien=' + encodeURIComponent(entry.label) + '&type=' + encodeURIComponent(effectiveType(entry, piBien, bibBien));
+  const dPhoto = document.getElementById('d-photo-content');
+  if (piBien) {
+    const pr = photoProgress(piBien);
+    const thumbs = bestThumbs(piBien, 8);
+    dPhoto.innerHTML = `
+      <div class="link-box" style="margin-bottom:10px">
+        <div class="link-thumbs">${thumbs.length ? thumbs.map(t=>`<div class="link-thumb"><img src="${t}" alt=""></div>`).join('') : '<span class="link-empty" style="margin:0">Aucune photo retenue pour le moment.</span>'}</div>
+      </div>
+      <div class="link-box">
+        <div class="link-pbar"><i style="width:${Math.round(pr.done/pr.total*100)}%"></i></div>
+        <span style="font-size:12px;color:var(--text2);font-weight:700;white-space:nowrap">${pr.done}/${pr.total} pièces clés · ${pr.count} photo${pr.count>1?'s':''}</span>
+      </div>
+      <a class="btn-link-open" style="margin-top:12px" href="${piUrl}">📷 Ouvrir dans PhotoImmo Pro →</a>
+    `;
+  } else {
+    dPhoto.innerHTML = `
+      <div class="link-empty">Aucune fiche photo pour ce bien pour l'instant.</div>
+      <a class="btn-link-open" href="${piUrl}">📷 Créer la fiche photo dans PhotoImmo →</a>
+    `;
+  }
+
+  // ---- Bloc Description ----
+  const bibUrl = 'bibliotheque.html?bien=' + encodeURIComponent(entry.label) + '&type=' + encodeURIComponent(effectiveType(entry, piBien, bibBien) === 'appartement' ? 'Appartement' : 'Maison') + '&ville=' + encodeURIComponent(effectiveVille(entry, piBien, bibBien));
+  const dDesc = document.getElementById('d-desc-content');
+  if (bibBien) {
+    const dp = descPreview(bibBien);
+    dDesc.innerHTML = `
+      <div class="link-preview">
+        <b>${escHtml(dp.type || '—')}</b> à ${escHtml(dp.ville || '—')}${dp.pieces ? ' · '+escHtml(dp.pieces)+' pièces' : ''}${dp.surface ? ' · '+escHtml(dp.surface)+' m²' : ''}<br>
+        ${dp.prix ? (dp.mode==='location' ? 'Loyer : <b>'+escHtml(dp.prix)+'</b>' : 'Prix : <b>'+escHtml(dp.prix)+'</b>') : 'Prix non renseigné'}
+      </div>
+      <a class="btn-link-open" href="${bibUrl}">📝 Ouvrir dans la Bibliothèque de prompts →</a>
+    `;
+  } else {
+    dDesc.innerHTML = `
+      <div class="link-empty">Aucune fiche description/annonce pour ce bien pour l'instant.</div>
+      <a class="btn-link-open" href="${bibUrl}">📝 Créer la fiche description →</a>
+    `;
+  }
+
+  // ---- Sauvegarde des champs centraux (au blur / au changement) ----
+  ['d-ville','d-type','d-statut','d-prix','d-notes'].forEach(id => {
+    const el = document.getElementById(id);
+    const handler = () => {
+      upsertCentral(entry.label, {
+        ville: document.getElementById('d-ville').value.trim(),
+        type: document.getElementById('d-type').value,
+        statut: document.getElementById('d-statut').value,
+        prix: document.getElementById('d-prix').value.trim(),
+        notes: document.getElementById('d-notes').value
+      });
+      showToast('✅ Dossier mis à jour');
+    };
+    el.onchange = handler;
+  });
+}
+
+function deleteCurrentBien() {
+  const entry = findEntryByNorm(currentNorm);
+  if (!entry) return;
+  requestDeleteBien(entry.norm);
+}
+
+/* ============================== SUPPRESSION (popup de confirmation) ============================== */
+let _pendingDeleteNorm = null;
+function requestDeleteBien(norm) {
+  const entry = findEntryByNorm(norm);
+  if (!entry) return;
+  _pendingDeleteNorm = norm;
+  document.getElementById('confirm-del-text').innerHTML =
+    'Supprimer le dossier « <b>' + escHtml(entry.label) + '</b> » ?<br><br>' +
+    '<span style="font-size:12px;color:var(--text3)">Cela retire uniquement ce bien du Dossier centralisé — ses photos dans PhotoImmo et sa fiche dans la Bibliothèque, si elles existent, ne sont PAS supprimées.</span>';
+  document.getElementById('confirm-del-overlay').classList.add('show');
+}
+function closeConfirmDelete() {
+  _pendingDeleteNorm = null;
+  document.getElementById('confirm-del-overlay').classList.remove('show');
+}
+function confirmDelete() {
+  const norm = _pendingDeleteNorm;
+  if (!norm) { closeConfirmDelete(); return; }
+  deleteCentralBien(norm);
+  closeConfirmDelete();
+  showToast('🗑️ Dossier supprimé');
+  if (currentNorm === norm) {
+    closeDetail();
+  } else {
+    renderList();
+  }
+}
+document.getElementById('confirm-del-overlay').addEventListener('click', e => { if (e.target.id === 'confirm-del-overlay') closeConfirmDelete(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.getElementById('confirm-del-overlay').classList.contains('show')) closeConfirmDelete(); });
+
+/* ============================== NOUVEAU BIEN ============================== */
+function openNewBienModal() {
+  document.getElementById('nb-addr').value = '';
+  document.getElementById('nb-ville').value = '';
+  document.getElementById('nb-type').value = 'maison';
+  document.getElementById('nb-statut').value = 'estimation';
+  document.getElementById('new-bien-overlay').classList.add('show');
+  setTimeout(() => document.getElementById('nb-addr').focus(), 100);
+}
+function closeNewBienModal() { document.getElementById('new-bien-overlay').classList.remove('show'); }
+function createBienFromModal() {
+  const addr = document.getElementById('nb-addr').value.trim();
+  if (!addr) { showToast('⚠️ Indiquez une adresse'); return; }
+  const entry = upsertCentral(addr, {
+    ville: document.getElementById('nb-ville').value.trim() || guessVilleFromAddress(addr),
+    type: document.getElementById('nb-type').value,
+    statut: document.getElementById('nb-statut').value
+  });
+  closeNewBienModal();
+  showToast('✅ Dossier créé');
+  renderList();
+  if (entry) openDetail(entry.norm);
+}
+document.getElementById('new-bien-overlay').addEventListener('click', e => { if (e.target.id === 'new-bien-overlay') closeNewBienModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.getElementById('new-bien-overlay').classList.contains('show')) closeNewBienModal(); });
+
+/* ============================== TOAST ============================== */
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+/* ============================== THÈME ============================== */
+function initTheme() {
+  const saved = localStorage.getItem('theme');
+  const sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme:dark)').matches;
+  const theme = saved || (sysDark ? 'dark' : 'light');
+  document.documentElement.setAttribute('data-theme', theme);
+  updateThemeUI(theme);
+}
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'light';
+  const next = current === 'light' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+  updateThemeUI(next);
+}
+function updateThemeUI(theme) {
+  const icon = document.getElementById('theme-icon');
+  const label = document.getElementById('theme-label');
+  if (theme === 'dark') {
+    icon.innerHTML = `<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>`;
+    label.textContent = 'Mode clair';
+  } else {
+    icon.innerHTML = `<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>`;
+    label.textContent = 'Mode sombre';
+  }
+}
+
+/* ============================== INIT ============================== */
+window.onload = function() {
+  initTheme();
+  renderList();
+};
+</script>
+</body>
+</html>
