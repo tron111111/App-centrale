@@ -19,10 +19,12 @@
 <meta name="apple-mobile-web-app-title" content="Dossier biens">
 <!--
   Content-Security-Policy : cette page ne fait AUCUN appel réseau (pas d'IA ici,
-  juste de la lecture/écriture de localStorage partagé avec les autres apps du
-  portail). connect-src 'self' suffit donc, contrairement à bibliotheque.html/blog.html.
+  juste de la lecture/écriture de localStorage et d'IndexedDB partagés avec les
+  autres apps du portail). connect-src 'self' suffit donc, contrairement à
+  bibliotheque.html/blog.html. img-src autorise "blob:" pour afficher les
+  vignettes de PhotoImmo Pro, lues depuis IndexedDB (URL.createObjectURL).
 -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'self'">
 <title>Dossier des biens — Laforêt Pithiviers</title>
 <meta name="description" content="Fiche centralisée par bien : photos, description/annonce, statut et notes — Laforêt Pithiviers.">
 <link rel="icon" type="image/png" href="logo_laforet.png">
