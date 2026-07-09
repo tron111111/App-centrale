@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Test connexion Supabase</title>
+<style>
+  body { font-family: sans-serif; max-width: 600px; margin: 60px auto; padding: 0 20px; }
+  #resultat { margin-top: 20px; padding: 16px; border-radius: 8px; font-weight: bold; }
+  .ok { background: #d4edda; color: #155724; }
+  .erreur { background: #f8d7da; color: #721c24; }
+  .attente { background: #eee; color: #555; }
+</style>
+</head>
+<body>
+
+<h1>Test de connexion Supabase</h1>
+<p>Cette page ne fait qu'une chose : vérifier que le navigateur arrive à parler à Supabase. Rien n'est lu ni écrit dans tes données existantes.</p>
+
+<div id="resultat" class="attente">Test en cours...</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-client.js"></script>
+<script>
+async function tester() {
+  const div = document.getElementById('resultat');
+  try {
+    // On demande juste la session actuelle (personne n'est connecté, donc ce sera "null",
+    // mais si ça répond sans erreur réseau, ça veut dire que la connexion fonctionne).
+    const { data, error } = await supabaseClient.auth.getSession();
+
+    if (error) {
+      div.className = 'erreur';
+      div.textContent = 'Erreur : ' + error.message;
+      return;
+    }
+
+    div.className = 'ok';
+    div.textContent = '✅ Connexion à Supabase réussie ! (Projet : tclqiusyonocedobtoky)';
+  } catch (e) {
+    div.className = 'erreur';
+    div.textContent = '❌ Erreur de connexion : ' + e.message;
+  }
+}
+tester();
+</script>
+
+</body>
+</html>
