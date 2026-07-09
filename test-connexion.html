@@ -25,7 +25,7 @@ async function tester() {
   const div = document.getElementById('resultat');
   try {
     // On demande juste la session actuelle (personne n'est connecté, donc ce sera "null",
-    // mais si ça répond sans erreur réseau, ça veut dire que la connexion fonctionne).
+    // mais si ça répond sans erreur réseau, ça veut dire que la connexion fonctionne). changement
     const { data, error } = await supabaseClient.auth.getSession();
 
     if (error) {
