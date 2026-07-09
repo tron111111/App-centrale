@@ -18,14 +18,14 @@
 
 <div id="resultat" class="attente">Test en cours...</div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-lib.js"></script>
 <script src="supabase-client.js"></script>
 <script>
 async function tester() {
   const div = document.getElementById('resultat');
   try {
     // On demande juste la session actuelle (personne n'est connecté, donc ce sera "null",
-    // mais si ça répond sans erreur réseau, ça veut dire que la connexion fonctionne). changement
+    // mais si ça répond sans erreur réseau, ça veut dire que la connexion fonctionne).
     const { data, error } = await supabaseClient.auth.getSession();
 
     if (error) {
