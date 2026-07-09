@@ -1005,6 +1005,65 @@ function idbDel(id){
 }
 function idbDelMany(ids){return Promise.all((ids||[]).map(idbDel));}
 
+/* ============================================================
+   STOCKAGE DES VIGNETTES — Supabase Storage (bucket photoimmo-photos)
+   ------------------------------------------------------------
+   IndexedDB (ci-dessus) reste la copie locale rapide, utilisée pour
+   l'affichage instantané et le mode hors-ligne sur CE poste. En plus,
+   chaque vignette est envoyée dans un bucket Supabase Storage afin
+   qu'un autre poste (qui n'a évidemment pas cette photo dans sa
+   propre IndexedDB) puisse la retélécharger. C'est le pendant
+   "fichier binaire" de la synchro biens_photoimmo (qui elle ne
+   contient que les métadonnées texte/JSON).
+   Une même clé (l'id de la photo) sert de nom de fichier dans le
+   bucket : pas besoin de stocker une URL, on la reconstruit toujours
+   à partir de l'id.
+   ============================================================ */
+const PHOTO_BUCKET='PHOTOIMMO-PHOTOS';
+
+// Envoi (fire-and-forget, n'empêche jamais l'usage local si ça échoue :
+// pas de réseau sur le terrain = la photo reste quand même utilisable
+// localement, et sera renvoyée à la prochaine ouverture de l'app grâce
+// à retryPendingCloudUploads()).
+async function cloudUploadThumb(photoId,blob){
+  try{
+    const {error}=await supabaseClient.storage.from(PHOTO_BUCKET)
+      .upload(photoId,blob,{contentType:blob.type||'image/webp',upsert:true});
+    if(error)throw error;
+    return true;
+  }catch(e){ console.warn('[cloud] échec envoi photo',photoId,e); return false; }
+}
+async function cloudDownloadThumb(photoId){
+  try{
+    const {data,error}=await supabaseClient.storage.from(PHOTO_BUCKET).download(photoId);
+    if(error||!data)return null;
+    return data; // déjà un Blob
+  }catch(e){ console.warn('[cloud] échec téléchargement photo',photoId,e); return null; }
+}
+async function cloudDeleteThumbs(photoIds){
+  if(!photoIds||!photoIds.length)return;
+  try{
+    const {error}=await supabaseClient.storage.from(PHOTO_BUCKET).remove(photoIds);
+    if(error)throw error;
+  }catch(e){ console.warn('[cloud] échec suppression photo(s)',e); }
+}
+
+// Vignettes prises hors-ligne (ou pendant un échec réseau) : leur id est
+// gardé ici pour retenter l'envoi dès que l'app est rouverte avec du réseau.
+const PENDING_KEY='photoimmo_pending_uploads';
+function getPendingUploads(){try{return JSON.parse(localStorage.getItem(PENDING_KEY))||[];}catch(e){return[];}}
+function setPendingUploads(l){try{localStorage.setItem(PENDING_KEY,JSON.stringify(l));}catch(e){}}
+function markPendingUpload(photoId){const l=getPendingUploads();if(!l.includes(photoId)){l.push(photoId);setPendingUploads(l);}}
+function clearPendingUpload(photoId){setPendingUploads(getPendingUploads().filter(id=>id!==photoId));}
+async function retryPendingCloudUploads(){
+  const l=getPendingUploads();
+  for(const id of l){
+    const blob=await idbGet(id);
+    if(!blob){ clearPendingUpload(id); continue; }
+    if(await cloudUploadThumb(id,blob)) clearPendingUpload(id);
+  }
+}
+
 // dataURL (base64, issue de canvas.toDataURL) -> Blob binaire, pour l'écriture en IndexedDB
 function dataURLtoBlob(dataURL){
   const [head,b64]=dataURL.split(',');
@@ -1021,7 +1080,13 @@ const thumbUrlCache={};
 async function thumbURL(photoId){
   if(!photoId)return null;
   if(thumbUrlCache[photoId])return thumbUrlCache[photoId];
-  const blob=await idbGet(photoId);
+  let blob=await idbGet(photoId);
+  if(!blob){
+    // Pas trouvée sur ce poste (photo prise sur un autre appareil) :
+    // on va la chercher dans Supabase Storage.
+    blob=await cloudDownloadThumb(photoId);
+    if(blob) idbSet(photoId,blob); // mise en cache locale pour la prochaine fois / le hors-ligne
+  }
   if(!blob)return null;
   const url=URL.createObjectURL(blob);
   thumbUrlCache[photoId]=url;
@@ -1030,12 +1095,15 @@ async function thumbURL(photoId){
 // Stocke une vignette (dataURL base64 obtenue via canvas.toDataURL) dans
 // IndexedDB et alimente immédiatement le cache mémoire, pour un affichage
 // instantané juste après la prise de vue sans attendre une lecture IndexedDB.
+// L'envoie aussi vers Supabase Storage pour que les autres postes puissent
+// la voir (sans bloquer l'UI : l'envoi se fait en tâche de fond).
 async function storeThumb(photoId,dataURL){
   const blob=dataURLtoBlob(dataURL);
   if(thumbUrlCache[photoId])URL.revokeObjectURL(thumbUrlCache[photoId]);
   thumbUrlCache[photoId]=URL.createObjectURL(blob);
   const ok=await idbSet(photoId,blob);
   if(!ok) toast('Espace de stockage plein : exportez puis videz d’anciens biens');
+  cloudUploadThumb(photoId,blob).then(sent=>{ if(!sent) markPendingUpload(photoId); });
 }
 // Hydrate en différé toutes les <img data-photo-id> encore sur le
 // placeholder : on va chercher la vraie image dans IndexedDB puis on la
@@ -1236,7 +1304,7 @@ function renderHome(){
     });
   }
   html+='<div class="section-title">Aide</div><button class="btn btn-ghost" id="rulesBtn" style="width:100%">'+ic('star',18)+' Les 10 règles d’or du shooting</button>';
-  html+='<div class="footer-note">Analyse 100% locale — vos photos ne quittent pas l’appareil. Ajoutez l’app à l’écran d’accueil pour l’utiliser hors-ligne sur le terrain.<span id="storageInfo"></span></div>';
+  html+='<div class="footer-note">Analyse 100% locale. Vos photos sont synchronisées entre vos postes via votre espace Supabase privé. Ajoutez l’app à l’écran d’accueil pour l’utiliser hors-ligne sur le terrain (envoi automatique dès que le réseau revient).<span id="storageInfo"></span></div>';
   $('home').innerHTML=html;
   updateStorageInfo();
 }
@@ -1262,7 +1330,7 @@ $('home').addEventListener('click',async e=>{
   if(e.target.closest('#newBienBtn'))return openNewBien();
   if(e.target.closest('#rulesBtn'))return openRules();
   const del=e.target.closest('[data-delbien]');
-  if(del){e.stopPropagation();const b=getBien(del.dataset.delbien);if(b&&await customConfirm('Supprimer ce bien ?','Supprimer le bien « '+b.address+' » et ses photos ? Cette action est irréversible.','Supprimer')){idbDelMany((b.photos||[]).map(p=>p.id));saveBiens(loadBiens().filter(x=>x.id!==del.dataset.delbien));renderHome();}return;}
+  if(del){e.stopPropagation();const b=getBien(del.dataset.delbien);if(b&&await customConfirm('Supprimer ce bien ?','Supprimer le bien « '+b.address+' » et ses photos ? Cette action est irréversible.','Supprimer')){const ids=(b.photos||[]).map(p=>p.id);idbDelMany(ids);cloudDeleteThumbs(ids);saveBiens(loadBiens().filter(x=>x.id!==del.dataset.delbien));renderHome();}return;}
   const card=e.target.closest('[data-bien]');if(card)openBien(card.dataset.bien);
 });
 
@@ -1847,6 +1915,9 @@ migrateThumbsToIDB();
 // en tâche de fond, pour ne pas bloquer/ralentir l'ouverture de l'app.
 syncBiensFromCloud();
 syncRegistryFromCloud();
+// Renvoie vers Supabase Storage les vignettes prises hors-ligne / dont
+// l'envoi avait échoué la dernière fois (ex. terrain sans réseau).
+retryPendingCloudUploads();
 
 // Arrivée depuis un lien de la Bibliothèque de prompts (bibliotheque.html?bien=...)
 // -> on ouvre directement la fiche si elle existe déjà, sinon on propose de la créer.
