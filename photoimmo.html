@@ -1019,7 +1019,7 @@ function idbDelMany(ids){return Promise.all((ids||[]).map(idbDel));}
    bucket : pas besoin de stocker une URL, on la reconstruit toujours
    à partir de l'id.
    ============================================================ */
-const PHOTO_BUCKET='PHOTOIMMO-PHOTOS';
+const PHOTO_BUCKET='photoimmo-photos';
 
 // Envoi (fire-and-forget, n'empêche jamais l'usage local si ça échoue :
 // pas de réseau sur le terrain = la photo reste quand même utilisable
