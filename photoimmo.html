@@ -880,7 +880,60 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('confirm-overlay'
 /* ---------- modèle ---------- */
 const BKEY='photoimmo_pro_biens';
 function loadBiens(){try{return JSON.parse(localStorage.getItem(BKEY))||[];}catch(e){return[];}}
-function saveBiens(l){try{localStorage.setItem(BKEY,JSON.stringify(l));}catch(e){toast('Mémoire pleine : exportez puis videz d’anciens biens');}}
+function saveBiens(l){
+  try{localStorage.setItem(BKEY,JSON.stringify(l));}catch(e){toast('Mémoire pleine : exportez puis videz d’anciens biens');}
+  queueCloudPushBiens(l);
+}
+
+/* ============================================================
+   SYNCHRO CLOUD — Supabase (table biens_photoimmo)
+   ------------------------------------------------------------
+   localStorage reste la copie "rapide" utilisée pour l'affichage
+   instantané (et le mode hors-ligne). En plus de ça, on pousse la
+   liste complète des biens vers Supabase (une seule ligne, id=BKEY,
+   colonne data en jsonb) afin qu'elle soit partagée entre tous les
+   postes du portail. supabaseClient vient de supabase-client.js,
+   déjà chargé avant ce script.
+   ============================================================ */
+let _bienPushTimer=null;
+function queueCloudPushBiens(list){
+  clearTimeout(_bienPushTimer);
+  _bienPushTimer=setTimeout(()=>cloudPushBiens(list),800);
+}
+async function cloudPushBiens(list){
+  try{
+    const user=await getUtilisateurConnecte();
+    const payload={id:BKEY,data:list,updated_at:new Date().toISOString()};
+    if(user)payload.updated_by=user.id;
+    const {error}=await supabaseClient.from('biens_photoimmo').upsert(payload);
+    if(error)throw error;
+  }catch(e){ console.warn('[cloud] échec envoi biens_photoimmo :',e); }
+}
+async function cloudPullBiens(){
+  try{
+    const {data,error}=await supabaseClient.from('biens_photoimmo').select('data').eq('id',BKEY).maybeSingle();
+    if(error)throw error;
+    return {ok:true,row:data};
+  }catch(e){ console.warn('[cloud] échec lecture biens_photoimmo :',e); return {ok:false,row:null}; }
+}
+// Appelée au démarrage : si le cloud a une version (créée depuis un autre
+// poste), on l'adopte comme copie locale. Si aucune ligne n'existe encore,
+// on amorce la synchro avec la copie locale existante.
+async function syncBiensFromCloud(){
+  const {ok,row}=await cloudPullBiens();
+  if(!ok)return;
+  if(row&&Array.isArray(row.data)){
+    const localStr=localStorage.getItem(BKEY)||'[]';
+    const cloudStr=JSON.stringify(row.data);
+    if(cloudStr!==localStr){
+      localStorage.setItem(BKEY,cloudStr);
+      if(!isAnyUiOpen())renderHome();
+    }
+  }else{
+    const localList=loadBiens();
+    if(localList.length)queueCloudPushBiens(localList);
+  }
+}
 
 /* ============================================================
    STOCKAGE DES VIGNETTES — IndexedDB (au lieu de localStorage)
@@ -1027,7 +1080,46 @@ const sessionFull={};   // id photo -> {file,url} (session courante, plein écra
 const REG_KEY='laforet_biens_registry';
 function normBienLabel(s){return (s||'').trim().toLowerCase().replace(/\s+/g,' ');}
 function getBienRegistry(){try{return JSON.parse(localStorage.getItem(REG_KEY))||[];}catch(e){return[];}}
-function setBienRegistry(list){try{localStorage.setItem(REG_KEY,JSON.stringify(list));}catch(e){}}
+function setBienRegistry(list){
+  try{localStorage.setItem(REG_KEY,JSON.stringify(list));}catch(e){}
+  queueCloudPushRegistry(list);
+}
+
+/* Synchro cloud du registre — table biens_registry, même principe que
+   biens_photoimmo ci-dessus (une ligne, id=REG_KEY, data en jsonb). */
+let _regPushTimer=null;
+function queueCloudPushRegistry(list){
+  clearTimeout(_regPushTimer);
+  _regPushTimer=setTimeout(()=>cloudPushRegistry(list),800);
+}
+async function cloudPushRegistry(list){
+  try{
+    const user=await getUtilisateurConnecte();
+    const payload={id:REG_KEY,data:list,updated_at:new Date().toISOString()};
+    if(user)payload.updated_by=user.id;
+    const {error}=await supabaseClient.from('biens_registry').upsert(payload);
+    if(error)throw error;
+  }catch(e){ console.warn('[cloud] échec envoi biens_registry :',e); }
+}
+async function cloudPullRegistry(){
+  try{
+    const {data,error}=await supabaseClient.from('biens_registry').select('data').eq('id',REG_KEY).maybeSingle();
+    if(error)throw error;
+    return {ok:true,row:data};
+  }catch(e){ console.warn('[cloud] échec lecture biens_registry :',e); return {ok:false,row:null}; }
+}
+async function syncRegistryFromCloud(){
+  const {ok,row}=await cloudPullRegistry();
+  if(!ok)return;
+  if(row&&Array.isArray(row.data)){
+    const localStr=localStorage.getItem(REG_KEY)||'[]';
+    const cloudStr=JSON.stringify(row.data);
+    if(cloudStr!==localStr)localStorage.setItem(REG_KEY,cloudStr);
+  }else{
+    const localList=getBienRegistry();
+    if(localList.length)queueCloudPushRegistry(localList);
+  }
+}
 function upsertBienLink(label,appKey,appValue){
   const norm=normBienLabel(label);if(!norm)return null;
   const reg=getBienRegistry();
@@ -1751,6 +1843,10 @@ renderHome();
 // localStorage) vers IndexedDB. Se fait en tâche de fond : la liste des
 // biens s'affiche déjà normalement pendant que ça tourne.
 migrateThumbsToIDB();
+// Synchro cloud (Supabase) : lancée après l'affichage local instantané,
+// en tâche de fond, pour ne pas bloquer/ralentir l'ouverture de l'app.
+syncBiensFromCloud();
+syncRegistryFromCloud();
 
 // Arrivée depuis un lien de la Bibliothèque de prompts (bibliotheque.html?bien=...)
 // -> on ouvre directement la fiche si elle existe déjà, sinon on propose de la créer.
