@@ -22,7 +22,7 @@
   - connect-src ajoute api.anthropic.com et generativelanguage.googleapis.com pour la
     génération directe via clé API (BYOK), comme dans bibliotheque.html.
 -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://api.anthropic.com https://generativelanguage.googleapis.com; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://api.anthropic.com https://generativelanguage.googleapis.com https://tclqiusyonocedobtoky.supabase.co; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'self'">
 <title>Générateur de blog — Laforêt Pithiviers</title>
 <meta name="description" content="Génère des articles de blog prêts à publier pour le site Laforêt Pithiviers : actualités immobilières et vie locale.">
 <link rel="icon" type="image/png" href="logo_laforet.png">
@@ -145,6 +145,11 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
 .field-wrap { display: flex; flex-direction: column; gap: 4px; }
 .field-wrap.wide { grid-column: 1 / -1; }
 .field-wrap label { font-size: 11.5px; font-weight: 600; color: var(--text2); }
+.field-label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.field-copy-btn { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg, transparent); color: var(--text3); cursor: pointer; flex-shrink: 0; transition: color .15s, border-color .15s, background .15s; }
+.field-copy-btn:hover { color: var(--blue); border-color: var(--blue); }
+.field-copy-btn.copied { color: #16a34a; border-color: #16a34a; }
+.field-copy-btn svg { display: block; }
 .field-wrap input, .field-wrap select, .field-wrap textarea { width: 100%; padding: 8px 11px; border-radius: 9px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text); font-size: 13px; font-family: inherit; outline: none; transition: border-color .15s; resize: vertical; }
 .field-wrap textarea { min-height: 70px; }
 .field-wrap input:focus, .field-wrap select:focus, .field-wrap textarea:focus { border-color: var(--blue); }
@@ -261,6 +266,9 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
 </style>
 </head>
 <body>
+<script src="supabase-lib.js"></script>
+<script src="supabase-client.js"></script>
+<script src="auth-guard.js"></script>
 
 <header>
   <a class="back-home" href="index.html" title="Retour à l'accueil"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Accueil</a>
@@ -423,7 +431,7 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
           </select>
         </div>
       </div>
-      <button class="draft-btn" id="import-toggle-btn" onclick="toggleImportForm()">+ Importer un texte</button>
+      <button class="draft-btn" id="import-toggle-btn" onclick="toggleImportForm()">+ Créer un texte</button>
     </div>
 
     <div class="drafts-toolbar-row">
@@ -458,16 +466,25 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
       <div class="import-form-title" id="import-form-title" style="display:none; align-items:center; gap:5px; font-size:13px; font-weight:700; color:var(--blue); margin-bottom:.7rem;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Modification du brouillon</div>
       <div class="fields">
         <div class="field-wrap wide">
-          <label for="imp-title">Titre de l'article</label>
+          <div class="field-label-row">
+            <label for="imp-title">Titre de l'article</label>
+            <button type="button" class="field-copy-btn" title="Copier le titre" onclick="copyFieldValue(this,'imp-title')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+          </div>
           <input type="text" id="imp-title" placeholder="Ex : Les nouveautés du marché immobilier à Pithiviers">
         </div>
         <div class="field-wrap wide">
-          <label for="imp-meta">Meta description (SEO, 150-160 caractères)</label>
-          <input type="text" id="imp-meta" maxlength="200" placeholder="Résumé de l'article pour les moteurs de recherche" oninput="updateImpMetaCount()">
-          <div style="font-size:10.5px; color:var(--text3); margin-top:2px;" id="imp-meta-count">0 caractère</div>
+          <div class="field-label-row">
+            <label for="imp-body">Texte de l'article</label>
+            <button type="button" class="field-copy-btn" title="Copier le texte" onclick="copyFieldValue(this,'imp-body')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+          </div>
+          <textarea id="imp-body" style="min-height:160px;" placeholder="Collez ou tapez votre texte ici. Vous pouvez utiliser : &#10;## pour un intertitre&#10;- pour une liste à puces&#10;**mot** pour du gras"></textarea>
+          <div style="font-size:10.5px; color:var(--c-prosp); display:flex; align-items:center; gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Ne mettez pas d'émojis dans le texte de l'article — ce n'est pas conforme au ton éditorial du blog.</div>
         </div>
         <div class="field-wrap">
-          <label for="imp-cat">Catégorie</label>
+          <div class="field-label-row">
+            <label for="imp-cat">Catégorie</label>
+            <button type="button" class="field-copy-btn" title="Copier la catégorie" onclick="copyFieldValue(this,'imp-cat')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+          </div>
           <select id="imp-cat">
             <option value="Marché immobilier">Marché immobilier</option>
             <option value="Conseils pratiques">Conseils pratiques</option>
@@ -476,13 +493,19 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
           </select>
         </div>
         <div class="field-wrap">
-          <label for="imp-date">Date de publication</label>
+          <div class="field-label-row">
+            <label for="imp-date">Date de publication</label>
+            <button type="button" class="field-copy-btn" title="Copier la date" onclick="copyFieldValue(this,'imp-date')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+          </div>
           <input type="date" id="imp-date">
         </div>
         <div class="field-wrap wide">
-          <label for="imp-body">Texte de l'article</label>
-          <textarea id="imp-body" style="min-height:160px;" placeholder="Collez ou tapez votre texte ici. Vous pouvez utiliser : &#10;## pour un intertitre&#10;- pour une liste à puces&#10;**mot** pour du gras"></textarea>
-          <div style="font-size:10.5px; color:var(--c-prosp); display:flex; align-items:center; gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Ne mettez pas d'émojis dans le texte de l'article — ce n'est pas conforme au ton éditorial du blog.</div>
+          <div class="field-label-row">
+            <label for="imp-meta">Meta description (SEO, 150-160 caractères)</label>
+            <button type="button" class="field-copy-btn" title="Copier la meta description" onclick="copyFieldValue(this,'imp-meta')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+          </div>
+          <input type="text" id="imp-meta" maxlength="200" placeholder="Résumé de l'article pour les moteurs de recherche" oninput="updateImpMetaCount()">
+          <div style="font-size:10.5px; color:var(--text3); margin-top:2px;" id="imp-meta-count">0 caractère</div>
         </div>
       </div>
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -807,6 +830,24 @@ function resetCopyBtn() {
 }
 
 // Feedback visuel générique : passe le bouton en vert + change le libellé, puis restaure l'état d'origine.
+// Copie la valeur d'un champ du formulaire (input/select/textarea) et affiche un retour visuel bref.
+function copyFieldValue(btn, fieldId) {
+  const el = document.getElementById(fieldId);
+  if (!el) return;
+  const val = el.tagName === 'SELECT' ? (el.options[el.selectedIndex]?.text || '') : el.value;
+  if (!val) return;
+  navigator.clipboard.writeText(val).then(() => {
+    const original = btn.innerHTML;
+    btn.classList.add('copied');
+    btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+    clearTimeout(btn._copyTimer);
+    btn._copyTimer = setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.innerHTML = original;
+    }, 1400);
+  });
+}
+
 function flashCopyFeedback(btn, label, restore) {
   if (!btn) return;
   const original = btn.innerHTML;
@@ -875,14 +916,28 @@ function modelChange() {
   document.getElementById('api-key').placeholder = model === 'claude' ? 'Clé API Anthropic' : 'Clé API Gemini';
 }
 
+// Ouvre (si besoin) le formulaire "Titre / Meta / Texte" et le prépare à recevoir
+// le texte généré en direct, sans jamais l'afficher ailleurs entretemps.
+function ensureImportFormOpenForGeneration() {
+  const form = document.getElementById('import-form');
+  if (form.style.display !== 'block') toggleImportForm(true);
+  const t = templates.find(x => x.id === selectedId);
+  const catEl = document.getElementById('imp-cat');
+  if (!catEl.value && t) catEl.value = t.cat;
+  document.getElementById('imp-title').value = '';
+  document.getElementById('imp-meta').value = '';
+  document.getElementById('imp-body').value = '';
+  updateImpMetaCount();
+  form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 async function runAi() {
   const model = document.getElementById('model-select').value;
   const prompt = document.getElementById('result').value;
   const apiKey = document.getElementById('api-key').value.trim();
   const btn = document.getElementById('run-btn');
   const errorEl = document.getElementById('api-error');
-  const wrapEl = document.getElementById('response-wrap');
-  const boxEl = document.getElementById('response-box');
+  const boxEl = document.getElementById('response-box'); // tampon interne, jamais affiché
 
   if (!apiKey) {
     showApiError(errorEl, model === 'claude' ? 'Veuillez saisir votre clé API Anthropic.' : 'Veuillez saisir votre clé API Gemini.');
@@ -892,36 +947,39 @@ async function runAi() {
   errorEl.style.display = 'none';
   btn.disabled = true;
   btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> Génération…';
-  wrapEl.style.display = 'block';
   boxEl.textContent = '';
-  boxEl.contentEditable = false;
-  boxEl.classList.add('streaming');
-  document.getElementById('response-edit-hint').style.display = 'none';
+
+  ensureImportFormOpenForGeneration();
+
+  // Appelé à chaque fragment reçu : reparse le texte brut accumulé et remplit
+  // directement les champs Titre / Meta / Texte, en direct, sous les yeux de l'utilisateur.
+  const syncFields = () => {
+    const { title, meta, body } = parseArticle(boxEl.textContent);
+    document.getElementById('imp-title').value = title;
+    document.getElementById('imp-meta').value = meta;
+    document.getElementById('imp-body').value = body;
+    updateImpMetaCount();
+  };
 
   try {
     if (model === 'claude') {
-      await streamClaude(prompt, apiKey, boxEl);
+      await streamClaude(prompt, apiKey, boxEl, syncFields);
     } else {
-      await streamGemini(prompt, apiKey, boxEl);
+      await streamGemini(prompt, apiKey, boxEl, syncFields);
     }
-    // Une fois la génération terminée, le texte devient modifiable directement dans la zone.
-    boxEl.contentEditable = true;
-    document.getElementById('response-edit-hint').style.display = 'block';
   } catch (err) {
-    wrapEl.style.display = 'none';
     let msg = err.message || 'Erreur inconnue.';
     if (msg.includes('401') || msg.includes('403') || msg.includes('authentication') || msg.includes('API_KEY_INVALID')) msg = 'Clé API invalide ou expirée.';
     if (msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED')) msg = 'Limite de requêtes atteinte — réessayez dans quelques secondes.';
     if (msg.includes('fetch') || msg.includes('network')) msg = 'Erreur réseau — vérifiez votre connexion.';
     showApiError(errorEl, msg);
   } finally {
-    boxEl.classList.remove('streaming');
     btn.disabled = false;
     btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Générer';
   }
 }
 
-async function streamClaude(prompt, apiKey, boxEl) {
+async function streamClaude(prompt, apiKey, boxEl, onUpdate) {
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -958,6 +1016,7 @@ async function streamClaude(prompt, apiKey, boxEl) {
         const json = JSON.parse(data);
         if (json.type === 'content_block_delta' && json.delta?.text) {
           boxEl.textContent += json.delta.text;
+          if (onUpdate) onUpdate();
         }
       } catch {}
     }
@@ -966,11 +1025,11 @@ async function streamClaude(prompt, apiKey, boxEl) {
 
 const GEMINI_MODELS = ['gemini-3.5-flash', 'gemini-2.5-flash'];
 
-async function streamGemini(prompt, apiKey, boxEl) {
+async function streamGemini(prompt, apiKey, boxEl, onUpdate) {
   let lastErr;
   for (let i = 0; i < GEMINI_MODELS.length; i++) {
     try {
-      await streamGeminiWithModel(GEMINI_MODELS[i], prompt, apiKey, boxEl);
+      await streamGeminiWithModel(GEMINI_MODELS[i], prompt, apiKey, boxEl, onUpdate);
       return;
     } catch (err) {
       lastErr = err;
@@ -982,7 +1041,7 @@ async function streamGemini(prompt, apiKey, boxEl) {
   throw lastErr;
 }
 
-async function streamGeminiWithModel(model, prompt, apiKey, boxEl) {
+async function streamGeminiWithModel(model, prompt, apiKey, boxEl, onUpdate) {
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
@@ -1009,6 +1068,7 @@ async function streamGeminiWithModel(model, prompt, apiKey, boxEl) {
         const json = JSON.parse(data);
         const parts = json?.candidates?.[0]?.content?.parts || [];
         for (const part of parts) { if (part.text) boxEl.textContent += part.text; }
+        if (onUpdate) onUpdate();
       } catch {}
     }
   }
@@ -1436,7 +1496,7 @@ function toggleImportForm(show) {
   const btn = document.getElementById('import-toggle-btn');
   const willShow = typeof show === 'boolean' ? show : form.style.display !== 'block';
   form.style.display = willShow ? 'block' : 'none';
-  btn.innerHTML = willShow ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Fermer' : '+ Importer un texte';
+  btn.innerHTML = willShow ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Fermer' : '+ Créer un texte';
   if (willShow) {
     const dateEl = document.getElementById('imp-date');
     if (!dateEl.value) dateEl.value = new Date().toISOString().slice(0, 10);

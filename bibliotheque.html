@@ -35,7 +35,7 @@
   - object-src 'none', base-uri 'self', form-action 'none' : durcissement standard,
     sans impact sur les fonctionnalités existantes (pas de <form>, pas d'objet/plugin).
 -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://api.anthropic.com https://generativelanguage.googleapis.com; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://api.anthropic.com https://generativelanguage.googleapis.com https://tclqiusyonocedobtoky.supabase.co; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'self'">
 <title>Bibliothèque de prompts — Laforêt Pithiviers</title>
 <meta name="description" content="Prompts IA prêts à l'emploi pour les agents Laforêt Pithiviers — annonces, emails clients, réseaux sociaux, prospection et administratif.">
 <link rel="icon" type="image/png" href="logo_laforet.png">
@@ -597,6 +597,9 @@ footer { text-align: center; padding: 2rem 1rem calc(2rem + env(safe-area-inset-
 </style>
 </head>
 <body>
+<script src="supabase-lib.js"></script>
+<script src="supabase-client.js"></script>
+<script src="auth-guard.js"></script>
 <header>
   <a class="back-home" href="index.html" title="Retour à l'accueil">← Accueil</a>
   <div class="header-logo">
@@ -1978,7 +1981,8 @@ function hubGen(format) {
            `- Les chiffres (pièces, chambres, surface) doivent apparaître clairement dans le texte, pas seulement dans le titre.\n` +
            `- N'invente aucun adjectif, aucune caractéristique absente des données fournies.\n` +
            `- Prose fluide, ton courtois et professionnel. Pas de bullet points dans l'annonce rédigée.\n` +
-           `- Ne mentionne ni prix ni DPE (gérés séparément sur les portails).\n\n` +
+           `- Ne mentionne ni prix ni DPE (gérés séparément sur les portails).\n` +
+           `- Évite les formules vagues, génériques ou trop "IA" (ex : "élément à la fois esthétique et convivial", "un cadre de vie rare", "un havre de paix", "cette demeure d'exception"). Préfère des phrases simples, factuelles et directes, comme le ferait un agent qui décrit le bien sans emphase artificielle.\n\n` +
            `Règle de sécurité : si une donnée obligatoire est absente, vide ou laissée sous forme de placeholder, écris exactement [INFORMATION OBLIGATOIRE NON RENSEIGNEE] à l'endroit concerné. N'invente jamais de fait, de nom ni de circonstance qui ne figure pas dans les données fournies.\n` +
            `Consignes : Ton courtois, professionnel et humain. Phrases claires et directes. Pas de formules creuses ni de point d'exclamation. Aucun émoji.\n` +
            `CHAQUE PROMPT EST INDEPENDANT DONC NE PREND PAS EN COMPTE LES PROMPTS PRECEDENTS , NE LES GARDE PAS NON PLUS EN MEMOIRE`;
@@ -2084,6 +2088,7 @@ function hubGen(format) {
     
     text += `\nRègle de sécurité : si une donnée obligatoire est absente, vide ou laissée sous forme de placeholder, écris exactement [INFORMATION OBLIGATOIRE NON RENSEIGNEE] à l'endroit concerné. N'invente jamais de fait, de nom ni de circonstance qui ne figure pas dans les données fournies.\n` +
             `Consignes : Ton courtois, professionnel et humain. Phrases claires et directes. Pas de formules creuses ni de point d'exclamation.\n` +
+            `Évite les formules vagues, génériques ou trop "IA" (ex : "élément à la fois esthétique et convivial", "un cadre de vie rare", "un havre de paix", "cette demeure d'exception"). Préfère des phrases simples, factuelles et directes, comme le ferait un community manager qui décrit le bien sans emphase artificielle.\n` +
             `CHAQUE PROMPT EST INDEPENDANT DONC NE PREND PAS EN COMPTE LES PROMPTS PRECEDENTS , NE LES GARDE PAS NON PLUS EN MEMOIRE`;
   }
   

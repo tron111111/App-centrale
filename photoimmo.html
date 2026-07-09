@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#16266b">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://tclqiusyonocedobtoky.supabase.co; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'self'">
 <link rel="icon" href="logo_laforet.png">
 <link rel="apple-touch-icon" href="logo_laforet.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -220,6 +220,9 @@
 </style>
 </head>
 <body>
+<script src="supabase-lib.js"></script>
+<script src="supabase-client.js"></script>
+<script src="auth-guard.js"></script>
 <header>
   <div class="h-top">
     <a class="back-home" href="index.html" title="Retour à l'accueil"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg> Accueil</a>
