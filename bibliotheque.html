@@ -1593,7 +1593,7 @@ let selectedId = null;
 let currentMode = "vente";
 let currentHubFormat = "internet";
 
-window.onload = function() {
+window.onload = async function() {
   initTheme();
   // Hub caché par défaut (visible uniquement sur Annonces / Tous)
   document.getElementById('hub').style.display = (currentCat === 'Annonces' || currentCat === 'Tous') ? 'block' : 'none';
@@ -1604,6 +1604,11 @@ window.onload = function() {
   hubLoad();
   renderCats();
   renderGrid();
+  // Les biens sauvegardés vivent maintenant dans Supabase (table
+  // biens_bibliotheque) et non plus dans localStorage : on les charge avant
+  // d'afficher la liste et de traiter un éventuel lien entrant (?bien=...),
+  // qui dépendent tous les deux de ces données.
+  await loadBiensFromSupabase();
   renderBienList();
   // Case vitrine : régénère le prompt uniquement si on est déjà à l'étape 3
   document.getElementById('include-vitrine').addEventListener('change', function() {
@@ -2521,8 +2526,64 @@ async function streamGeminiWithModel(model, prompt, apiKey, boxEl) {
   }
 }
 
-// ── SAUVEGARDE / CHARGEMENT DES BIENS ────────────────────────────────────────
-const BIENS_KEY = 'laforet_biens_saved';
+// ── SAUVEGARDE / CHARGEMENT DES BIENS (Supabase, table biens_bibliotheque) ──
+// Chaque bien est stocké sous forme d'une ligne { id, data, updated_at,
+// updated_by }, où id = nom du bien normalisé (unique) et data = l'objet
+// { name, data, savedAt } exactement comme avant avec localStorage.
+// biensCache est un simple miroir en mémoire, rechargé au démarrage et tenu
+// à jour à chaque sauvegarde/suppression, pour que le reste du code (qui
+// lit getBiens() de façon synchrone) continue de fonctionner sans réécriture.
+let biensCache = [];
+
+async function loadBiensFromSupabase() {
+  try {
+    const { data, error } = await supabaseClient
+      .from('biens_bibliotheque')
+      .select('id, data, updated_at')
+      .order('updated_at', { ascending: false });
+    if (error) throw error;
+    biensCache = (data || []).map(row => ({
+      __id: row.id,
+      name: row.data.name,
+      data: row.data.data,
+      savedAt: row.data.savedAt
+    }));
+  } catch (e) {
+    console.error('Erreur de chargement des biens depuis Supabase :', e);
+    biensCache = [];
+    showSaveToast('❌ Impossible de charger les biens sauvegardés (connexion).', false);
+  }
+}
+
+async function upsertBienSupabase(id, entry) {
+  try {
+    const utilisateur = await getUtilisateurConnecte();
+    const { error } = await supabaseClient
+      .from('biens_bibliotheque')
+      .upsert({
+        id,
+        data: entry,
+        updated_at: new Date().toISOString(),
+        updated_by: utilisateur ? utilisateur.id : null
+      });
+    if (error) throw error;
+    return true;
+  } catch (e) {
+    console.error('Erreur Supabase (sauvegarde du bien) :', e);
+    return false;
+  }
+}
+
+async function deleteBienSupabase(id) {
+  try {
+    const { error } = await supabaseClient.from('biens_bibliotheque').delete().eq('id', id);
+    if (error) throw error;
+    return true;
+  } catch (e) {
+    console.error('Erreur Supabase (suppression du bien) :', e);
+    return false;
+  }
+}
 
 /* ===== Liaison inter-apps (Bibliothèque <-> PhotoImmo Pro) =====
    Même registre partagé que celui utilisé par photoimmo.html (même origine).
@@ -2558,13 +2619,10 @@ function escapeHTML(str) {
 }
 
 function getBiens() {
-  try { return JSON.parse(localStorage.getItem(BIENS_KEY) || '[]'); } catch { return []; }
-}
-function setBiens(list) {
-  localStorage.setItem(BIENS_KEY, JSON.stringify(list));
+  return biensCache;
 }
 
-function saveBien() {
+async function saveBien() {
   const nameEl = document.getElementById('save-bien-name');
   const name = nameEl.value.trim();
   if (!name) {
@@ -2582,22 +2640,29 @@ function saveBien() {
   });
   data['__mode'] = currentMode;
 
-  const biens = getBiens();
-  // Remplace si même nom existe
-  const idx = biens.findIndex(b => normBienLabel(b.name) === norm);
   const entry = {
     name,
     data,
     savedAt: new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })
   };
+
+  // Remplace si même nom existe déjà dans le cache local
+  const idx = biensCache.findIndex(b => normBienLabel(b.name) === norm);
+
+  const ok = await upsertBienSupabase(norm, entry);
+  if (!ok) {
+    showSaveToast('❌ Erreur lors de la sauvegarde en ligne. Réessayez.', false);
+    return;
+  }
+
+  const cacheEntry = Object.assign({ __id: norm }, entry);
   if (idx >= 0) {
-    biens[idx] = entry;
+    biensCache[idx] = cacheEntry;
     showSaveToast('✅ Bien "' + name + '" mis à jour.', true);
   } else {
-    biens.unshift(entry);
+    biensCache.unshift(cacheEntry);
     showSaveToast(isNew ? '✅ Bien "' + name + '" créé et sauvegardé.' : '✅ Bien "' + name + '" sauvegardé.', true);
   }
-  setBiens(biens);
   upsertBienLink(name, 'bibliotheque', name);
   // Nouveau bien : on seed aussitôt ses infos centrales (type/ville) pour
   // qu'il apparaisse correctement rempli dans le Dossier des biens sans
@@ -2669,13 +2734,16 @@ function loadBien(idx) {
   }
 }
 
-function deleteBien(idx) {
-  const biens = getBiens();
-  const entry = biens[idx];
+async function deleteBien(idx) {
+  const entry = biensCache[idx];
   if (!entry) return;
   if (!confirm('Supprimer le bien "' + entry.name + '" ?')) return;
-  biens.splice(idx, 1);
-  setBiens(biens);
+  const ok = await deleteBienSupabase(entry.__id);
+  if (!ok) {
+    showSaveToast('❌ Erreur lors de la suppression en ligne. Réessayez.', false);
+    return;
+  }
+  biensCache.splice(idx, 1);
   showSaveToast('🗑️ Bien "' + entry.name + '" supprimé.', true);
   renderBienList();
 }
