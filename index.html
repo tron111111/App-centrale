@@ -18,7 +18,7 @@
   - img-src 'self' data: : logo local + éventuelles data URI.
   - object-src 'none', base-uri 'self', form-action 'none' : durcissement standard.
 -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://tclqiusyonocedobtoky.supabase.co; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'self'">
 <title>Laforêt Pithiviers — Applications</title>
 <meta name="description" content="Portail des applications internes Laforêt Pithiviers : bibliothèque de prompts IA, gestion des photos immobilières et dossier centralisé des biens.">
 <style>
@@ -325,6 +325,9 @@ animation:pulse .8s ease-in-out infinite alternate;
 
 </head>
 <body>
+<script src="supabase-lib.js"></script>
+<script src="supabase-client.js"></script>
+<script src="auth-guard.js"></script>
 
 <div id="laforet-transition">
 <img src="logo_laforet.png" alt="Laforêt">
