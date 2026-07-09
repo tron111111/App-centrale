@@ -24,7 +24,7 @@
   bibliotheque.html/blog.html. img-src autorise "blob:" pour afficher les
   vignettes de PhotoImmo Pro, lues depuis IndexedDB (URL.createObjectURL).
 -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tclqiusyonocedobtoky.supabase.co; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'self'">
 <title>Dossier des biens — Laforêt Pithiviers</title>
 <meta name="description" content="Fiche centralisée par bien : photos, description/annonce, statut et notes — Laforêt Pithiviers.">
 <link rel="icon" type="image/png" href="logo_laforet.png">
@@ -325,6 +325,9 @@ footer { text-align: center; padding: 2rem 1rem calc(2rem + env(safe-area-inset-
 
 <div class="toast-dossier" id="toast"></div>
 
+<script src="supabase-lib.js"></script>
+<script src="supabase-client.js"></script>
+<script src="auth-guard.js"></script>
 <script>
 /* ============================================================
    REGISTRE PARTAGÉ — même clé/format que dans photoimmo.html et
@@ -334,31 +337,57 @@ footer { text-align: center; padding: 2rem 1rem calc(2rem + env(safe-area-inset-
    données de PhotoImmo (photoimmo_pro_biens) et de la Bibliothèque
    (laforet_biens_saved) pour les afficher — jamais les modifier.
    ============================================================ */
-const REG_KEY = 'laforet_biens_registry';
 function normBienLabel(s) { return (s||'').trim().toLowerCase().replace(/\s+/g,' '); }
-function getBienRegistry() { try { return JSON.parse(localStorage.getItem(REG_KEY)) || []; } catch(e) { return []; } }
-function setBienRegistry(list) { try { localStorage.setItem(REG_KEY, JSON.stringify(list)); } catch(e) { showToast('warn', 'Impossible d’enregistrer (mémoire du navigateur pleine ?)'); } }
-function findEntryByNorm(norm) { return getBienRegistry().find(e => e.norm === norm) || null; }
+
+/* ------------------------------------------------------------
+   Registre partagé — désormais stocké dans la table Supabase
+   "biens_registry" (une ligne par bien : id = norm, data = entry).
+   Pour ne pas transformer tout le fichier en asynchrone, on garde
+   une copie en mémoire (_registryCache) : elle est chargée une fois
+   au démarrage (loadRegistry), puis tenue à jour à chaque écriture.
+   Le reste du code (affichage) continue de lire getBienRegistry()
+   de façon synchrone, comme avant.
+   ------------------------------------------------------------ */
+let _registryCache = [];
+function getBienRegistry() { return _registryCache; }
+function findEntryByNorm(norm) { return _registryCache.find(e => e.norm === norm) || null; }
 function guessVilleFromAddress(addr) {
   const parts = (addr||'').split(',');
   return parts.length > 1 ? parts[parts.length-1].trim() : '';
 }
 
+/* Charge le registre complet depuis Supabase, une fois au démarrage. */
+async function loadRegistry() {
+  const { data, error } = await supabaseClient.from('biens_registry').select('data');
+  if (error) {
+    showToast('warn', 'Impossible de charger les dossiers (connexion ?)');
+    _registryCache = [];
+    return;
+  }
+  _registryCache = (data || []).map(row => row.data);
+}
+
 /* Crée ou met à jour un dossier central (statut/prix/notes/ville/type) */
-function upsertCentral(label, fields) {
+async function upsertCentral(label, fields) {
   const norm = normBienLabel(label);
   if (!norm) return null;
-  const reg = getBienRegistry();
-  let entry = reg.find(e => e.norm === norm);
-  if (!entry) { entry = { norm, label: label.trim(), createdAt: Date.now(), links: {}, central: {} }; reg.unshift(entry); }
+  let entry = _registryCache.find(e => e.norm === norm);
+  if (!entry) {
+    entry = { norm, label: label.trim(), createdAt: Date.now(), links: {}, central: {} };
+    _registryCache.unshift(entry);
+  }
   if (!entry.central) entry.central = {};
   Object.assign(entry.central, fields);
   entry.updatedAt = Date.now();
-  setBienRegistry(reg);
+
+  const { error } = await supabaseClient.from('biens_registry').upsert({ id: norm, data: entry });
+  if (error) { showToast('warn', 'Échec de l’enregistrement (connexion ?)'); return null; }
   return entry;
 }
-function deleteCentralBien(norm) {
-  setBienRegistry(getBienRegistry().filter(e => e.norm !== norm));
+async function deleteCentralBien(norm) {
+  const { error } = await supabaseClient.from('biens_registry').delete().eq('id', norm);
+  if (error) { showToast('warn', 'Échec de la suppression (connexion ?)'); return; }
+  _registryCache = _registryCache.filter(e => e.norm !== norm);
 }
 
 /* ---------- Lecture (seule) des données de PhotoImmo et de la Bibliothèque ---------- */
@@ -616,15 +645,15 @@ function renderDetail() {
   // ---- Sauvegarde des champs centraux (au blur / au changement) ----
   ['d-ville','d-type','d-statut','d-prix','d-notes'].forEach(id => {
     const el = document.getElementById(id);
-    const handler = () => {
-      upsertCentral(entry.label, {
+    const handler = async () => {
+      const saved = await upsertCentral(entry.label, {
         ville: document.getElementById('d-ville').value.trim(),
         type: document.getElementById('d-type').value,
         statut: document.getElementById('d-statut').value,
         prix: document.getElementById('d-prix').value.trim(),
         notes: document.getElementById('d-notes').value
       });
-      showToast('success', 'Dossier mis à jour');
+      if (saved) showToast('success', 'Dossier mis à jour');
     };
     el.onchange = handler;
   });
@@ -651,10 +680,10 @@ function closeConfirmDelete() {
   _pendingDeleteNorm = null;
   document.getElementById('confirm-del-overlay').classList.remove('show');
 }
-function confirmDelete() {
+async function confirmDelete() {
   const norm = _pendingDeleteNorm;
   if (!norm) { closeConfirmDelete(); return; }
-  deleteCentralBien(norm);
+  await deleteCentralBien(norm);
   closeConfirmDelete();
   showToast('delete', 'Dossier supprimé');
   if (currentNorm === norm) {
@@ -676,14 +705,15 @@ function openNewBienModal() {
   setTimeout(() => document.getElementById('nb-addr').focus(), 100);
 }
 function closeNewBienModal() { document.getElementById('new-bien-overlay').classList.remove('show'); }
-function createBienFromModal() {
+async function createBienFromModal() {
   const addr = document.getElementById('nb-addr').value.trim();
   if (!addr) { showToast('warn', 'Indiquez une adresse'); return; }
-  const entry = upsertCentral(addr, {
+  const entry = await upsertCentral(addr, {
     ville: document.getElementById('nb-ville').value.trim() || guessVilleFromAddress(addr),
     type: document.getElementById('nb-type').value,
     statut: document.getElementById('nb-statut').value
   });
+  if (!entry) return;
   closeNewBienModal();
   showToast('success', 'Dossier créé');
   renderList();
@@ -735,8 +765,9 @@ function updateThemeUI(theme) {
 }
 
 /* ============================== INIT ============================== */
-window.onload = function() {
+window.onload = async function() {
   initTheme();
+  await loadRegistry();
   renderList();
 };
 </script>
