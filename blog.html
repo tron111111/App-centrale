@@ -26,6 +26,8 @@
 <title>Générateur de blog — Laforêt Pithiviers</title>
 <meta name="description" content="Génère des articles de blog prêts à publier pour le site Laforêt Pithiviers : actualités immobilières et vie locale.">
 <link rel="icon" type="image/png" href="logo_laforet.png">
+<script src="supabase-lib.js"></script>
+<script src="supabase-client.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 html { overflow-x: hidden; }
@@ -674,7 +676,7 @@ let resultVisible = true;
 const DRAFTS_KEY = 'laforet_blog_drafts';
 const DRAFT_SORT_KEY = 'laforet_blog_draft_sort';
 
-window.onload = function() {
+window.onload = async function() {
   initTheme();
   document.getElementById('g-date').value = new Date().toISOString().slice(0,10);
   renderCats();
@@ -687,6 +689,23 @@ window.onload = function() {
     opt.textContent = c;
     catFilterEl.appendChild(opt);
   });
+
+  // Pré-charge les brouillons depuis Supabase (remplit _draftsCache).
+  // Si Supabase est vide mais que localStorage contient des données,
+  // on migre automatiquement les données locales vers Supabase.
+  try {
+    const remoteData = await getDrafts(); // peuple _draftsCache depuis Supabase
+    if (remoteData.length === 0) {
+      const local = JSON.parse(localStorage.getItem(DRAFTS_KEY) || '[]');
+      if (local.length > 0) {
+        console.log('[blog] Migration localStorage → Supabase :', local.length, 'brouillon(s)');
+        await setDrafts(local);
+      }
+    }
+  } catch(e) {
+    console.warn('[blog] Chargement Supabase échoué au démarrage :', e);
+  }
+
   renderDrafts();
   // Sécurité : force le collage en texte brut dans la zone éditable de réponse IA,
   // pour éviter qu'un contenu HTML collé (ex: depuis une page malveillante) ne soit
@@ -1178,7 +1197,7 @@ function buildPreview() {
 // ── EDITION INLINE DANS L'APERÇU (titre + corps) ──────────────────────────
 // Recalcule la date/durée de lecture, met à jour currentArticle, et persiste
 // dans le brouillon d'origine si l'aperçu correspond à un brouillon déjà ouvert.
-function persistInlineChanges() {
+async function persistInlineChanges() {
   if (!currentArticle) return;
   const iso = extractIsoDate(currentArticle.dateLabel) || new Date().toISOString().slice(0, 10);
   const minutes = estimateReadingMinutes(currentArticle.body);
@@ -1190,7 +1209,7 @@ function persistInlineChanges() {
   }
 
   if (currentDraftId !== null) {
-    const drafts = getDrafts();
+    const drafts = await getDrafts();
     const idx = drafts.findIndex(x => x.id === currentDraftId);
     if (idx !== -1) {
       drafts[idx] = {
@@ -1201,7 +1220,7 @@ function persistInlineChanges() {
         bodyHtml: currentArticle.bodyHtml,
         savedAt: new Date().toISOString()
       };
-      setDrafts(drafts);
+      await setDrafts(drafts);
       renderDrafts();
     }
     flashSaveToast('Modifications enregistrées dans le brouillon.');
@@ -1294,11 +1313,65 @@ function flashSaveToast(msg, type) {
   t._timer = setTimeout(() => t.style.display = 'none', 3500);
 }
 
-// ── BROUILLONS (localStorage) ──────────────────────────────────────────────
-function getDrafts() {
+// ── BROUILLONS (Supabase + localStorage fallback) ──────────────────────────
+// Identifiant unique pour cet appareil/utilisateur anonyme (persisté en localStorage).
+function getDeviceId() {
+  let id = localStorage.getItem('laforet_device_id');
+  if (!id) {
+    id = 'dev_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    localStorage.setItem('laforet_device_id', id);
+  }
+  return id;
+}
+
+// Cache local pour éviter des allers-retours inutiles
+let _draftsCache = null;
+
+async function getDrafts() {
+  if (_draftsCache !== null) return _draftsCache;
+  try {
+    const deviceId = getDeviceId();
+    const { data, error } = await supabaseClient
+      .from('blog_drafts')
+      .select('id, data, created_at, updated_at')
+      .eq('id', deviceId)
+      .maybeSingle();
+    if (error) throw error;
+    if (data && data.data && Array.isArray(data.data.drafts)) {
+      _draftsCache = data.data.drafts;
+      return _draftsCache;
+    }
+  } catch (e) {
+    console.warn('[blog] Supabase getDrafts error, fallback localStorage :', e);
+  }
+  // Fallback localStorage
+  try { _draftsCache = JSON.parse(localStorage.getItem(DRAFTS_KEY) || '[]'); }
+  catch { _draftsCache = []; }
+  return _draftsCache;
+}
+
+async function setDrafts(list) {
+  _draftsCache = list;
+  // Toujours persister en localStorage
+  try { localStorage.setItem(DRAFTS_KEY, JSON.stringify(list)); } catch {}
+  // Puis synchroniser avec Supabase
+  try {
+    const deviceId = getDeviceId();
+    const payload = { drafts: list, savedAt: new Date().toISOString() };
+    const { error } = await supabaseClient
+      .from('blog_drafts')
+      .upsert({ id: deviceId, data: payload, updated_at: new Date().toISOString() }, { onConflict: 'id' });
+    if (error) throw error;
+  } catch (e) {
+    console.warn('[blog] Supabase setDrafts error, brouillon conservé localement :', e);
+  }
+}
+
+// Version synchrone pour les rares endroits qui ne peuvent pas attendre (lecture seule depuis cache)
+function getDraftsSync() {
+  if (_draftsCache !== null) return _draftsCache;
   try { return JSON.parse(localStorage.getItem(DRAFTS_KEY) || '[]'); } catch { return []; }
 }
-function setDrafts(list) { localStorage.setItem(DRAFTS_KEY, JSON.stringify(list)); }
 // ── POPUP DE CONFIRMATION GENERIQUE ────────────────────────────────────────
 let _confirmModalAction = null;
 
@@ -1320,8 +1393,8 @@ function runConfirmModalAction() {
 // ── EXPORT / IMPORT DES BROUILLONS EN FICHIER (sauvegarde locale) ─────────
 let pendingImportDrafts = null;
 
-function exportDrafts() {
-  const drafts = getDrafts();
+async function exportDrafts() {
+  const drafts = await getDrafts();
   const payload = {
     app: 'laforet_blog_drafts',
     version: 1,
@@ -1392,7 +1465,7 @@ function confirmReplaceAll() {
   );
 }
 
-function confirmFileImport(mode) {
+async function confirmFileImport(mode) {
   if (!pendingImportDrafts) return;
 
   // Nouveaux identifiants pour éviter toute collision avec les brouillons existants.
@@ -1408,11 +1481,11 @@ function confirmFileImport(mode) {
   }));
 
   if (mode === 'replace') {
-    setDrafts(incoming);
+    await setDrafts(incoming);
     flashSaveToast(`Brouillons remplacés (${incoming.length}).`);
   } else {
-    const merged = [...incoming, ...getDrafts()];
-    setDrafts(merged);
+    const merged = [...incoming, ...(await getDrafts())];
+    await setDrafts(merged);
     flashSaveToast(`${incoming.length} brouillon${incoming.length > 1 ? 's' : ''} ajouté${incoming.length > 1 ? 's' : ''}.`);
   }
 
@@ -1509,8 +1582,8 @@ function toggleImportForm(show) {
 
 // Pré-remplit le formulaire d'import avec le contenu d'un brouillon existant,
 // pour permettre de le modifier puis de l'enregistrer à la même place.
-function editDraft(id) {
-  const d = getDrafts().find(x => x.id === id);
+async function editDraft(id) {
+  const d = (await getDrafts()).find(x => x.id === id);
   if (!d) return;
 
   toggleImportForm(true);
@@ -1546,7 +1619,7 @@ function containsEmoji(str) {
   return emojiRegex.test(str);
 }
 
-function importDraft() {
+async function importDraft() {
   const title = document.getElementById('imp-title').value.trim();
   const meta = document.getElementById('imp-meta').value.trim();
   const body = document.getElementById('imp-body').value.trim();
@@ -1567,7 +1640,7 @@ function importDraft() {
   const minutes = estimateReadingMinutes(body);
   const dateLabel = `Mis à jour le ${formatDateFr(dateIso || new Date().toISOString().slice(0, 10))} • ${minutes} minute${minutes > 1 ? 's' : ''} de lecture`;
 
-  const drafts = getDrafts();
+  const drafts = await getDrafts();
 
   if (editingDraftId !== null) {
     // Mode édition : on met à jour le brouillon existant à la même place.
@@ -1575,7 +1648,7 @@ function importDraft() {
     if (idx !== -1) {
       drafts[idx] = { ...drafts[idx], title, meta, dateLabel, body, bodyHtml, cat, savedAt: new Date().toISOString() };
     }
-    setDrafts(drafts);
+    await setDrafts(drafts);
     renderDrafts();
     toggleImportForm(false);
     flashSaveToast('Brouillon modifié.');
@@ -1587,7 +1660,7 @@ function importDraft() {
     title, meta, dateLabel, body, bodyHtml, cat,
     savedAt: new Date().toISOString()
   });
-  setDrafts(drafts);
+  await setDrafts(drafts);
   renderDrafts();
 
   toggleImportForm(false);
@@ -1602,9 +1675,9 @@ function updateImpMetaCount() {
   el.style.color = (len >= 150 && len <= 160) ? 'var(--c-admin)' : (len === 0 ? 'var(--text3)' : 'var(--c-prosp)');
 }
 
-function saveDraft() {
+async function saveDraft() {
   if (!currentArticle) return;
-  const drafts = getDrafts();
+  const drafts = await getDrafts();
   const newId = Date.now();
   drafts.unshift({
     id: newId,
@@ -1616,14 +1689,14 @@ function saveDraft() {
     cat: currentArticle.cat,
     savedAt: new Date().toISOString()
   });
-  setDrafts(drafts);
+  await setDrafts(drafts);
   renderDrafts();
   currentDraftId = newId;
-  flashSaveToast('Brouillon sauvegardé localement.');
+  flashSaveToast('Brouillon sauvegardé dans Supabase.');
 }
 
-function renderDrafts() {
-  const allDrafts = getDrafts();
+async function renderDrafts() {
+  const allDrafts = await getDrafts();
   const searchText = document.getElementById('draft-search').value;
   const catFilter = document.getElementById('draft-cat-filter').value;
   const drafts = sortDrafts(filterDrafts(allDrafts, searchText, catFilter), getDraftSortMode());
@@ -1657,8 +1730,8 @@ function renderDrafts() {
   }).join('');
 }
 
-function loadDraft(id) {
-  const d = getDrafts().find(x => x.id === id);
+async function loadDraft(id) {
+  const d = (await getDrafts()).find(x => x.id === id);
   if (!d) return;
   currentArticle = { title: d.title, meta: d.meta, body: d.body, bodyHtml: d.bodyHtml, dateLabel: d.dateLabel, cat: d.cat };
   currentDraftId = d.id;
@@ -1672,8 +1745,8 @@ function loadDraft(id) {
 // Suppression avec confirmation en 2 temps : un premier clic demande confirmation,
 // le second (dans les 3 secondes) supprime réellement le brouillon.
 function deleteDraft(id) {
-  showConfirmModal('Supprimer définitivement ce brouillon ? Cette action est irréversible.', () => {
-    setDrafts(getDrafts().filter(x => x.id !== id));
+  showConfirmModal('Supprimer définitivement ce brouillon ? Cette action est irréversible.', async () => {
+    await setDrafts((await getDrafts()).filter(x => x.id !== id));
     renderDrafts();
   });
 }
