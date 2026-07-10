@@ -29,3 +29,34 @@ async function deconnexion() {
   await supabaseClient.auth.signOut();
   window.location.href = 'login.html';
 }
+
+// Crée un compte. Selon la configuration Supabase (confirmation email activée
+// ou non), l'utilisateur est soit connecté immédiatement, soit doit d'abord
+// cliquer sur le lien de confirmation reçu par email.
+// Renvoie { data, error }.
+async function inscription(email, motdepasse) {
+  return await supabaseClient.auth.signUp({
+    email: email,
+    password: motdepasse
+  });
+}
+
+// Envoie un email de réinitialisation de mot de passe. Le lien contenu dans
+// cet email ramène l'utilisateur sur redirectionVersPage (par défaut
+// reinitialiser-mdp.html), avec un token de session temporaire dans l'URL.
+// Renvoie { data, error }.
+async function demanderReinitialisationMdp(email, redirectionVersPage) {
+  const url = new URL(redirectionVersPage || 'reinitialiser-mdp.html', window.location.href);
+  return await supabaseClient.auth.resetPasswordForEmail(email, {
+    redirectTo: url.href
+  });
+}
+
+// À appeler depuis reinitialiser-mdp.html une fois que l'utilisateur a saisi
+// son nouveau mot de passe (la session temporaire issue du lien email doit
+// déjà être active). Renvoie { data, error }.
+async function mettreAJourMotDePasse(nouveauMotDePasse) {
+  return await supabaseClient.auth.updateUser({
+    password: nouveauMotDePasse
+  });
+}

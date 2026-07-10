@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#16266b">
+<link rel="icon" href="logo_laforet.png">
+<link rel="apple-touch-icon" href="logo_laforet.png">
+<!--
+  Content-Security-Policy : identique à login.html.
+-->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://tclqiusyonocedobtoky.supabase.co; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'self'">
+<title>Nouveau mot de passe — Laforêt Pithiviers</title>
+<style>
+  :root {
+    --blue: #16266b;
+    --blue-d: #0f1b50;
+    --blue-l: #e9ecf7;
+    --sky: #29a9e0;
+    --bg: #eef1fa;
+    --card: #fff;
+    --ink: #161d33;
+    --muted: #525d7a;
+    --line: #e2e7f0;
+    --shadow: 0 1px 3px rgba(22,38,107,.08), 0 8px 24px rgba(22,38,107,.07);
+    --radius: 16px;
+    --error: #c0392b;
+    --error-bg: #fdecea;
+  }
+  [data-theme="dark"] {
+    --bg:#0f1117; --card:#1a1f2e; --ink:#e8ecf4; --muted:#8892aa;
+    --line:#2a3148; --shadow:0 1px 3px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);
+    --blue-l:#1a2240;
+    --error-bg: #3a1f1f;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; min-height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .carte {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 40px 32px;
+    width: 100%;
+    max-width: 380px;
+  }
+  .logo {
+    display: block;
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 20px;
+    border-radius: 12px;
+  }
+  h1 {
+    font-size: 20px;
+    text-align: center;
+    margin: 0 0 6px;
+    color: var(--blue);
+  }
+  [data-theme="dark"] h1 { color: var(--sky); }
+  p.sous-titre {
+    text-align: center;
+    color: var(--muted);
+    font-size: 14px;
+    margin: 0 0 28px;
+  }
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 15px;
+    margin-bottom: 18px;
+    font-family: inherit;
+  }
+  input:focus {
+    outline: none;
+    border-color: var(--sky);
+  }
+  button {
+    width: 100%;
+    padding: 13px;
+    border: none;
+    border-radius: 10px;
+    background: var(--blue);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  button:hover { background: var(--blue-d); }
+  button:disabled { opacity: .6; cursor: not-allowed; }
+  .message-erreur {
+    background: var(--error-bg);
+    color: var(--error);
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 14px;
+    margin-bottom: 18px;
+    display: none;
+  }
+  .message-erreur.visible { display: block; }
+  .message-succes {
+    background: var(--blue-l);
+    color: var(--blue);
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 14px;
+    margin-bottom: 18px;
+    display: none;
+  }
+  [data-theme="dark"] .message-succes { color: var(--sky); }
+  .message-succes.visible { display: block; }
+  p.aide {
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    margin: 18px 0 0;
+  }
+  p.aide a {
+    color: var(--blue);
+    text-decoration: none;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  [data-theme="dark"] p.aide a { color: var(--sky); }
+  footer {
+    text-align: center;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 24px;
+  }
+</style>
+</head>
+<body>
+
+<div class="carte">
+  <img class="logo" src="logo_laforet.png" alt="Laforêt Pithiviers">
+  <h1>Nouveau mot de passe</h1>
+  <p class="sous-titre">Portail interne — Laforêt Pithiviers</p>
+
+  <div id="messageErreur" class="message-erreur"></div>
+  <div id="messageSucces" class="message-succes"></div>
+
+  <form id="formReinit">
+    <label for="motdepasse">Nouveau mot de passe</label>
+    <input type="password" id="motdepasse" autocomplete="new-password" minlength="6" required>
+
+    <label for="motdepasseConfirmation">Confirmer le mot de passe</label>
+    <input type="password" id="motdepasseConfirmation" autocomplete="new-password" minlength="6" required>
+
+    <button type="submit" id="btnReinit">Enregistrer le mot de passe</button>
+  </form>
+
+  <p class="aide"><a href="login.html">Retour à la connexion</a></p>
+
+  <footer>Laforêt Pithiviers · Usage interne</footer>
+</div>
+
+<script src="supabase-lib.js"></script>
+<script src="supabase-client.js"></script>
+<script>
+const form = document.getElementById('formReinit');
+const btn = document.getElementById('btnReinit');
+const messageErreur = document.getElementById('messageErreur');
+const messageSucces = document.getElementById('messageSucces');
+
+function afficherErreur(texte) {
+  messageSucces.classList.remove('visible');
+  messageErreur.textContent = texte;
+  messageErreur.classList.add('visible');
+}
+
+function afficherSucces(texte) {
+  messageErreur.classList.remove('visible');
+  messageSucces.textContent = texte;
+  messageSucces.classList.add('visible');
+}
+
+// Le lien reçu par email place un token de type "recovery" dans le hash de
+// l'URL. La librairie Supabase l'échange automatiquement contre une session
+// temporaire dès le chargement de la page (déclenche l'événement
+// PASSWORD_RECOVERY). Tant que cet échange n'a pas eu lieu, on désactive le
+// formulaire pour éviter un appel updateUser sans session valide.
+let sessionRecuperationPrete = false;
+
+form.querySelectorAll('input, button').forEach(function (el) { el.disabled = true; });
+
+supabaseClient.auth.onAuthStateChange(function (evenement, session) {
+  if (evenement === 'PASSWORD_RECOVERY' && session) {
+    sessionRecuperationPrete = true;
+    form.querySelectorAll('input, button').forEach(function (el) { el.disabled = false; });
+  }
+});
+
+// Filet de sécurité : si le lien est invalide/expiré, aucune session de
+// récupération n'arrivera. On prévient l'utilisateur après un court délai.
+setTimeout(function () {
+  if (!sessionRecuperationPrete) {
+    afficherErreur('Ce lien de réinitialisation est invalide ou a expiré. Merci de refaire une demande depuis la page de connexion.');
+  }
+}, 4000);
+
+form.addEventListener('submit', async function (e) {
+  e.preventDefault();
+  if (!sessionRecuperationPrete) return;
+
+  messageErreur.classList.remove('visible');
+  messageSucces.classList.remove('visible');
+
+  const motdepasse = document.getElementById('motdepasse').value;
+  const confirmation = document.getElementById('motdepasseConfirmation').value;
+
+  if (motdepasse !== confirmation) {
+    afficherErreur('Les mots de passe ne correspondent pas.');
+    return;
+  }
+  if (motdepasse.length < 6) {
+    afficherErreur('Le mot de passe doit contenir au moins 6 caractères.');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Enregistrement...';
+
+  const { error } = await mettreAJourMotDePasse(motdepasse);
+
+  btn.disabled = false;
+  btn.textContent = 'Enregistrer le mot de passe';
+
+  if (error) {
+    afficherErreur('Impossible de mettre à jour le mot de passe. Réessayez.');
+    return;
+  }
+
+  form.reset();
+  afficherSucces('Mot de passe mis à jour. Redirection...');
+  setTimeout(function () { window.location.href = 'index.html'; }, 1500);
+});
+</script>
+
+</body>
+</html>
