@@ -889,11 +889,16 @@ function saveBiens(l){
    SYNCHRO CLOUD — Supabase (table biens_photoimmo)
    ------------------------------------------------------------
    localStorage reste la copie "rapide" utilisée pour l'affichage
-   instantané (et le mode hors-ligne). En plus de ça, on pousse la
-   liste complète des biens vers Supabase (une seule ligne, id=BKEY,
-   colonne data en jsonb) afin qu'elle soit partagée entre tous les
-   postes du portail. supabaseClient vient de supabase-client.js,
-   déjà chargé avant ce script.
+   instantané (et le mode hors-ligne). En plus de ça, on pousse les
+   biens vers Supabase, UNE LIGNE PAR BIEN (id = bien.id, colonne data
+   en jsonb), pour que deux agents modifiant des biens différents en
+   même temps ne s'écrasent plus mutuellement (avant : tout le lot
+   était stocké dans une seule ligne géante, id=BKEY, partagée par
+   tous les biens — un agent qui sauvegardait pouvait écraser la
+   sauvegarde d'un collègue faite entre-temps sur un autre bien).
+   L'upsert de tous les biens de la liste se fait en un seul appel
+   réseau (upsert accepte un tableau de lignes). supabaseClient vient
+   de supabase-client.js, déjà chargé avant ce script.
    ============================================================ */
 let _bienPushTimer=null;
 function queueCloudPushBiens(list){
@@ -901,30 +906,58 @@ function queueCloudPushBiens(list){
   _bienPushTimer=setTimeout(()=>cloudPushBiens(list),800);
 }
 async function cloudPushBiens(list){
+  if(!list||!list.length)return;
   try{
     const user=await getUtilisateurConnecte();
-    const payload={id:BKEY,data:list,updated_at:new Date().toISOString()};
-    if(user)payload.updated_by=user.id;
-    const {error}=await supabaseClient.from('biens_photoimmo').upsert(payload);
+    const now=new Date().toISOString();
+    const rows=list.map(b=>{
+      const row={id:b.id,data:b,updated_at:now};
+      if(user)row.updated_by=user.id;
+      return row;
+    });
+    const {error}=await supabaseClient.from('biens_photoimmo').upsert(rows);
     if(error)throw error;
   }catch(e){ console.warn('[cloud] échec envoi biens_photoimmo :',e); }
 }
+/* Supprime la ligne cloud d'UN bien précis (appelé explicitement à la
+   suppression d'un bien — voir plus bas — plutôt que déduit d'une
+   comparaison de listes, pour rester simple et sûr). */
+async function cloudDeleteBien(id){
+  if(!id)return;
+  try{
+    const {error}=await supabaseClient.from('biens_photoimmo').delete().eq('id',id);
+    if(error)throw error;
+  }catch(e){ console.warn('[cloud] échec suppression biens_photoimmo :',e); }
+}
 async function cloudPullBiens(){
   try{
-    const {data,error}=await supabaseClient.from('biens_photoimmo').select('data').eq('id',BKEY).maybeSingle();
+    const {data,error}=await supabaseClient.from('biens_photoimmo').select('id,data');
     if(error)throw error;
-    return {ok:true,row:data};
-  }catch(e){ console.warn('[cloud] échec lecture biens_photoimmo :',e); return {ok:false,row:null}; }
+    return {ok:true,rows:data||[]};
+  }catch(e){ console.warn('[cloud] échec lecture biens_photoimmo :',e); return {ok:false,rows:[]}; }
 }
-// Appelée au démarrage : si le cloud a une version (créée depuis un autre
-// poste), on l'adopte comme copie locale. Si aucune ligne n'existe encore,
-// on amorce la synchro avec la copie locale existante.
+// Appelée au démarrage : si le cloud a des biens (créés/modifiés depuis un
+// autre poste), on les adopte comme copie locale. Si rien n'existe encore
+// côté cloud, on amorce la synchro avec la copie locale existante.
+// Migre au passage l'ancienne ligne unique "photoimmo_pro_biens" (ancien
+// format, tous les biens dans une seule ligne id=BKEY) si elle traîne
+// encore : on l'éclate en une ligne par bien puis on la supprime.
 async function syncBiensFromCloud(){
-  const {ok,row}=await cloudPullBiens();
+  const {ok,rows}=await cloudPullBiens();
   if(!ok)return;
-  if(row&&Array.isArray(row.data)){
+  const legacyRow=rows.find(r=>r.id===BKEY);
+  let entries=rows.filter(r=>r.id!==BKEY).map(r=>r.data).filter(Boolean);
+  if(legacyRow&&Array.isArray(legacyRow.data)){
+    for(const b of legacyRow.data){
+      if(!b||!b.id)continue;
+      if(!entries.some(e=>e.id===b.id))entries.push(b);
+    }
+    await cloudPushBiens(entries);
+    try{ await supabaseClient.from('biens_photoimmo').delete().eq('id',BKEY); }catch(e){}
+  }
+  if(entries.length){
     const localStr=localStorage.getItem(BKEY)||'[]';
-    const cloudStr=JSON.stringify(row.data);
+    const cloudStr=JSON.stringify(entries);
     if(cloudStr!==localStr){
       localStorage.setItem(BKEY,cloudStr);
       if(!isAnyUiOpen())renderHome();
@@ -1343,7 +1376,7 @@ $('home').addEventListener('click',async e=>{
   if(e.target.closest('#newBienBtn'))return openNewBien();
   if(e.target.closest('#rulesBtn'))return openRules();
   const del=e.target.closest('[data-delbien]');
-  if(del){e.stopPropagation();const b=getBien(del.dataset.delbien);if(b&&await customConfirm('Supprimer ce bien ?','Supprimer le bien « '+b.address+' » et ses photos ? Cette action est irréversible.','Supprimer')){const ids=(b.photos||[]).map(p=>p.id);idbDelMany(ids);cloudDeleteThumbs(ids);saveBiens(loadBiens().filter(x=>x.id!==del.dataset.delbien));renderHome();}return;}
+  if(del){e.stopPropagation();const b=getBien(del.dataset.delbien);if(b&&await customConfirm('Supprimer ce bien ?','Supprimer le bien « '+b.address+' » et ses photos ? Cette action est irréversible.','Supprimer')){const ids=(b.photos||[]).map(p=>p.id);idbDelMany(ids);cloudDeleteThumbs(ids);cloudDeleteBien(b.id);saveBiens(loadBiens().filter(x=>x.id!==del.dataset.delbien));renderHome();}return;}
   const card=e.target.closest('[data-bien]');if(card)openBien(card.dataset.bien);
 });
 
