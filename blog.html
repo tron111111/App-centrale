@@ -672,6 +672,15 @@ let currentCat = "Tous";
 let selectedId = null;
 let resultVisible = true;
 const DRAFTS_KEY = 'laforet_blog_drafts';
+// Génère un identifiant de brouillon. Avant la migration, un simple
+// Date.now() suffisait (une seule "boîte" par appareil, donc pas de
+// risque de collision entre agents). Maintenant que tous les agents
+// écrivent dans la même table partagée, on ajoute un peu d'aléatoire pour
+// éviter qu'un enregistrement au même millisecond par deux agents ne
+// génère accidentellement le même identifiant.
+function genDraftId() {
+  return Date.now() * 1000 + Math.floor(Math.random() * 1000);
+}
 const DRAFT_SORT_KEY = 'laforet_blog_draft_sort';
 
 window.onload = async function() {
@@ -1311,38 +1320,79 @@ function flashSaveToast(msg, type) {
   t._timer = setTimeout(() => t.style.display = 'none', 3500);
 }
 
-// ── BROUILLONS (Supabase + localStorage fallback) ──────────────────────────
-// Identifiant unique pour cet appareil/utilisateur anonyme (persisté en localStorage).
-function getDeviceId() {
-  let id = localStorage.getItem('laforet_device_id');
-  if (!id) {
-    id = 'dev_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
-    localStorage.setItem('laforet_device_id', id);
-  }
-  return id;
-}
+// ── BROUILLONS (Supabase, partagés entre TOUS les agents) ──────────────────
+// Avant : chaque appareil générait un identifiant anonyme (deviceId) au
+// premier lancement et rangeait TOUS ses brouillons sous UNE SEULE ligne
+// Supabase portant cet id — un simple backup cloud personnel, invisible
+// des autres appareils/agents (pas de partage réel).
+// Corrigé ici : une ligne PAR BROUILLON (id = brouillon.id, data = le
+// brouillon), même principe que biens_registry / biens_photoimmo. Tous les
+// agents lisent et écrivent maintenant la même table partagée : un
+// brouillon créé par un collègue est visible par tout le monde.
+// (DRAFTS_KEY est déjà déclaré plus haut dans ce fichier — cache local hors-ligne / 1er affichage)
 
 // Cache local pour éviter des allers-retours inutiles
 let _draftsCache = null;
 
+/* Envoie tous les brouillons de la liste vers Supabase, UNE LIGNE PAR
+   BROUILLON (id = brouillon.id), en un seul appel réseau (upsert accepte
+   un tableau de lignes) — comme pour biens_photoimmo, pour que deux
+   agents qui sauvegardent des brouillons différents en même temps ne
+   s'écrasent plus mutuellement. */
+async function pushDraftsBatch(list) {
+  if (!list || !list.length) return;
+  try {
+    const rows = list.map(d => ({ id: String(d.id), data: d, updated_at: new Date().toISOString() }));
+    const { error } = await supabaseClient.from('blog_drafts').upsert(rows);
+    if (error) throw error;
+  } catch (e) {
+    console.warn('[blog] Supabase pushDraftsBatch error :', e);
+  }
+}
+/* Supprime la ligne cloud d'UN brouillon précis (appelé explicitement à la
+   suppression — voir deleteDraft plus bas — plutôt que déduit d'une
+   comparaison de listes, pour rester simple et sûr). */
+async function deleteDraftCloud(id) {
+  try {
+    const { error } = await supabaseClient.from('blog_drafts').delete().eq('id', String(id));
+    if (error) throw error;
+  } catch (e) {
+    console.warn('[blog] Supabase deleteDraftCloud error :', e);
+  }
+}
+
 async function getDrafts() {
   if (_draftsCache !== null) return _draftsCache;
   try {
-    const deviceId = getDeviceId();
-    const { data, error } = await supabaseClient
-      .from('blog_drafts')
-      .select('id, data, created_at, updated_at')
-      .eq('id', deviceId)
-      .maybeSingle();
+    const { data, error } = await supabaseClient.from('blog_drafts').select('id, data, updated_at');
     if (error) throw error;
-    if (data && data.data && Array.isArray(data.data.drafts)) {
-      _draftsCache = data.data.drafts;
-      return _draftsCache;
+    const rows = data || [];
+    // Migration : les anciennes lignes "une par appareil" ont la forme
+    // { drafts: [...] } (un tableau complet) au lieu d'un brouillon
+    // individuel — on les repère à cette forme, on éclate chacune en
+    // lignes individuelles (une par brouillon), puis on les supprime.
+    const legacyRows = rows.filter(r => r.data && Array.isArray(r.data.drafts));
+    const draftRows = rows.filter(r => !(r.data && Array.isArray(r.data.drafts)));
+    let drafts = draftRows.map(r => r.data).filter(Boolean);
+    if (legacyRows.length) {
+      for (const row of legacyRows) {
+        for (const d of (row.data.drafts || [])) {
+          if (!d) continue;
+          if (!drafts.some(x => String(x.id) === String(d.id))) drafts.push(d);
+        }
+      }
+      await pushDraftsBatch(drafts);
+      for (const row of legacyRows) {
+        try { await supabaseClient.from('blog_drafts').delete().eq('id', row.id); } catch (e) {}
+      }
     }
+    _draftsCache = drafts;
+    try { localStorage.setItem(DRAFTS_KEY, JSON.stringify(drafts)); } catch {}
+    return _draftsCache;
   } catch (e) {
     console.warn('[blog] Supabase getDrafts error, fallback localStorage :', e);
   }
-  // Fallback localStorage
+  // Fallback localStorage (hors-ligne)
   try { _draftsCache = JSON.parse(localStorage.getItem(DRAFTS_KEY) || '[]'); }
   catch { _draftsCache = []; }
   return _draftsCache;
@@ -1350,19 +1400,10 @@ async function getDrafts() {
 
 async function setDrafts(list) {
   _draftsCache = list;
-  // Toujours persister en localStorage
+  // Toujours persister en localStorage (cache hors-ligne)
   try { localStorage.setItem(DRAFTS_KEY, JSON.stringify(list)); } catch {}
-  // Puis synchroniser avec Supabase
-  try {
-    const deviceId = getDeviceId();
-    const payload = { drafts: list, savedAt: new Date().toISOString() };
-    const { error } = await supabaseClient
-      .from('blog_drafts')
-      .upsert({ id: deviceId, data: payload, updated_at: new Date().toISOString() }, { onConflict: 'id' });
-    if (error) throw error;
-  } catch (e) {
-    console.warn('[blog] Supabase setDrafts error, brouillon conservé localement :', e);
-  }
+  // Puis synchroniser avec Supabase — une ligne par brouillon
+  await pushDraftsBatch(list);
 }
 
 // Version synchrone pour les rares endroits qui ne peuvent pas attendre (lecture seule depuis cache)
@@ -1454,11 +1495,14 @@ function handleImportFile(event) {
   reader.readAsText(file);
 }
 
-// Le remplacement total est destructif : on passe par la popup de confirmation.
+// Le remplacement total est destructif ET partagé : depuis que les brouillons
+// sont communs à toute l'agence, "remplacer" supprime les brouillons de TOUS
+// les agents, pas seulement ceux de cet appareil — on le dit explicitement
+// dans la popup de confirmation.
 function confirmReplaceAll() {
   const n = pendingImportDrafts ? pendingImportDrafts.length : 0;
   showConfirmModal(
-    `Remplacer tous tes brouillons actuels par les ${n} brouillon${n > 1 ? 's' : ''} du fichier importé ? Cette action est irréversible.`,
+    `Remplacer TOUS les brouillons partagés de l'agence (créés par tous les agents, sur tous les appareils) par les ${n} brouillon${n > 1 ? 's' : ''} du fichier importé ? Cette action est irréversible et concerne toute l'équipe, pas seulement cet appareil.`,
     () => confirmFileImport('replace')
   );
 }
@@ -1468,7 +1512,7 @@ async function confirmFileImport(mode) {
 
   // Nouveaux identifiants pour éviter toute collision avec les brouillons existants.
   const incoming = pendingImportDrafts.map((d, i) => ({
-    id: Date.now() + i,
+    id: genDraftId() + i,
     title: d.title,
     meta: d.meta || '',
     dateLabel: d.dateLabel || '',
@@ -1479,8 +1523,13 @@ async function confirmFileImport(mode) {
   }));
 
   if (mode === 'replace') {
+    // Supprime réellement les lignes cloud existantes (tous agents confondus)
+    // avant d'écrire les nouvelles — sinon les anciens brouillons partagés
+    // resteraient en base et réapparaîtraient au prochain chargement.
+    const current = await getDrafts();
+    for (const d of current) await deleteDraftCloud(d.id);
     await setDrafts(incoming);
-    flashSaveToast(`Brouillons remplacés (${incoming.length}).`);
+    flashSaveToast(`Brouillons partagés remplacés (${incoming.length}).`);
   } else {
     const merged = [...incoming, ...(await getDrafts())];
     await setDrafts(merged);
@@ -1654,7 +1703,7 @@ async function importDraft() {
   }
 
   drafts.unshift({
-    id: Date.now(),
+    id: genDraftId(),
     title, meta, dateLabel, body, bodyHtml, cat,
     savedAt: new Date().toISOString()
   });
@@ -1676,7 +1725,7 @@ function updateImpMetaCount() {
 async function saveDraft() {
   if (!currentArticle) return;
   const drafts = await getDrafts();
-  const newId = Date.now();
+  const newId = genDraftId();
   drafts.unshift({
     id: newId,
     title: currentArticle.title,
@@ -1744,7 +1793,10 @@ async function loadDraft(id) {
 // le second (dans les 3 secondes) supprime réellement le brouillon.
 function deleteDraft(id) {
   showConfirmModal('Supprimer définitivement ce brouillon ? Cette action est irréversible.', async () => {
-    await setDrafts((await getDrafts()).filter(x => x.id !== id));
+    const remaining = (await getDrafts()).filter(x => x.id !== id);
+    _draftsCache = remaining;
+    try { localStorage.setItem(DRAFTS_KEY, JSON.stringify(remaining)); } catch {}
+    await deleteDraftCloud(id);
     renderDrafts();
   });
 }
