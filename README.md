@@ -36,6 +36,7 @@ Ce dépôt héberge un ensemble d'outils web internes utilisés au quotidien par
 Tout le portail est protégé par un compte agence (email + mot de passe), géré via **Supabase Auth** :
 
 - Chaque page protégée charge `supabase-lib.js` → `supabase-client.js` → `auth-guard.js`, dans cet ordre. `auth-guard.js` redirige automatiquement vers `login.html` si personne n'est connecté.
+- **Déconnexion automatique après 30 min d'inactivité** : `auth-guard.js` surveille l'activité (clic, mouvement de souris, clavier, scroll, touch) et déconnecte automatiquement l'utilisateur au bout de 30 minutes sans aucune interaction, avec redirection vers `login.html`. La dernière activité est horodatée dans `localStorage` et partagée entre tous les onglets/pages du portail, donc naviguer d'une app à l'autre ne réinitialise pas indûment le compte à rebours. Ce mécanisme ne s'applique qu'aux pages qui chargent `auth-guard.js` — il ne concerne donc ni `login.html` ni `test-connexion.html`.
 - Les comptes agents sont créés manuellement dans le dashboard Supabase (Authentication > Users) — il n'y a pas d'auto-inscription.
 - La clé utilisée côté navigateur est la clé **`anon` publique** de Supabase : ce n'est pas un secret (elle est conçue pour être visible côté client), c'est la sécurité **Row Level Security** côté base de données qui protège réellement les données — seuls les comptes authentifiés peuvent lire/écrire.
 
@@ -47,10 +48,10 @@ Projet Supabase dédié, hébergé en région UE, avec DPA signé (voir section 
 
 | Table | Alimentée par | Contenu |
 |---|---|---|
-| `biens_registry` | `dossier.html`, `photoimmo.html` | Registre reliant un même bien entre les 3 apps (voir limite connue ci-dessous) |
+| `biens_registry` | `dossier.html`, `photoimmo.html`, `bibliotheque.html` | Registre reliant un même bien entre les 3 apps, une ligne par bien |
 | `biens_bibliotheque` | `bibliotheque.html` | Fiches descriptives des biens (annonces) |
-| `biens_photoimmo` | `photoimmo.html` | Métadonnées des photos par bien (scoring, pièces, dates) |
-| `blog_drafts` | `blog.html` | Brouillons d'articles de blog (voir limite connue ci-dessous) |
+| `biens_photoimmo` | `photoimmo.html` | Métadonnées des photos par bien (scoring, pièces, dates), une ligne par bien |
+| `blog_drafts` | `blog.html` | Brouillons d'articles de blog, une ligne par brouillon |
 
 Toutes les tables sont protégées par des policies **Row Level Security** limitant l'accès aux seuls comptes authentifiés du portail.
 
@@ -62,11 +63,11 @@ Toutes les tables sont protégées par des policies **Row Level Security** limit
 |---|---|
 | Photos (fichiers) | ✅ Partagées via Storage, consultables depuis n'importe quel appareil |
 | Fiches descriptives (`bibliotheque.html`) | ✅ Partagées, écriture ligne par ligne |
-| Métadonnées photos (`biens_photoimmo`) | ⚠️ Synchronisées, mais en une seule ligne pour tout le bucket : deux agents modifiant des biens différents en même temps peuvent s'écraser mutuellement |
-| Registre inter-apps (`biens_registry`) | ❌ **Incohérent** : `dossier.html`, `photoimmo.html` et `bibliotheque.html` n'utilisent pas le même format d'écriture (voir détail technique dans le code). La liaison automatique entre les 3 outils n'est donc pas fiable en usage multi-appareils tant que ce n'est pas harmonisé. |
-| Brouillons de blog (`blog_drafts`) | ❌ **Pas réellement partagés** : chaque appareil sauvegarde ses propres brouillons sous son propre identifiant (`deviceId`). C'est un backup cloud par poste, pas un partage entre agents. |
+| Métadonnées photos (`biens_photoimmo`) | ✅ Partagées, une ligne par bien (`id` = id du bien) : deux agents modifiant des biens différents en même temps ne s'écrasent plus mutuellement. (Avant : tout le lot stocké dans une seule ligne géante partagée par tous les biens.) |
+| Registre inter-apps (`biens_registry`) | ✅ **Harmonisé** : `dossier.html`, `photoimmo.html` et `bibliotheque.html` utilisent désormais le même format d'écriture (une ligne par bien, `id` = identifiant normalisé du bien). La liaison automatique entre les 3 outils est donc fiable en usage multi-appareils. |
+| Brouillons de blog (`blog_drafts`) | ✅ **Réellement partagés** : chaque brouillon est stocké dans sa propre ligne (`id` = id du brouillon) au lieu d'être regroupé sous un identifiant d'appareil (`deviceId`). Un brouillon créé par un collègue est désormais visible par tous les agents. |
 
-Ces deux derniers points sont les prochains chantiers pour que le partage soit complet et fiable.
+Une migration automatique et silencieuse est effectuée au premier chargement de chaque page concernée : les anciennes lignes (format « une ligne géante par bucket/appareil ») sont éclatées en lignes individuelles, poussées vers Supabase, puis supprimées.
 
 ## Dossier des biens (`dossier.html`)
 
@@ -84,7 +85,7 @@ Fiche centralisée par bien immobilier, qui réunit au même endroit tout ce qui
   - **Bloc Photos** : aperçu des meilleures photos et barre de progression des pièces clés photographiées, avec lien direct vers la fiche du bien dans PhotoImmo Pro (ouverture ou création si elle n'existe pas encore) ;
   - **Bloc Description / annonce** : aperçu des informations clés de l'annonce (type, ville, pièces, surface, prix) si une fiche existe dans la Bibliothèque de prompts, avec lien direct vers celle-ci (ouverture ou création) ;
   - suppression du dossier avec modale de confirmation, précisant que les données déjà créées dans PhotoImmo et la Bibliothèque ne sont pas supprimées.
-- **Registre partagé** (table Supabase `biens_registry`) : `dossier.html` est la source de vérité pour la liste des biens et leurs champs centraux (statut, prix, notes). Les aperçus photo/description affichés sur chaque carte sont lus depuis le cache local (`localStorage`) de PhotoImmo Pro et de la Bibliothèque — ils reflètent donc l'état du poste courant, pas nécessairement celui d'un autre appareil tant que le point ci-dessus n'est pas harmonisé.
+- **Registre partagé** (table Supabase `biens_registry`) : `dossier.html` est la source de vérité pour la liste des biens et leurs champs centraux (statut, prix, notes). Le format d'écriture (une ligne par bien) est désormais identique entre `dossier.html`, `photoimmo.html` et `bibliotheque.html`, ce qui rend la liaison automatique entre les 3 outils fiable en usage multi-appareils. Les aperçus photo/description affichés sur chaque carte restent en revanche lus depuis le cache local (`localStorage`) de PhotoImmo Pro et de la Bibliothèque — ils reflètent donc l'état du poste courant, pas nécessairement celui d'un autre appareil.
 - **Toasts de confirmation** (création, mise à jour, suppression, avertissement) et **icônes SVG inline** (aucun emoji), cohérents avec la charte graphique du portail.
 - **Mode sombre** synchronisé sur les préférences système, comme les autres pages.
 
@@ -96,7 +97,7 @@ Outil de rédaction assisté pour le blog de l'agence (actualités immobilières
 - **Renseignement des informations factuelles** via des champs dynamiques propres à chaque modèle (ville/secteur, chiffres, points clés, etc.), plus des réglages globaux : ton (factuel, chaleureux, institutionnel), longueur cible et date de publication.
 - **Génération du prompt** : construction automatique d'un prompt éditorial strict (aucune information inventée, pas d'emoji ni de superlatif, conclusion invitant à contacter l'agence), avec possibilité de le copier ou de l'envoyer directement vers claude.ai.
 - **Génération directe (BYOK)** : appel en direct à l'API Claude (Anthropic) ou Gemini (Google) depuis le navigateur, avec streaming de la réponse directement dans le formulaire de brouillon (titre, meta description, texte), clé API saisie par l'utilisateur et jamais stockée (voir section IA ci-dessous).
-- **Gestion de brouillons** : sauvegarde, recherche, filtre par catégorie, tri, ouverture, modification et suppression (avec confirmation), formulaire de création/import manuel avec bouton de copie par champ, ainsi qu'un contrôle anti-emoji pour respecter la charte éditoriale. Sauvegardés en `localStorage` avec synchronisation vers Supabase (voir limite connue plus haut : synchro actuellement par appareil, pas encore partagée entre agents).
+- **Gestion de brouillons** : sauvegarde, recherche, filtre par catégorie, tri, ouverture, modification et suppression (avec confirmation), formulaire de création/import manuel avec bouton de copie par champ, ainsi qu'un contrôle anti-emoji pour respecter la charte éditoriale. Sauvegardés en `localStorage` (cache local hors-ligne) avec synchronisation vers Supabase, une ligne par brouillon (`blog_drafts`) : un brouillon créé par un collègue est désormais visible et modifiable par tous les agents.
 - **Mode sombre** synchronisé sur les préférences système, comme les autres pages du portail.
 - Sécurité renforcée : Content-Security-Policy dédiée autorisant uniquement `api.anthropic.com`, `generativelanguage.googleapis.com` et le projet Supabase du portail.
 
