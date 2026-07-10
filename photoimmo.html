@@ -1139,80 +1139,93 @@ async function migrateThumbsToIDB(){
 function getBien(id){return loadBiens().find(b=>b.id===id);}
 const sessionFull={};   // id photo -> {file,url} (session courante, plein écran/PDF)
 
-/* ===== Liaison inter-apps (PhotoImmo <-> Bibliothèque de prompts) =====
-   Registre partagé en localStorage — même origine que les autres apps du
-   portail Laforêt, donc lisible/écrivable par bibliotheque.html. Il associe
-   un même bien entre les deux outils via un libellé normalisé (l'adresse
-   ici, le nom du bien côté Bibliothèque). Aucune donnée sensible : juste
-   le libellé et l'identifiant local de chaque côté. */
+/* ===== Liaison inter-apps (PhotoImmo <-> Bibliothèque <-> Dossier) =====
+   Registre partagé — table Supabase "biens_registry", UNE LIGNE PAR BIEN
+   (id = norm, data = entry) : exactement le même format que dossier.html.
+   (Avant : PhotoImmo écrivait une seule ligne géante contenant tous les
+   biens sous id=REG_KEY, incompatible avec le format ligne-par-bien de
+   dossier.html — c'est corrigé ici.)
+   Une copie en mémoire (_registryCache) est chargée une fois au démarrage
+   (loadRegistry), avec une copie locale (localStorage, clé REG_KEY) qui
+   sert de cache hors-ligne / premier affichage instantané. Le reste du
+   code continue de lire getBienRegistry() de façon synchrone, comme avant. */
 const REG_KEY='laforet_biens_registry';
 function normBienLabel(s){return (s||'').trim().toLowerCase().replace(/\s+/g,' ');}
-function getBienRegistry(){try{return JSON.parse(localStorage.getItem(REG_KEY))||[];}catch(e){return[];}}
-function setBienRegistry(list){
-  try{localStorage.setItem(REG_KEY,JSON.stringify(list));}catch(e){}
-  queueCloudPushRegistry(list);
-}
 
-/* Synchro cloud du registre — table biens_registry, même principe que
-   biens_photoimmo ci-dessus (une ligne, id=REG_KEY, data en jsonb). */
-let _regPushTimer=null;
-function queueCloudPushRegistry(list){
-  clearTimeout(_regPushTimer);
-  _regPushTimer=setTimeout(()=>cloudPushRegistry(list),800);
-}
-async function cloudPushRegistry(list){
+let _registryCache=[];
+try{ _registryCache=JSON.parse(localStorage.getItem(REG_KEY))||[]; }catch(e){ _registryCache=[]; }
+function getBienRegistry(){ return _registryCache; }
+function _persistRegistryLocal(){ try{localStorage.setItem(REG_KEY,JSON.stringify(_registryCache));}catch(e){} }
+
+/* Envoie UNE ligne (un bien) vers Supabase — même format que dossier.html. */
+async function pushRegistryEntry(entry){
+  if(!entry||!entry.norm)return;
   try{
     const user=await getUtilisateurConnecte();
-    const payload={id:REG_KEY,data:list,updated_at:new Date().toISOString()};
+    const payload={id:entry.norm,data:entry,updated_at:new Date().toISOString()};
     if(user)payload.updated_by=user.id;
     const {error}=await supabaseClient.from('biens_registry').upsert(payload);
     if(error)throw error;
   }catch(e){ console.warn('[cloud] échec envoi biens_registry :',e); }
 }
-async function cloudPullRegistry(){
+
+/* Charge le registre complet depuis Supabase (une ligne par bien).
+   Migre au passage l'ancienne ligne unique "laforet_biens_registry"
+   (ancien format PhotoImmo) si elle existe encore, en l'éclatant en une
+   ligne par bien puis en la supprimant. */
+async function loadRegistry(){
   try{
-    const {data,error}=await supabaseClient.from('biens_registry').select('data').eq('id',REG_KEY).maybeSingle();
+    const {data,error}=await supabaseClient.from('biens_registry').select('id,data');
     if(error)throw error;
-    return {ok:true,row:data};
-  }catch(e){ console.warn('[cloud] échec lecture biens_registry :',e); return {ok:false,row:null}; }
-}
-async function syncRegistryFromCloud(){
-  const {ok,row}=await cloudPullRegistry();
-  if(!ok)return;
-  if(row&&Array.isArray(row.data)){
-    const localStr=localStorage.getItem(REG_KEY)||'[]';
-    const cloudStr=JSON.stringify(row.data);
-    if(cloudStr!==localStr)localStorage.setItem(REG_KEY,cloudStr);
-  }else{
-    const localList=getBienRegistry();
-    if(localList.length)queueCloudPushRegistry(localList);
-  }
+    const rows=data||[];
+    const legacyRow=rows.find(r=>r.id===REG_KEY);
+    const entries=rows.filter(r=>r.id!==REG_KEY).map(r=>r.data).filter(Boolean);
+    if(legacyRow&&Array.isArray(legacyRow.data)){
+      for(const entry of legacyRow.data){
+        if(!entry)continue;
+        if(!entry.norm&&entry.label)entry.norm=normBienLabel(entry.label);
+        if(!entry.norm)continue;
+        if(!entries.some(e=>e.norm===entry.norm)){
+          entries.push(entry);
+          await pushRegistryEntry(entry);
+        }
+      }
+      try{ await supabaseClient.from('biens_registry').delete().eq('id',REG_KEY); }catch(e){}
+    }
+    _registryCache=entries.filter(entry=>{
+      if(!entry.norm&&entry.label)entry.norm=normBienLabel(entry.label);
+      return !!entry.norm;
+    });
+    _persistRegistryLocal();
+    if(!isAnyUiOpen())renderHome();
+  }catch(e){ console.warn('[cloud] échec chargement biens_registry :',e); }
 }
 function upsertBienLink(label,appKey,appValue){
   const norm=normBienLabel(label);if(!norm)return null;
-  const reg=getBienRegistry();
-  let entry=reg.find(e=>e.norm===norm);
-  if(!entry){entry={norm,label:label.trim(),createdAt:Date.now(),links:{}};reg.unshift(entry);}
+  let entry=_registryCache.find(e=>e.norm===norm);
+  if(!entry){entry={norm,label:label.trim(),createdAt:Date.now(),links:{}};_registryCache.unshift(entry);}
   else entry.label=label.trim();
+  if(!entry.links)entry.links={};
   entry.links[appKey]=appValue;
   entry.updatedAt=Date.now();
-  setBienRegistry(reg);
+  _persistRegistryLocal();
+  pushRegistryEntry(entry);
   return entry;
 }
-function findBienLink(label){return getBienRegistry().find(e=>e.norm===normBienLabel(label))||null;}
+function findBienLink(label){return _registryCache.find(e=>e.norm===normBienLabel(label))||null;}
 /* Crée ou met à jour les infos centrales (type/ville/statut/prix/notes)
    d'un bien dans le registre partagé — même logique que dans dossier.html.
    Permet à PhotoImmo de créer un bien "à la volée" tout en le faisant
    apparaître correctement rempli dans le Dossier des biens. */
 function upsertCentral(label,fields){
   const norm=normBienLabel(label);if(!norm)return null;
-  const reg=getBienRegistry();
-  let entry=reg.find(e=>e.norm===norm);
-  if(!entry){entry={norm,label:label.trim(),createdAt:Date.now(),links:{},central:{}};reg.unshift(entry);}
+  let entry=_registryCache.find(e=>e.norm===norm);
+  if(!entry){entry={norm,label:label.trim(),createdAt:Date.now(),links:{},central:{}};_registryCache.unshift(entry);}
   if(!entry.central)entry.central={};
   Object.assign(entry.central,fields);
   entry.updatedAt=Date.now();
-  setBienRegistry(reg);
+  _persistRegistryLocal();
+  pushRegistryEntry(entry);
   return entry;
 }
 /* Devine une ville à partir d'une adresse "12 rue des Lilas, Pithiviers" -> "Pithiviers" */
@@ -1304,51 +1317,24 @@ function renderHome(){
     });
   }
   html+='<div class="section-title">Aide</div><button class="btn btn-ghost" id="rulesBtn" style="width:100%">'+ic('star',18)+' Les 10 règles d’or du shooting</button>';
-  html+='<div class="footer-note">Analyse 100% locale. Vos photos sont synchronisées entre vos postes via votre espace Supabase privé (limite de 50 Mo pour l’ensemble du bucket). Ajoutez l’app à l’écran d’accueil pour l’utiliser hors-ligne sur le terrain (envoi automatique dès que le réseau revient).<span id="storageInfo"></span></div>';
+  html+='<div class="footer-note">Analyse 100% locale. Vos photos sont synchronisées entre vos postes via votre espace Supabase privé. Ajoutez l’app à l’écran d’accueil pour l’utiliser hors-ligne sur le terrain (envoi automatique dès que le réseau revient).<span id="storageInfo"></span></div>';
   $('home').innerHTML=html;
   updateStorageInfo();
 }
-// Limite réelle du bucket Supabase "photoimmo-photos" : 50 Mo pour
-// l'ensemble des photos de l'agence (tous biens, tous postes confondus).
-// Un avertissement s'affiche dès 45 Mo utilisés, pour anticiper avant
-// d'atteindre la limite plutôt que de la découvrir via un échec d'envoi.
-const BUCKET_SIZE_LIMIT_BYTES = 50 * 1024 * 1024;
-const BUCKET_WARNING_BYTES = 45 * 1024 * 1024;
-
-// Additionne la taille de tous les fichiers réellement présents dans le
-// bucket Supabase (paginé par lots de 1000). C'est la seule mesure fiable
-// de l'espace utilisé : contrairement à navigator.storage.estimate(),
-// qui ne reflète que le cache local de CE navigateur, ceci reflète
-// l'usage RÉEL et PARTAGÉ du bucket, vu par tous les postes de l'agence.
-async function getBucketUsageBytes(){
-  let total=0, offset=0;
-  const pageSize=1000;
-  while(true){
-    const {data,error}=await supabaseClient.storage.from(PHOTO_BUCKET)
-      .list('',{limit:pageSize,offset});
-    if(error||!data||!data.length)break;
-    for(const f of data){ total += (f.metadata&&f.metadata.size)||0; }
-    if(data.length<pageSize)break;
-    offset+=pageSize;
-  }
-  return total;
-}
-
-// Affiche l'espace réellement utilisé dans le bucket Supabase partagé,
-// avec un avertissement visible dès 45 Mo (sur une limite de 50 Mo).
-// Discret et silencieux en cas d'erreur réseau (purement informatif).
+// Affiche l'espace de stockage réellement utilisé par le navigateur pour ce
+// site (photos incluses), quand l'API le permet. Purement informatif : aide
+// à anticiper avant d'atteindre la limite plutôt que de la découvrir via une
+// erreur. Discret et silencieux si l'API n'est pas disponible (ex. Safari
+// en navigation privée).
 async function updateStorageInfo(){
   const el=$('storageInfo');if(!el)return;
   try{
-    const usage=await getBucketUsageBytes();
-    const fmt=n=>n<1024*1024?Math.round(n/1024)+' Ko':(n/1024/1024).toFixed(1)+' Mo';
-    const pct=Math.round(usage/BUCKET_SIZE_LIMIT_BYTES*100);
-    const isWarning=usage>=BUCKET_WARNING_BYTES;
-    let html=' · Stockage cloud utilisé : '+fmt(usage)+' / '+fmt(BUCKET_SIZE_LIMIT_BYTES)+' ('+pct+'%)';
-    if(isWarning){
-      html+=' <strong style="color:#d97706">— espace bientôt plein, pensez à supprimer d’anciens biens</strong>';
-    }
-    el.innerHTML=html;
+    if(!(navigator.storage&&navigator.storage.estimate))return;
+    const {usage,quota}=await navigator.storage.estimate();
+    if(usage==null)return;
+    const fmt=n=>n<1024*1024?Math.round(n/1024)+' Ko':(n/1024/1024).toFixed(usage<50*1024*1024?1:0)+' Mo';
+    const pct=quota?Math.round(usage/quota*100):null;
+    el.textContent=' · Stockage utilisé : '+fmt(usage)+(pct!=null?' ('+pct+'% de l’espace disponible)':'');
   }catch(e){/* silencieux : purement informatif */}
 }
 function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
@@ -1941,7 +1927,7 @@ migrateThumbsToIDB();
 // Synchro cloud (Supabase) : lancée après l'affichage local instantané,
 // en tâche de fond, pour ne pas bloquer/ralentir l'ouverture de l'app.
 syncBiensFromCloud();
-syncRegistryFromCloud();
+loadRegistry();
 // Renvoie vers Supabase Storage les vignettes prises hors-ligne / dont
 // l'envoi avait échoué la dernière fois (ex. terrain sans réseau).
 retryPendingCloudUploads();
@@ -1954,7 +1940,7 @@ retryPendingCloudUploads();
   if(!label)return;
   history.replaceState(null,'',location.pathname); // nettoie l'URL pour éviter un re-déclenchement au rechargement
   const link=findBienLink(label);
-  const existing=link&&link.links.photoimmo?getBien(link.links.photoimmo):null;
+  const existing=link&&link.links&&link.links.photoimmo?getBien(link.links.photoimmo):null;
   if(existing){
     openBien(existing.id);
     toast('🔗 Bien retrouvé depuis la Bibliothèque de prompts');

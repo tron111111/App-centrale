@@ -1609,6 +1609,9 @@ window.onload = async function() {
   // d'afficher la liste et de traiter un éventuel lien entrant (?bien=...),
   // qui dépendent tous les deux de ces données.
   await loadBiensFromSupabase();
+  // Registre inter-apps (biens_registry) : chargé avant l'affichage de la
+  // liste car renderBienList() s'en sert pour le badge 🔗 "déjà lié".
+  await loadRegistry();
   renderBienList();
   // Case vitrine : régénère le prompt uniquement si on est déjà à l'étape 3
   document.getElementById('include-vitrine').addEventListener('change', function() {
@@ -2585,26 +2588,81 @@ async function deleteBienSupabase(id) {
   }
 }
 
-/* ===== Liaison inter-apps (Bibliothèque <-> PhotoImmo Pro) =====
-   Même registre partagé que celui utilisé par photoimmo.html (même origine).
-   Voir photoimmo.html pour le détail du fonctionnement. */
+/* ===== Liaison inter-apps (Bibliothèque <-> PhotoImmo Pro <-> Dossier) =====
+   Registre partagé — table Supabase "biens_registry", UNE LIGNE PAR BIEN
+   (id = norm, data = entry) : exactement le même format que dossier.html.
+   (Avant : bibliotheque.html n'écrivait ce registre qu'en localStorage,
+   jamais vers Supabase — donc invisible pour les autres appareils. C'est
+   corrigé ici : mêmes fonctions qu'avant côté appelants, mais elles
+   synchronisent désormais réellement avec le cloud.)
+   Une copie en mémoire (_registryCache) est chargée une fois au démarrage
+   (loadRegistry), avec une copie locale (localStorage, clé REG_KEY) qui
+   sert de cache hors-ligne / premier affichage instantané. */
 const REG_KEY = 'laforet_biens_registry';
 function normBienLabel(s) { return (s||'').trim().toLowerCase().replace(/\s+/g,' '); }
-function getBienRegistry() { try { return JSON.parse(localStorage.getItem(REG_KEY)) || []; } catch(e) { return []; } }
-function setBienRegistry(list) { try { localStorage.setItem(REG_KEY, JSON.stringify(list)); } catch(e) {} }
+
+let _registryCache = [];
+try { _registryCache = JSON.parse(localStorage.getItem(REG_KEY)) || []; } catch(e) { _registryCache = []; }
+function getBienRegistry() { return _registryCache; }
+function _persistRegistryLocal() { try { localStorage.setItem(REG_KEY, JSON.stringify(_registryCache)); } catch(e) {} }
+
+/* Envoie UNE ligne (un bien) vers Supabase — même format que dossier.html. */
+async function pushRegistryEntry(entry) {
+  if (!entry || !entry.norm) return;
+  try {
+    const user = await getUtilisateurConnecte();
+    const payload = { id: entry.norm, data: entry, updated_at: new Date().toISOString() };
+    if (user) payload.updated_by = user.id;
+    const { error } = await supabaseClient.from('biens_registry').upsert(payload);
+    if (error) throw error;
+  } catch(e) { console.warn('[cloud] échec envoi biens_registry :', e); }
+}
+
+/* Charge le registre complet depuis Supabase (une ligne par bien).
+   Migre au passage l'ancienne ligne unique "laforet_biens_registry"
+   (ancien format PhotoImmo), si elle traîne encore, en l'éclatant en une
+   ligne par bien puis en la supprimant — même migration que photoimmo.html,
+   idempotente si les deux apps la lancent l'une après l'autre. */
+async function loadRegistry() {
+  try {
+    const { data, error } = await supabaseClient.from('biens_registry').select('id,data');
+    if (error) throw error;
+    const rows = data || [];
+    const legacyRow = rows.find(r => r.id === REG_KEY);
+    const entries = rows.filter(r => r.id !== REG_KEY).map(r => r.data).filter(Boolean);
+    if (legacyRow && Array.isArray(legacyRow.data)) {
+      for (const entry of legacyRow.data) {
+        if (!entry) continue;
+        if (!entry.norm && entry.label) entry.norm = normBienLabel(entry.label);
+        if (!entry.norm) continue;
+        if (!entries.some(e => e.norm === entry.norm)) {
+          entries.push(entry);
+          await pushRegistryEntry(entry);
+        }
+      }
+      try { await supabaseClient.from('biens_registry').delete().eq('id', REG_KEY); } catch(e) {}
+    }
+    _registryCache = entries.filter(entry => {
+      if (!entry.norm && entry.label) entry.norm = normBienLabel(entry.label);
+      return !!entry.norm;
+    });
+    _persistRegistryLocal();
+  } catch(e) { console.warn('[cloud] échec chargement biens_registry :', e); }
+}
 function upsertBienLink(label, appKey, appValue) {
   const norm = normBienLabel(label);
   if (!norm) return null;
-  const reg = getBienRegistry();
-  let entry = reg.find(e => e.norm === norm);
-  if (!entry) { entry = { norm, label: label.trim(), createdAt: Date.now(), links: {} }; reg.unshift(entry); }
+  let entry = _registryCache.find(e => e.norm === norm);
+  if (!entry) { entry = { norm, label: label.trim(), createdAt: Date.now(), links: {} }; _registryCache.unshift(entry); }
   else entry.label = label.trim();
+  if (!entry.links) entry.links = {};
   entry.links[appKey] = appValue;
   entry.updatedAt = Date.now();
-  setBienRegistry(reg);
+  _persistRegistryLocal();
+  pushRegistryEntry(entry);
   return entry;
 }
-function findBienLink(label) { return getBienRegistry().find(e => e.norm === normBienLabel(label)) || null; }
+function findBienLink(label) { return _registryCache.find(e => e.norm === normBienLabel(label)) || null; }
 
 // Échappement HTML générique : neutralise <, >, &, ", ' avant toute insertion
 // dans innerHTML. À utiliser pour TOUTE donnée saisie par l'utilisateur
@@ -2689,13 +2747,13 @@ function guessTypeFromHub() {
 function upsertCentral(label, fields) {
   const norm = normBienLabel(label);
   if (!norm) return null;
-  const reg = getBienRegistry();
-  let entry = reg.find(e => e.norm === norm);
-  if (!entry) { entry = { norm, label: label.trim(), createdAt: Date.now(), links: {}, central: {} }; reg.unshift(entry); }
+  let entry = _registryCache.find(e => e.norm === norm);
+  if (!entry) { entry = { norm, label: label.trim(), createdAt: Date.now(), links: {}, central: {} }; _registryCache.unshift(entry); }
   if (!entry.central) entry.central = {};
   Object.assign(entry.central, fields);
   entry.updatedAt = Date.now();
-  setBienRegistry(reg);
+  _persistRegistryLocal();
+  pushRegistryEntry(entry);
   return entry;
 }
 
