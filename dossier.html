@@ -24,7 +24,7 @@
   bibliotheque.html/blog.html. img-src autorise "blob:" pour afficher les
   vignettes de PhotoImmo Pro, lues depuis IndexedDB (URL.createObjectURL).
 -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tclqiusyonocedobtoky.supabase.co; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://tclqiusyonocedobtoky.supabase.co; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'self'">
 <title>Dossier des biens — Laforêt Pithiviers</title>
 <meta name="description" content="Fiche centralisée par bien : photos, description/annonce, statut et notes — Laforêt Pithiviers.">
 <link rel="icon" type="image/png" href="logo_laforet.png">
@@ -557,8 +557,16 @@ function renderList() {
     const pr = photoProgress(piBien);
     const thumbs = bestThumbs(piBien, 1);
     const typeLabel = type === 'appartement' ? 'Appartement' : (type === 'maison' ? 'Maison' : '');
+    // Échappement en deux temps : d'abord échappement JS (backslash puis quote simple,
+    // pour rester une chaîne valide à l'intérieur de openDetail('...')), PUIS
+    // échappement HTML (escHtml, qui encode notamment le guillemet double en &quot;)
+    // pour empêcher toute sortie de l'attribut onclick="..." lui-même. Sans ce
+    // second passage, un guillemet double dans l'adresse d'un bien permettait
+    // d'injecter des attributs HTML arbitraires (ex. onmouseover="...") — faille
+    // corrigée ici.
+    const normAttr = escHtml(entry.norm.replace(/\\/g,'\\\\').replace(/'/g,"\\'"));
     return `
-    <div class="bien-card" onclick="openDetail('${entry.norm.replace(/'/g,"\\'")}')">
+    <div class="bien-card" onclick="openDetail('${normAttr}')">
       <span class="bc-status st-${statut}">${statutLabel(statut)}</span>
       <div class="bc-thumb">${thumbs[0] ? `<img src="${thumbs[0].legacyThumb||PI_PLACEHOLDER}" data-photo-id="${thumbs[0].id}" alt="">` : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text4)"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>'}</div>
       <div class="bc-main">
@@ -570,7 +578,7 @@ function renderList() {
           ${prix ? `<span class="bc-chip"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h12"/><path d="M4 14h9"/><path d="M19 6a7.7 7.7 0 0 0-5.2-2A7.9 7.9 0 0 0 6 12a7.9 7.9 0 0 0 7.8 8 7.7 7.7 0 0 0 5.2-2"/></svg> ${escHtml(prix)}</span>` : ''}
         </div>
       </div>
-      <button class="bc-del" title="Supprimer ce dossier" onclick="event.stopPropagation(); requestDeleteBien('${entry.norm.replace(/'/g,"\\'")}')">
+      <button class="bc-del" title="Supprimer ce dossier" onclick="event.stopPropagation(); requestDeleteBien('${normAttr}')">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
       </button>
     </div>`;
@@ -651,6 +659,24 @@ function renderDetail() {
       <div class="link-empty">Aucune fiche description/annonce pour ce bien pour l'instant.</div>
       <a class="btn-link-open" href="${bibUrl}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Créer la fiche description →</a>
     `;
+  }
+
+  // ---- Collage en texte brut forcé (ignore tout HTML/style collé, ex. depuis Word/Outlook) ----
+  const dNotesEl = document.getElementById('d-notes');
+  if (dNotesEl && !dNotesEl.dataset.plainPasteBound) {
+    dNotesEl.dataset.plainPasteBound = '1';
+    dNotesEl.addEventListener('paste', (e) => {
+      e.preventDefault();
+      const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+      const start = dNotesEl.selectionStart;
+      const end = dNotesEl.selectionEnd;
+      const value = dNotesEl.value;
+      dNotesEl.value = value.slice(0, start) + text + value.slice(end);
+      const caret = start + text.length;
+      dNotesEl.selectionStart = dNotesEl.selectionEnd = caret;
+      // Déclenche la sauvegarde comme un changement normal
+      dNotesEl.dispatchEvent(new Event('change'));
+    });
   }
 
   // ---- Sauvegarde des champs centraux (au blur / au changement) ----
