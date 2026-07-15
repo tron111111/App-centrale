@@ -55,7 +55,7 @@ Projet Supabase dédié, hébergé en région UE, avec DPA signé (voir section 
 
 Toutes les tables sont protégées par des policies **Row Level Security** limitant l'accès aux seuls comptes authentifiés du portail.
 
-**Storage (fichiers)** — bucket privé **`photoimmo-photos`** : les vignettes photo de PhotoImmo Pro y sont envoyées à la prise de vue, et retéléchargées automatiquement sur tout autre appareil qui ne les a pas encore en cache local (IndexedDB). Limite fixée à 50 Mo pour l'ensemble du bucket, avec avertissement affiché dans l'app dès 45 Mo utilisés.
+**Storage (fichiers)** — bucket privé **`photoimmo-photos`** : les vignettes photo de PhotoImmo Pro y sont envoyées à la prise de vue, et retéléchargées automatiquement sur tout autre appareil qui ne les a pas encore en cache local (IndexedDB). L'app affiche uniquement le quota de stockage **local du navigateur** (`navigator.storage.estimate()`), avec un message d'avertissement si le cache local est plein ; il n'existe pas encore de suivi ni d'alerte sur le volume utilisé côté bucket Supabase — à surveiller manuellement depuis le dashboard Supabase si besoin.
 
 ### État de la migration — ce qui est réellement partagé aujourd'hui
 

@@ -48,6 +48,20 @@
   header p{margin:2px 0 0;font-size:12px;opacity:.85}
   .back-home{background:rgba(255,255,255,.16);border:none;color:#fff;font-size:13px;font-weight:700;padding:8px 13px;border-radius:999px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:5px;flex:none}
   .wrap{max-width:760px;margin:0 auto;padding:16px 16px 90px}
+
+  /* bandeau de statut hors-ligne / synchro */
+  .sync-banner{max-width:760px;margin:0 auto;display:none;align-items:center;gap:9px;
+    padding:9px 16px;font-size:12.5px;font-weight:700;position:sticky;top:0;z-index:49}
+  .sync-banner.show{display:flex}
+  .sync-banner .sb-dot{width:8px;height:8px;border-radius:50%;flex:none}
+  .sync-banner .sb-txt{flex:1;min-width:0}
+  .sync-banner.offline{background:var(--priority-bg);color:var(--priority-ink);border-bottom:1.5px solid var(--priority-border)}
+  .sync-banner.offline .sb-dot{background:var(--priority-accent)}
+  .sync-banner.syncing{background:var(--gold-l);color:var(--green-d);border-bottom:1.5px solid var(--gold)}
+  .sync-banner.syncing .sb-dot{background:var(--gold);animation:sbPulse 1s ease-in-out infinite}
+  .sync-banner.synced{background:var(--ok-bg);color:var(--ok-ink);border-bottom:1.5px solid var(--ok-border)}
+  .sync-banner.synced .sb-dot{background:var(--ok)}
+  @keyframes sbPulse{0%,100%{opacity:1}50%{opacity:.35}}
   .section-title{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:22px 4px 10px}
   .section-title:first-child{margin-top:4px}
 
@@ -234,6 +248,10 @@
     <button class="dark-toggle" title="Mode sombre" aria-label="Basculer le mode sombre" style="background:rgba(255,255,255,.16);border:none;color:#fff;width:34px;height:34px;border-radius:50%;cursor:pointer;flex:none;margin-left:auto;display:flex;align-items:center;justify-content:center;padding:0"><svg class="dark-toggle-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
   </div>
 </header>
+
+<div class="sync-banner" id="syncBanner" role="status" aria-live="polite">
+  <span class="sb-dot"></span><span class="sb-txt" id="syncBannerTxt"></span>
+</div>
 
 <div class="wrap" id="home"></div>
 
@@ -917,7 +935,9 @@ async function cloudPushBiens(list){
     });
     const {error}=await supabaseClient.from('biens_photoimmo').upsert(rows);
     if(error)throw error;
-  }catch(e){ console.warn('[cloud] échec envoi biens_photoimmo :',e); }
+    markBiensDirty(false);
+  }catch(e){ console.warn('[cloud] échec envoi biens_photoimmo :',e); markBiensDirty(true); }
+  refreshSyncStatus();
 }
 /* Supprime la ligne cloud d'UN bien précis (appelé explicitement à la
    suppression d'un bien — voir plus bas — plutôt que déduit d'une
@@ -1086,8 +1106,8 @@ async function cloudDeleteThumbs(photoIds){
 const PENDING_KEY='photoimmo_pending_uploads';
 function getPendingUploads(){try{return JSON.parse(localStorage.getItem(PENDING_KEY))||[];}catch(e){return[];}}
 function setPendingUploads(l){try{localStorage.setItem(PENDING_KEY,JSON.stringify(l));}catch(e){}}
-function markPendingUpload(photoId){const l=getPendingUploads();if(!l.includes(photoId)){l.push(photoId);setPendingUploads(l);}}
-function clearPendingUpload(photoId){setPendingUploads(getPendingUploads().filter(id=>id!==photoId));}
+function markPendingUpload(photoId){const l=getPendingUploads();if(!l.includes(photoId)){l.push(photoId);setPendingUploads(l);}refreshSyncStatus();}
+function clearPendingUpload(photoId){setPendingUploads(getPendingUploads().filter(id=>id!==photoId));refreshSyncStatus();}
 async function retryPendingCloudUploads(){
   const l=getPendingUploads();
   for(const id of l){
@@ -1199,7 +1219,9 @@ async function pushRegistryEntry(entry){
     if(user)payload.updated_by=user.id;
     const {error}=await supabaseClient.from('biens_registry').upsert(payload);
     if(error)throw error;
-  }catch(e){ console.warn('[cloud] échec envoi biens_registry :',e); }
+    clearPendingRegistry(entry.norm);
+  }catch(e){ console.warn('[cloud] échec envoi biens_registry :',e); markPendingRegistry(entry.norm); }
+  refreshSyncStatus();
 }
 
 /* Charge le registre complet depuis Supabase (une ligne par bien).
@@ -1232,7 +1254,109 @@ async function loadRegistry(){
     _persistRegistryLocal();
     if(!isAnyUiOpen())renderHome();
   }catch(e){ console.warn('[cloud] échec chargement biens_registry :',e); }
+  refreshSyncStatus();
 }
+
+/* ============================================================
+   STATUT HORS-LIGNE / SYNCHRO — bandeau + file d'attente fiable
+   ------------------------------------------------------------
+   Principe : chaque type de donnée (photos, biens, registre) a
+   déjà sa copie locale instantanée (localStorage / IndexedDB).
+   Ce module ajoute la dernière brique : garder la trace de ce qui
+   n'a PAS pu être envoyé au serveur (connexion coupée sur le
+   terrain), et le retenter automatiquement dès que :
+     - le navigateur signale le retour du réseau (event 'online')
+     - ou, filet de sécurité, toutes les 20s tant qu'il reste des
+       éléments en attente (certains mobiles ne déclenchent pas
+       fidèlement l'event 'online' au retour de la 4G).
+   Rien n'est jamais perdu : tant que l'envoi n'a pas réussi,
+   l'élément reste dans sa file et est retenté au prochain passage.
+   ============================================================ */
+
+// --- file d'attente "biens" : un simple drapeau (le push renvoie
+// toujours la liste complète, donc pas besoin de suivre id par id).
+const BIENS_DIRTY_KEY='photoimmo_biens_dirty';
+function markBiensDirty(dirty){
+  try{
+    if(dirty)localStorage.setItem(BIENS_DIRTY_KEY,'1');
+    else localStorage.removeItem(BIENS_DIRTY_KEY);
+  }catch(e){}
+}
+function isBiensDirty(){ try{return localStorage.getItem(BIENS_DIRTY_KEY)==='1';}catch(e){return false;} }
+
+// --- file d'attente "registre" : liste des identifiants (norm) en attente.
+const REG_PENDING_KEY='photoimmo_registry_pending';
+function getPendingRegistry(){ try{return JSON.parse(localStorage.getItem(REG_PENDING_KEY))||[];}catch(e){return[];} }
+function setPendingRegistry(l){ try{localStorage.setItem(REG_PENDING_KEY,JSON.stringify(l));}catch(e){} }
+function markPendingRegistry(norm){ if(!norm)return; const l=getPendingRegistry(); if(!l.includes(norm)){l.push(norm);setPendingRegistry(l);} }
+function clearPendingRegistry(norm){ setPendingRegistry(getPendingRegistry().filter(n=>n!==norm)); }
+async function retryPendingRegistry(){
+  for(const norm of getPendingRegistry()){
+    const entry=_registryCache.find(e=>e.norm===norm);
+    if(!entry){ clearPendingRegistry(norm); continue; }
+    await pushRegistryEntry(entry);
+  }
+}
+
+// Nombre total d'éléments en attente d'envoi, tous types confondus.
+function countPending(){
+  return getPendingUploads().length + getPendingRegistry().length + (isBiensDirty()?1:0);
+}
+
+// Relance tous les envois en attente (photos, biens, registre).
+// Appelée au retour du réseau, et périodiquement en filet de sécurité.
+let _retryInFlight=false;
+async function retryAllPending(){
+  if(_retryInFlight||!navigator.onLine)return;
+  _retryInFlight=true;
+  refreshSyncStatus();
+  try{
+    await retryPendingCloudUploads();
+    if(isBiensDirty())await cloudPushBiens(loadBiens());
+    await retryPendingRegistry();
+  }finally{
+    _retryInFlight=false;
+    refreshSyncStatus();
+  }
+}
+
+// Met à jour le bandeau en haut de l'app selon l'état réseau + file d'attente.
+function refreshSyncStatus(){
+  const el=$('syncBanner'),txt=$('syncBannerTxt');
+  if(!el||!txt)return;
+  const pending=countPending();
+  el.classList.remove('offline','syncing','synced');
+  if(!navigator.onLine){
+    el.classList.add('show','offline');
+    txt.textContent=pending>0
+      ? `🔌 Hors-ligne — ${pending} élément${pending>1?'s':''} enregistré${pending>1?'s':''} localement, envoi dès le retour du réseau`
+      : '🔌 Hors-ligne — vos modifications sont enregistrées localement';
+  }else if(_retryInFlight||pending>0){
+    el.classList.add('show','syncing');
+    txt.textContent=`⏳ Synchronisation en cours… (${pending||'…'} élément${pending===1?'':'s'})`;
+  }else if(_justSynced){
+    el.classList.add('show','synced');
+    txt.textContent='✅ Tout est synchronisé';
+    clearTimeout(_syncedFadeT);
+    _syncedFadeT=setTimeout(()=>{ _justSynced=false; el.classList.remove('show'); },2500);
+  }else{
+    el.classList.remove('show');
+  }
+}
+let _justSynced=false,_syncedFadeT=null;
+
+window.addEventListener('online',()=>{
+  toast('🔌 Réseau retrouvé — synchronisation…');
+  _justSynced=true;
+  retryAllPending();
+});
+window.addEventListener('offline',()=>{
+  refreshSyncStatus();
+});
+// Filet de sécurité : certains navigateurs mobiles ne déclenchent pas
+// toujours 'online' de façon fiable au retour de la connexion data.
+setInterval(()=>{ if(navigator.onLine&&countPending()>0)retryAllPending(); },20000);
+
 function upsertBienLink(label,appKey,appValue){
   const norm=normBienLabel(label);if(!norm)return null;
   let entry=_registryCache.find(e=>e.norm===norm);
@@ -1953,6 +2077,9 @@ if('serviceWorker' in navigator && location.protocol==='https:'){
 }
 /* init */
 renderHome();
+// Affiche tout de suite le bandeau si on démarre hors-ligne, ou s'il
+// reste des éléments en attente d'un précédent passage sans réseau.
+refreshSyncStatus();
 // Migration silencieuse des vignettes stockées à l'ancien format (base64 en
 // localStorage) vers IndexedDB. Se fait en tâche de fond : la liste des
 // biens s'affiche déjà normalement pendant que ça tourne.
@@ -1961,9 +2088,11 @@ migrateThumbsToIDB();
 // en tâche de fond, pour ne pas bloquer/ralentir l'ouverture de l'app.
 syncBiensFromCloud();
 loadRegistry();
-// Renvoie vers Supabase Storage les vignettes prises hors-ligne / dont
-// l'envoi avait échoué la dernière fois (ex. terrain sans réseau).
-retryPendingCloudUploads();
+// Renvoie vers le serveur tout ce qui a pu rester en attente d'un
+// précédent passage hors-ligne (photos, fiches biens, registre) — puis,
+// pendant la session, retry automatique dès l'event 'online' (voir
+// plus haut) ou toutes les 20s en filet de sécurité.
+retryAllPending();
 
 // Arrivée depuis un lien de la Bibliothèque de prompts (bibliotheque.html?bien=...)
 // -> on ouvre directement la fiche si elle existe déjà, sinon on propose de la créer.
