@@ -237,10 +237,17 @@ const titres = {
   mdpoublie: 'Mot de passe oublié'
 };
 
+// Correspondance explicite nom de vue -> id de la div, pour éviter tout bug
+// de casse (ex: "mdpoublie" ne donne pas naturellement "vueMdpOublie").
+const idsVues = {
+  connexion: 'vueConnexion',
+  mdpoublie: 'vueMdpOublie'
+};
+
 function afficherVue(nomVue) {
   masquerMessages();
   document.querySelectorAll('.vue').forEach(function (v) { v.classList.remove('active'); });
-  document.getElementById('vue' + nomVue.charAt(0).toUpperCase() + nomVue.slice(1)).classList.add('active');
+  document.getElementById(idsVues[nomVue]).classList.add('active');
   titreVue.textContent = titres[nomVue] || 'Connexion';
 }
 
