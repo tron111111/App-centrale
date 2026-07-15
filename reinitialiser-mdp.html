@@ -208,17 +208,24 @@ form.querySelectorAll('input, button').forEach(function (el) { el.disabled = tru
 supabaseClient.auth.onAuthStateChange(function (evenement, session) {
   if (evenement === 'PASSWORD_RECOVERY' && session) {
     sessionRecuperationPrete = true;
+    // Au cas où le filet de sécurité (timeout) se serait déjà déclenché juste
+    // avant que la session n'arrive (connexion lente) : on efface ce faux
+    // positif, la session étant maintenant bien établie.
+    messageErreur.classList.remove('visible');
     form.querySelectorAll('input, button').forEach(function (el) { el.disabled = false; });
   }
 });
 
 // Filet de sécurité : si le lien est invalide/expiré, aucune session de
-// récupération n'arrivera. On prévient l'utilisateur après un court délai.
+// récupération n'arrivera. On prévient l'utilisateur après un délai
+// (aligné sur celui d'accepter-invitation.html, pour laisser le temps à
+// une connexion lente d'établir la session avant de conclure à un lien
+// invalide).
 setTimeout(function () {
   if (!sessionRecuperationPrete) {
     afficherErreur('Ce lien de réinitialisation est invalide ou a expiré. Merci de refaire une demande depuis la page de connexion.');
   }
-}, 4000);
+}, 10000);
 
 form.addEventListener('submit', async function (e) {
   e.preventDefault();
