@@ -900,6 +900,7 @@ const BKEY='photoimmo_pro_biens';
 function loadBiens(){try{return JSON.parse(localStorage.getItem(BKEY))||[];}catch(e){return[];}}
 function saveBiens(l){
   try{localStorage.setItem(BKEY,JSON.stringify(l));}catch(e){toast('Mémoire pleine : exportez puis videz d’anciens biens');}
+  markBiensDirty(true); // marqué tout de suite, avant le push différé (évite la race condition avec retryAllPending)
   queueCloudPushBiens(l);
 }
 
@@ -941,13 +942,30 @@ async function cloudPushBiens(list){
 }
 /* Supprime la ligne cloud d'UN bien précis (appelé explicitement à la
    suppression d'un bien — voir plus bas — plutôt que déduit d'une
-   comparaison de listes, pour rester simple et sûr). */
+   comparaison de listes, pour rester simple et sûr).
+   Si la suppression échoue (hors-ligne), l'id est mis en file d'attente
+   et retenté par retryAllPending(). */
+const PENDING_DELETE_KEY='photoimmo_pending_deletes';
+function getPendingDeletes(){try{return JSON.parse(localStorage.getItem(PENDING_DELETE_KEY))||[];}catch(e){return[];}}
+function setPendingDeletes(l){try{localStorage.setItem(PENDING_DELETE_KEY,JSON.stringify(l));}catch(e){}}
+function markPendingDelete(id){const l=getPendingDeletes();if(!l.includes(id)){l.push(id);setPendingDeletes(l);}}
+function clearPendingDelete(id){setPendingDeletes(getPendingDeletes().filter(x=>x!==id));}
+async function retryPendingDeletes(){
+  for(const id of getPendingDeletes()){
+    try{
+      const {error}=await supabaseClient.from('biens_photoimmo').delete().eq('id',id);
+      if(error)throw error;
+      clearPendingDelete(id);
+    }catch(e){ console.warn('[cloud] échec retry suppression biens_photoimmo :',id,e); }
+  }
+}
 async function cloudDeleteBien(id){
   if(!id)return;
   try{
     const {error}=await supabaseClient.from('biens_photoimmo').delete().eq('id',id);
     if(error)throw error;
-  }catch(e){ console.warn('[cloud] échec suppression biens_photoimmo :',e); }
+    clearPendingDelete(id); // au cas où un retry précédent aurait échoué
+  }catch(e){ console.warn('[cloud] échec suppression biens_photoimmo :',e); markPendingDelete(id); }
 }
 async function cloudPullBiens(){
   try{
@@ -983,8 +1001,12 @@ async function syncBiensFromCloud(){
       if(!isAnyUiOpen())renderHome();
     }
   }else{
-    const localList=loadBiens();
-    if(localList.length)queueCloudPushBiens(localList);
+    // Re-pousse uniquement si la table est vraiment vide (première utilisation),
+    // et non si un collègue a simplement supprimé tous ses biens entretemps.
+    if(rows.length===0){
+      const localList=loadBiens();
+      if(localList.length)queueCloudPushBiens(localList);
+    }
   }
 }
 
@@ -1105,7 +1127,7 @@ async function cloudDeleteThumbs(photoIds){
 // gardé ici pour retenter l'envoi dès que l'app est rouverte avec du réseau.
 const PENDING_KEY='photoimmo_pending_uploads';
 function getPendingUploads(){try{return JSON.parse(localStorage.getItem(PENDING_KEY))||[];}catch(e){return[];}}
-function setPendingUploads(l){try{localStorage.setItem(PENDING_KEY,JSON.stringify(l));}catch(e){}}
+function setPendingUploads(l){try{localStorage.setItem(PENDING_KEY,JSON.stringify(l));}catch(e){console.warn('[PhotoImmo] setPendingUploads : localStorage plein, file d\'attente non sauvegardée',e);}}
 function markPendingUpload(photoId){const l=getPendingUploads();if(!l.includes(photoId)){l.push(photoId);setPendingUploads(l);}refreshSyncStatus();}
 function clearPendingUpload(photoId){setPendingUploads(getPendingUploads().filter(id=>id!==photoId));refreshSyncStatus();}
 async function retryPendingCloudUploads(){
@@ -1300,10 +1322,10 @@ async function retryPendingRegistry(){
 
 // Nombre total d'éléments en attente d'envoi, tous types confondus.
 function countPending(){
-  return getPendingUploads().length + getPendingRegistry().length + (isBiensDirty()?1:0);
+  return getPendingUploads().length + getPendingRegistry().length + getPendingDeletes().length + (isBiensDirty()?1:0);
 }
 
-// Relance tous les envois en attente (photos, biens, registre).
+// Relance tous les envois en attente (photos, biens, registre, suppressions).
 // Appelée au retour du réseau, et périodiquement en filet de sécurité.
 let _retryInFlight=false;
 async function retryAllPending(){
@@ -1314,6 +1336,8 @@ async function retryAllPending(){
     await retryPendingCloudUploads();
     if(isBiensDirty())await cloudPushBiens(loadBiens());
     await retryPendingRegistry();
+    await retryPendingDeletes();
+    if(countPending()===0)_justSynced=true;
   }finally{
     _retryInFlight=false;
     refreshSyncStatus();
