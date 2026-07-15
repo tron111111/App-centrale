@@ -401,9 +401,52 @@ async function deleteCentralBien(norm) {
   _registryCache = _registryCache.filter(e => e.norm !== norm);
 }
 
-/* ---------- Lecture (seule) des données de PhotoImmo et de la Bibliothèque ---------- */
-function getPhotoimmoBiens() { try { return JSON.parse(localStorage.getItem('photoimmo_pro_biens')) || []; } catch(e) { return []; } }
-function getBibliothequeBiens() { try { return JSON.parse(localStorage.getItem('laforet_biens_saved')) || []; } catch(e) { return []; } }
+/* ---------- Lecture (seule) des données de PhotoImmo et de la Bibliothèque ----------
+   Chargées directement depuis Supabase (tables biens_photoimmo et
+   biens_bibliotheque), et non plus depuis localStorage.
+   Avant ce correctif, on lisait les copies locales laissées par PhotoImmo
+   Pro / la Bibliothèque sur CE poste : un bien créé/modifié depuis un
+   autre appareil n'apparaissait donc jamais ici tant que quelqu'un n'avait
+   pas rouvert PhotoImmo/la Bibliothèque sur CE poste précis pour resynchroniser
+   le cache local. Pire, pour la Bibliothèque, la clé localStorage
+   "laforet_biens_saved" n'est même plus écrite du tout depuis sa migration
+   vers Supabase (voir bibliotheque.html) : les aperçus de description
+   étaient donc systématiquement vides, pas juste "en retard".
+   Chargées une fois au démarrage (voir loadPhotoimmoBiens /
+   loadBibliothequeBiens ci-dessous) puis tenues en cache mémoire, pour que
+   le reste du code (qui lit ces fonctions de façon synchrone) continue de
+   fonctionner sans réécriture, exactement comme pour le registre. */
+let _photoimmoCache = [];
+let _bibliothequeCache = [];
+function getPhotoimmoBiens() { return _photoimmoCache; }
+function getBibliothequeBiens() { return _bibliothequeCache; }
+
+async function loadPhotoimmoBiens() {
+  try {
+    const { data, error } = await supabaseClient.from('biens_photoimmo').select('id, data');
+    if (error) throw error;
+    _photoimmoCache = (data || []).map(row => row.data).filter(Boolean);
+  } catch (e) {
+    console.warn('[dossier] Impossible de charger biens_photoimmo :', e);
+    _photoimmoCache = [];
+  }
+}
+async function loadBibliothequeBiens() {
+  try {
+    const { data, error } = await supabaseClient.from('biens_bibliotheque').select('id, data');
+    if (error) throw error;
+    // Même transformation que biensCache dans bibliotheque.html : la ligne
+    // Supabase stocke { name, data, savedAt } dans sa colonne "data".
+    _bibliothequeCache = (data || []).map(row => ({
+      name: row.data.name,
+      data: row.data.data,
+      savedAt: row.data.savedAt
+    }));
+  } catch (e) {
+    console.warn('[dossier] Impossible de charger biens_bibliotheque :', e);
+    _bibliothequeCache = [];
+  }
+}
 
 /* ---------- Lecture (seule) des vignettes stockées par PhotoImmo Pro dans IndexedDB ----------
    Depuis la migration IndexedDB, PhotoImmo Pro ne stocke plus les vignettes en
@@ -432,12 +475,41 @@ function piIdbGet(id){
     rq.onerror=()=>rej(rq.error);
   })).catch(()=>null);
 }
+// Écriture (contrairement à piIdbGet, en lecture seule) : uniquement pour
+// mettre en cache local une vignette qu'on vient de retélécharger depuis le
+// bucket Supabase Storage (voir piThumbURL), afin de ne pas la retélécharger
+// à chaque affichage sur ce même poste.
+function piIdbSet(id,blob){
+  return piIdbOpen().then(db=>new Promise((res,rej)=>{
+    if(!db.objectStoreNames.contains(PI_IDB_STORE)){res();return;}
+    const tx=db.transaction(PI_IDB_STORE,'readwrite');
+    tx.objectStore(PI_IDB_STORE).put(blob,id);
+    tx.oncomplete=()=>res();
+    tx.onerror=()=>rej(tx.error);
+  })).catch(()=>{});
+}
+const PI_PHOTO_BUCKET='photoimmo-photos'; // même nom de bucket que dans photoimmo.html
 const piThumbUrlCache={};
 async function piThumbURL(photoId){
   if(!photoId) return null;
   if(piThumbUrlCache[photoId]) return piThumbUrlCache[photoId];
-  const blob=await piIdbGet(photoId);
-  if(!blob) return null;
+  let blob=await piIdbGet(photoId);
+  if(!blob){
+    // Pas trouvée dans l'IndexedDB de CE poste (photo prise depuis un autre
+    // appareil, jamais ouverte ici dans PhotoImmo Pro) : on va la chercher
+    // dans le bucket Supabase Storage, alimenté par tous les appareils.
+    try {
+      const { data, error } = await supabaseClient.storage.from(PI_PHOTO_BUCKET).download(photoId);
+      if (error || !data) return null;
+      blob = data;
+      // Écriture dans l'IndexedDB locale au passage : les prochains affichages
+      // sur ce poste seront instantanés, sans retélécharger.
+      piIdbSet(photoId, blob).catch(function(){});
+    } catch (e) {
+      console.warn('[dossier] Échec du téléchargement de la vignette', photoId, e);
+      return null;
+    }
+  }
   const url=URL.createObjectURL(blob);
   piThumbUrlCache[photoId]=url;
   return url;
@@ -804,8 +876,21 @@ function updateThemeUI(theme) {
 /* ============================== INIT ============================== */
 window.onload = async function() {
   initTheme();
-  await loadRegistry();
+  // Les 3 sources sont chargées en parallèle (aucune ne dépend des autres) :
+  // ça évite d'attendre inutilement en série pour un simple affichage de liste.
+  await Promise.all([loadRegistry(), loadPhotoimmoBiens(), loadBibliothequeBiens()]);
   renderList();
+
+  // Un collègue peut créer/modifier un bien pendant que cet onglet reste
+  // ouvert en arrière-plan. On rafraîchit les 3 sources quand l'onglet
+  // redevient visible, pour que les aperçus ne restent pas figés sur l'état
+  // du chargement initial pendant toute une journée de travail.
+  document.addEventListener('visibilitychange', async function () {
+    if (document.visibilityState === 'visible') {
+      await Promise.all([loadRegistry(), loadPhotoimmoBiens(), loadBibliothequeBiens()]);
+      renderList();
+    }
+  });
 };
 </script>
 </body>
