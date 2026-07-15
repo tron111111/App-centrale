@@ -134,34 +134,6 @@
   }
   [data-theme="dark"] .message-succes { color: var(--sky); }
   .message-succes.visible { display: block; }
-  .onglets {
-    display: flex;
-    gap: 4px;
-    background: var(--bg);
-    border-radius: 10px;
-    padding: 4px;
-    margin-bottom: 24px;
-  }
-  .onglet {
-    flex: 1;
-    text-align: center;
-    padding: 9px 4px;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--muted);
-    cursor: pointer;
-    background: transparent;
-    border: none;
-    font-family: inherit;
-    width: auto;
-  }
-  .onglet.actif {
-    background: var(--card);
-    color: var(--blue);
-    box-shadow: var(--shadow);
-  }
-  [data-theme="dark"] .onglet.actif { color: var(--sky); }
   .vue { display: none; }
   .vue.active { display: block; }
   p.aide {
@@ -192,11 +164,6 @@
   <h1 id="titreVue">Connexion</h1>
   <p class="sous-titre">Portail interne — Laforêt Pithiviers</p>
 
-  <div class="onglets">
-    <button type="button" class="onglet actif" data-vue="connexion">Connexion</button>
-    <button type="button" class="onglet" data-vue="inscription">Créer un compte</button>
-  </div>
-
   <div id="messageErreur" class="message-erreur"></div>
   <div id="messageSucces" class="message-succes"></div>
 
@@ -211,23 +178,7 @@
 
       <button type="submit" id="btnConnexion">Se connecter</button>
     </form>
-    <p class="aide"><a id="lienMdpOublie">Mot de passe oublié ?</a></p>
-  </div>
-
-  <!-- Vue : création de compte -->
-  <div class="vue" id="vueInscription">
-    <form id="formInscription">
-      <label for="emailInscription">Adresse email</label>
-      <input type="email" id="emailInscription" autocomplete="username" required>
-
-      <label for="motdepasseInscription">Mot de passe</label>
-      <input type="password" id="motdepasseInscription" autocomplete="new-password" minlength="6" required>
-
-      <label for="motdepasseInscriptionConfirmation">Confirmer le mot de passe</label>
-      <input type="password" id="motdepasseInscriptionConfirmation" autocomplete="new-password" minlength="6" required>
-
-      <button type="submit" id="btnInscription">Créer mon compte</button>
-    </form>
+    <p class="aide" style="margin-top:20px"><a id="lienMdpOublie">Mot de passe oublié ?</a></p>
   </div>
 
   <!-- Vue : mot de passe oublié -->
@@ -277,11 +228,12 @@ function masquerMessages() {
   messageSucces.classList.remove('visible');
 }
 
-// --- Navigation entre les vues (connexion / inscription / mot de passe oublié) ---
+// --- Navigation entre les vues (connexion / mot de passe oublié) ---
+// La création de compte se fait désormais uniquement via un lien d'invitation
+// (accepter-invitation.html), plus depuis cette page.
 
 const titres = {
   connexion: 'Connexion',
-  inscription: 'Créer un compte',
   mdpoublie: 'Mot de passe oublié'
 };
 
@@ -290,15 +242,7 @@ function afficherVue(nomVue) {
   document.querySelectorAll('.vue').forEach(function (v) { v.classList.remove('active'); });
   document.getElementById('vue' + nomVue.charAt(0).toUpperCase() + nomVue.slice(1)).classList.add('active');
   titreVue.textContent = titres[nomVue] || 'Connexion';
-
-  document.querySelectorAll('.onglet').forEach(function (o) {
-    o.classList.toggle('actif', o.dataset.vue === nomVue);
-  });
 }
-
-document.querySelectorAll('.onglet').forEach(function (o) {
-  o.addEventListener('click', function () { afficherVue(o.dataset.vue); });
-});
 
 document.getElementById('lienMdpOublie').addEventListener('click', function () {
   afficherVue('mdpoublie');
@@ -338,55 +282,6 @@ formConnexion.addEventListener('submit', async function (e) {
 
   // Connexion réussie : redirection vers le portail d'accueil.
   window.location.href = 'index.html';
-});
-
-// --- Création de compte ---
-
-const formInscription = document.getElementById('formInscription');
-const btnInscription = document.getElementById('btnInscription');
-
-formInscription.addEventListener('submit', async function (e) {
-  e.preventDefault();
-  masquerMessages();
-
-  const email = document.getElementById('emailInscription').value.trim();
-  const motdepasse = document.getElementById('motdepasseInscription').value;
-  const confirmation = document.getElementById('motdepasseInscriptionConfirmation').value;
-
-  if (motdepasse !== confirmation) {
-    afficherErreur('Les mots de passe ne correspondent pas.');
-    return;
-  }
-  if (motdepasse.length < 6) {
-    afficherErreur('Le mot de passe doit contenir au moins 6 caractères.');
-    return;
-  }
-
-  btnInscription.disabled = true;
-  btnInscription.textContent = 'Création...';
-
-  const { data, error } = await inscription(email, motdepasse);
-
-  btnInscription.disabled = false;
-  btnInscription.textContent = 'Créer mon compte';
-
-  if (error) {
-    afficherErreur(error.message === 'User already registered'
-      ? 'Un compte existe déjà avec cet email.'
-      : 'Impossible de créer le compte. Réessayez.');
-    return;
-  }
-
-  // Selon la configuration Supabase, l'utilisateur est parfois connecté
-  // immédiatement (session présente), ou doit d'abord confirmer son email.
-  if (data.session) {
-    window.location.href = 'index.html';
-    return;
-  }
-
-  formInscription.reset();
-  afficherVue('connexion');
-  afficherSucces('Compte créé. Vérifiez votre boîte mail pour confirmer votre adresse avant de vous connecter.');
 });
 
 // --- Mot de passe oublié ---
