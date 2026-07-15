@@ -246,6 +246,10 @@ function afficherSucces(texte) {
 
 function activerFormulaire(session) {
   messageAttente.style.display = 'none';
+  // Au cas où le filet de sécurité (timeout) se serait déjà déclenché juste
+  // avant que la session n'arrive (connexion lente) : on efface ce faux
+  // positif, la session étant maintenant bien établie.
+  messageErreur.classList.remove('visible');
   champMotDePasse.disabled = false;
   champConfirmation.disabled = false;
   btn.disabled = false;
@@ -278,7 +282,7 @@ setTimeout(function () {
     messageAttente.style.display = 'none';
     afficherErreur("Ce lien d'invitation est invalide, a expiré, ou a déjà été utilisé. Demandez à un responsable de vous envoyer une nouvelle invitation depuis le tableau de bord Supabase.");
   }
-}, 5000);
+}, 10000);
 
 form.addEventListener('submit', async function (e) {
   e.preventDefault();
