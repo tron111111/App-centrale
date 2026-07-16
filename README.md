@@ -28,7 +28,9 @@ Ce dépôt héberge un ensemble d'outils web internes utilisés au quotidien par
 | [`dossier.html`](dossier.html) | Dossier des biens — fiche centralisée par bien : informations générales, statut, prix, notes, et liens automatiques vers les photos (PhotoImmo Pro) et la fiche descriptive (Bibliothèque de prompts). |
 | [`blog.html`](blog.html) | Générateur de blog — création d'articles pour le blog de l'agence à partir de modèles thématiques, génération directe via Claude ou Gemini (BYOK), mise en forme automatique et gestion de brouillons. |
 | [`documentation_bibliotheque.html`](documentation_bibliotheque.html) | Documentation d'utilisation de la bibliothèque de prompts. |
-| [`login.html`](login.html) | Page de connexion commune à tout le portail (compte agence Supabase). |
+| [`login.html`](login.html) | Page de connexion commune à tout le portail (compte agence Supabase), avec accès à la réinitialisation de mot de passe. |
+| [`accepter-invitation.html`](accepter-invitation.html) | Page d'activation de compte via lien d'invitation envoyé par email (définition du mot de passe initial). Aucune auto-inscription possible depuis le portail. |
+| [`reinitialiser-mdp.html`](reinitialiser-mdp.html) | Page de définition d'un nouveau mot de passe suite à une demande « mot de passe oublié » depuis `login.html`. |
 | [`test-connexion.html`](test-connexion.html) | Page technique de diagnostic — vérifie que le navigateur arrive à joindre Supabase. Pas destinée aux agents. |
 
 ## Authentification
@@ -36,8 +38,9 @@ Ce dépôt héberge un ensemble d'outils web internes utilisés au quotidien par
 Tout le portail est protégé par un compte agence (email + mot de passe), géré via **Supabase Auth** :
 
 - Chaque page protégée charge `supabase-lib.js` → `supabase-client.js` → `auth-guard.js`, dans cet ordre. `auth-guard.js` redirige automatiquement vers `login.html` si personne n'est connecté.
-- **Déconnexion automatique après 30 min d'inactivité** : `auth-guard.js` surveille l'activité (clic, mouvement de souris, clavier, scroll, touch) et déconnecte automatiquement l'utilisateur au bout de 30 minutes sans aucune interaction, avec redirection vers `login.html`. La dernière activité est horodatée dans `localStorage` et partagée entre tous les onglets/pages du portail, donc naviguer d'une app à l'autre ne réinitialise pas indûment le compte à rebours. Ce mécanisme ne s'applique qu'aux pages qui chargent `auth-guard.js` — il ne concerne donc ni `login.html` ni `test-connexion.html`.
-- Les comptes agents sont créés manuellement dans le dashboard Supabase (Authentication > Users) — il n'y a pas d'auto-inscription.
+- **Création de compte uniquement par invitation** : il n'y a pas d'auto-inscription depuis le portail. Un responsable crée le compte depuis le dashboard Supabase (Authentication > Users > Invite), l'agent reçoit un email avec un lien vers `accepter-invitation.html`, où il choisit son mot de passe pour activer son compte.
+- **Mot de passe oublié** : depuis `login.html`, un agent peut demander un email de réinitialisation, qui pointe vers `reinitialiser-mdp.html` pour définir un nouveau mot de passe.
+- **Déconnexion automatique après 1h d'inactivité** : `auth-guard.js` surveille l'activité (clic, mouvement de souris, clavier, scroll, touch) et déconnecte automatiquement l'utilisateur au bout d'1 heure sans aucune interaction, avec redirection vers `login.html`. La dernière activité est horodatée dans `localStorage` et partagée entre tous les onglets/pages du portail, donc naviguer d'une app à l'autre ne réinitialise pas indûment le compte à rebours. Ce mécanisme ne s'applique qu'aux pages qui chargent `auth-guard.js` — il ne concerne donc ni `login.html`, ni `accepter-invitation.html`, ni `reinitialiser-mdp.html`, ni `test-connexion.html`.
 - La clé utilisée côté navigateur est la clé **`anon` publique** de Supabase : ce n'est pas un secret (elle est conçue pour être visible côté client), c'est la sécurité **Row Level Security** côté base de données qui protège réellement les données — seuls les comptes authentifiés peuvent lire/écrire.
 
 ## Backend partagé (Supabase)
@@ -68,6 +71,25 @@ Toutes les tables sont protégées par des policies **Row Level Security** limit
 | Brouillons de blog (`blog_drafts`) | ✅ **Réellement partagés** : chaque brouillon est stocké dans sa propre ligne (`id` = id du brouillon) au lieu d'être regroupé sous un identifiant d'appareil (`deviceId`). Un brouillon créé par un collègue est désormais visible par tous les agents. |
 
 Une migration automatique et silencieuse est effectuée au premier chargement de chaque page concernée : les anciennes lignes (format « une ligne géante par bucket/appareil ») sont éclatées en lignes individuelles, poussées vers Supabase, puis supprimées.
+
+## Mode hors-ligne (Service Worker)
+
+Chaque page du portail enregistre `sw.js`, un Service Worker qui met en cache l'interface (HTML/CSS/JS statiques, logo) pour permettre l'ouverture des pages même sans connexion réseau. Stratégie **network first, cache en secours** : le réseau est toujours tenté en premier pour avoir la version à jour, le cache ne sert qu'en cas d'échec réseau.
+
+- Ne concerne que l'interface : les appels vers Supabase (données biens, photos, connexion) ne sont jamais interceptés et échouent normalement hors ligne, pour que chaque page gère l'erreur proprement.
+- La liste des fichiers mis en cache (`FICHIERS_A_METTRE_EN_CACHE`) doit être tenue à jour à chaque ajout de fichier statique au portail, et le nom du cache (`NOM_CACHE`) doit être incrémenté à chaque changement de cette liste ou du contenu des fichiers, pour forcer la mise à jour chez les utilisateurs.
+
+## Modules front-end partagés
+
+Pour éviter la duplication de code entre les pages, plusieurs briques communes sont factorisées dans des fichiers dédiés, chargés par les pages qui en ont besoin :
+
+| Fichier | Rôle |
+|---|---|
+| `theme-early.js` | Applique le mode sombre/clair avant le premier rendu (anti-flash), chargé en tout premier dans `<head>`. |
+| `theme.js` | Bascule manuelle du mode sombre (`initTheme()`, `toggleTheme()`), utilisée par la plupart des pages (indépendant du sélecteur `dark-toggle` propre à `photoimmo.html`). |
+| `html-utils.js` | Échappement HTML commun (`escHtml()`) avant insertion de données (Supabase ou saisie utilisateur) dans du `innerHTML`. |
+| `toast.js` / `toast.css` | Bulle de confirmation partagée (succès / avertissement / suppression), utilisée par `dossier.html`. |
+| `page-transition.js` / `page-transition.css` | Overlay de transition (logo qui pulse) affiché lors de la navigation entre les apps du portail depuis `index.html`, pour éviter un flash d'écran blanc pendant le chargement. |
 
 ## Dossier des biens (`dossier.html`)
 
@@ -104,6 +126,8 @@ Outil de rédaction assisté pour le blog de l'agence (actualités immobilières
 ## Caractéristiques techniques
 
 - **Frontend 100 % statique** : HTML/CSS/JS vanilla, aucune dépendance externe via CDN — la librairie Supabase (`supabase-lib.js`) est vendorisée en local dans le dépôt.
+- **Modules front-end partagés** (thème, échappement HTML, toast, transition entre pages) factorisés dans des fichiers dédiés plutôt que dupliqués sur chaque page — voir section « Modules front-end partagés » ci-dessus.
+- **Mode hors-ligne** via Service Worker (`sw.js`) : interface utilisable sans réseau, données Supabase toujours en direct — voir section « Mode hors-ligne » ci-dessus.
 - **Backend partagé Supabase** : base de données Postgres + authentification + stockage de fichiers, hébergé en région UE.
 - **Stockage local en complément** : `localStorage` et `IndexedDB` restent utilisés comme cache rapide et copie de secours hors-ligne sur chaque poste, en plus de la synchro cloud.
 - **Content-Security-Policy stricte** sur chaque page (`default-src 'self'`, `script-src 'self'`, `object-src 'none'`, `frame-ancestors 'self'`, `connect-src` limité au projet Supabase et, pour `blog.html`, aux API IA), aucun CDN externe autorisé.
@@ -132,6 +156,8 @@ Le site est publié automatiquement par **GitHub Pages** à chaque `push` sur la
 App-centrale/
 ├── index.html                        # Portail d'accueil
 ├── login.html                        # Connexion (compte agence Supabase)
+├── accepter-invitation.html          # Activation de compte via lien d'invitation
+├── reinitialiser-mdp.html            # Définition d'un nouveau mot de passe
 ├── bibliotheque.html                 # Bibliothèque de prompts IA
 ├── documentation_bibliotheque.html   # Doc de la bibliothèque
 ├── photoimmo.html                    # PhotoImmo Pro
@@ -141,6 +167,12 @@ App-centrale/
 ├── supabase-lib.js                   # Librairie supabase-js vendorisée (pas de CDN)
 ├── supabase-client.js                # Connexion Supabase commune à toutes les pages
 ├── auth-guard.js                     # Garde d'authentification (redirige vers login.html)
+├── theme-early.js                    # Application du thème avant le premier rendu (anti-flash)
+├── theme.js                          # Bascule manuelle du mode sombre
+├── html-utils.js                     # Échappement HTML commun (escHtml)
+├── toast.js / toast.css              # Bulle de confirmation partagée
+├── page-transition.js / page-transition.css  # Overlay de transition entre pages
+├── sw.js                             # Service Worker (mode hors-ligne de l'interface)
 ├── logo_laforet.png                  # Logo de l'agence
 └── README.md
 ```
