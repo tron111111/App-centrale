@@ -119,6 +119,13 @@
   .s-back{background:rgba(255,255,255,.16);border:none;color:#fff;font-size:14px;font-weight:700;padding:9px 14px;border-radius:999px;cursor:pointer}
   .s-title{font-size:17px;font-weight:800;margin:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .s-body{max-width:760px;margin:0 auto;padding:16px 16px 90px}
+  /* Bouton mode sombre — même style pill que bibliotheque.html / blog.html (DA du portail) */
+  .dark-toggle{background:rgba(255,255,255,.16);border:none;color:#fff;border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;flex:none;margin-left:auto;font-family:inherit}
+  .dark-toggle:hover{background:rgba(255,255,255,.28)}
+  @media (max-width:640px){
+    .dark-toggle{padding:6px 9px}
+    .dark-toggle span{display:none}
+  }
 
   /* camera */
   #camWrap{position:fixed;inset:0;background:#000;z-index:200;display:none;flex-direction:column}
@@ -251,7 +258,7 @@
       <h1>PhotoImmo <span style="font-size:11px;font-weight:700;letter-spacing:1.5px;background:var(--gold);color:#0f1b50;padding:2px 6px;border-radius:5px;vertical-align:middle">PRO</span></h1>
       <p>Shooting guidé, noté et livré — par bien</p>
     </div>
-    <button class="dark-toggle" title="Mode sombre" aria-label="Basculer le mode sombre" style="background:rgba(255,255,255,.16);border:none;color:#fff;width:34px;height:34px;border-radius:50%;cursor:pointer;flex:none;margin-left:auto;display:flex;align-items:center;justify-content:center;padding:0"><svg class="dark-toggle-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
+    <button class="dark-toggle" title="Mode sombre" aria-label="Basculer le mode sombre"><svg class="dark-toggle-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><span class="dark-toggle-label">Mode sombre</span></button>
   </div>
 </header>
 
@@ -262,13 +269,13 @@
 <div class="wrap" id="home"></div>
 
 <!-- BIEN -->
-<div class="screen" id="bienScreen"><div class="s-head"><button class="s-back" data-close="bienScreen">‹ Mes biens</button><h2 class="s-title" id="bienTitle">Bien</h2><button class="dark-toggle" title="Mode sombre" aria-label="Basculer le mode sombre" style="background:rgba(255,255,255,.16);border:none;color:#fff;width:34px;height:34px;border-radius:50%;cursor:pointer;flex:none;margin-left:auto;display:flex;align-items:center;justify-content:center;padding:0"><svg class="dark-toggle-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button></div><div class="s-body" id="bienBody"></div></div>
+<div class="screen" id="bienScreen"><div class="s-head"><button class="s-back" data-close="bienScreen">‹ Mes biens</button><h2 class="s-title" id="bienTitle">Bien</h2><button class="dark-toggle" title="Mode sombre" aria-label="Basculer le mode sombre"><svg class="dark-toggle-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><span class="dark-toggle-label">Mode sombre</span></button></div><div class="s-body" id="bienBody"></div></div>
 <!-- GUIDE -->
-<div class="screen" id="guideScreen"><div class="s-head"><button class="s-back" data-close="guideScreen">‹ Retour</button><h2 class="s-title" id="guideTitle">Guide</h2><button class="dark-toggle" title="Mode sombre" aria-label="Basculer le mode sombre" style="background:rgba(255,255,255,.16);border:none;color:#fff;width:34px;height:34px;border-radius:50%;cursor:pointer;flex:none;margin-left:auto;display:flex;align-items:center;justify-content:center;padding:0"><svg class="dark-toggle-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button></div><div class="s-body" id="guideBody"></div></div>
+<div class="screen" id="guideScreen"><div class="s-head"><button class="s-back" data-close="guideScreen">‹ Retour</button><h2 class="s-title" id="guideTitle">Guide</h2><button class="dark-toggle" title="Mode sombre" aria-label="Basculer le mode sombre"><svg class="dark-toggle-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><span class="dark-toggle-label">Mode sombre</span></button></div><div class="s-body" id="guideBody"></div></div>
 <!-- SCORE -->
-<div class="screen" id="scoreScreen"><div class="s-head"><button class="s-back" data-close="scoreScreen">‹ Retour</button><h2 class="s-title">Score de publication</h2><button class="dark-toggle" title="Mode sombre" aria-label="Basculer le mode sombre" style="background:rgba(255,255,255,.16);border:none;color:#fff;width:34px;height:34px;border-radius:50%;cursor:pointer;flex:none;margin-left:auto;display:flex;align-items:center;justify-content:center;padding:0"><svg class="dark-toggle-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button></div><div class="s-body" id="scoreBody"></div></div>
+<div class="screen" id="scoreScreen"><div class="s-head"><button class="s-back" data-close="scoreScreen">‹ Retour</button><h2 class="s-title">Score de publication</h2><button class="dark-toggle" title="Mode sombre" aria-label="Basculer le mode sombre"><svg class="dark-toggle-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><span class="dark-toggle-label">Mode sombre</span></button></div><div class="s-body" id="scoreBody"></div></div>
 <!-- COMPARE -->
-<div class="screen" id="cmpScreen"><div class="s-head"><button class="s-back" data-close="cmpScreen">‹ Retour</button><h2 class="s-title" id="cmpTitle">Comparer les angles</h2><button class="dark-toggle" title="Mode sombre" aria-label="Basculer le mode sombre" style="background:rgba(255,255,255,.16);border:none;color:#fff;width:34px;height:34px;border-radius:50%;cursor:pointer;flex:none;margin-left:auto;display:flex;align-items:center;justify-content:center;padding:0"><svg class="dark-toggle-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button></div><div class="s-body" id="cmpBody"></div></div>
+<div class="screen" id="cmpScreen"><div class="s-head"><button class="s-back" data-close="cmpScreen">‹ Retour</button><h2 class="s-title" id="cmpTitle">Comparer les angles</h2><button class="dark-toggle" title="Mode sombre" aria-label="Basculer le mode sombre"><svg class="dark-toggle-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><span class="dark-toggle-label">Mode sombre</span></button></div><div class="s-body" id="cmpBody"></div></div>
 
 <!-- LIGHTBOX -->
 <div id="lightbox">
@@ -1563,15 +1570,19 @@ function openNewBien(prefillAddr,prefillType){
   if(!m){m=document.createElement('div');m.id='newBienModal';m.className='screen';
     m.innerHTML=`<div class="s-head"><button class="s-back" data-close="newBienModal">‹ Annuler</button><h2 class="s-title">Nouveau bien</h2></div>
       <div class="s-body">
-        <div class="section-title">Adresse du bien</div>
-        <input id="nbAddr" placeholder="12 rue des Lilas, Pithiviers" style="width:100%;padding:14px;font-size:16px;border:1.5px solid var(--line);border-radius:12px">
-        <div class="section-title">Type</div>
-        <div class="btn-row" id="nbType"><button class="btn btn-ghost" data-t="maison" aria-pressed="true">${ic('home',17)} Maison</button><button class="btn btn-ghost" data-t="appartement">${ic('building',17)} Appartement</button></div>
-        <button class="btn btn-primary" id="nbCreate" style="margin-top:18px">Créer le bien</button>
+        <div class="gcard">
+          <div class="section-title" style="margin-top:0">Adresse du bien</div>
+          <input id="nbAddr" placeholder="12 rue des Lilas, Pithiviers" style="width:100%;padding:14px;font-size:16px;border:1.5px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink)">
+          <div class="section-title">Type</div>
+          <div class="btn-row" id="nbType"><button class="btn btn-ghost" data-t="maison" aria-pressed="true">${ic('home',17)} Maison</button><button class="btn btn-ghost" data-t="appartement">${ic('building',17)} Appartement</button></div>
+          <button class="btn btn-primary" id="nbCreate" style="margin-top:18px">Créer le bien</button>
+        </div>
 
-        <div class="section-title" style="margin-top:26px">Ou choisir un bien déjà créé (Dossier / Bibliothèque)</div>
-        <input id="nbSearch" placeholder="Rechercher une adresse…" style="width:100%;padding:12px;font-size:15px;border:1.5px solid var(--line);border-radius:12px;margin-bottom:10px">
-        <div id="nbList"></div>
+        <div class="gcard">
+          <div class="section-title" style="margin-top:0">Ou choisir un bien déjà créé (Dossier / Bibliothèque)</div>
+          <input id="nbSearch" placeholder="Rechercher une adresse…" style="width:100%;padding:12px;font-size:15px;border:1.5px solid var(--line);border-radius:12px;margin-bottom:10px;background:var(--bg);color:var(--ink)">
+          <div id="nbList"></div>
+        </div>
       </div>`;
     document.body.appendChild(m);
     let type='maison';
@@ -2178,9 +2189,11 @@ window.addEventListener('pageshow',e=>{
 (function(){
   const btns=document.querySelectorAll('.dark-toggle');
   const icons=document.querySelectorAll('.dark-toggle-icon');
+  const labels=document.querySelectorAll('.dark-toggle-label');
   const apply=dark=>{
     document.documentElement.setAttribute('data-theme',dark?'dark':'light');
     icons.forEach(icon=>icon.innerHTML=dark?ICON_PATHS.sun:ICON_PATHS.moon);
+    labels.forEach(label=>label.textContent=dark?'Mode clair':'Mode sombre');
     try{localStorage.setItem('theme',dark?'dark':'light');}catch(e){}
   };
   const saved=localStorage.getItem('theme');
