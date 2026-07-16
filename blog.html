@@ -67,6 +67,19 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
 .header-info span { font-size: 12px; color: #fff; opacity: .75; }
 .theme-toggle { background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.18); border-radius: 20px; padding: 7px 12px; font-size: 12px; color: #fff; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; flex-shrink: 0; }
 .theme-toggle:hover { background: rgba(255,255,255,.22); }
+
+/* BANDEAU DE STATUT HORS-LIGNE / SYNCHRO — même principe que dans photoimmo.html / dossier.html / bibliotheque.html */
+.sync-banner { display: none; align-items: center; gap: 9px; padding: 9px 16px; font-size: 12.5px; font-weight: 700; position: sticky; top: 0; z-index: 99; }
+.sync-banner.show { display: flex; }
+.sync-banner .sb-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.sync-banner .sb-txt { flex: 1; min-width: 0; }
+.sync-banner.offline { background: var(--c-prosp-bg); color: var(--c-prosp); border-bottom: 1.5px solid var(--c-prosp-border); }
+.sync-banner.offline .sb-dot { background: var(--c-prosp); }
+.sync-banner.syncing { background: var(--sky-bg); color: var(--blue-dark); border-bottom: 1.5px solid var(--sky); }
+.sync-banner.syncing .sb-dot { background: var(--sky); animation: sbPulse 1s ease-in-out infinite; }
+.sync-banner.synced { background: var(--c-admin-bg); color: var(--c-admin); border-bottom: 1.5px solid var(--c-admin-border); }
+.sync-banner.synced .sb-dot { background: var(--c-admin); }
+@keyframes sbPulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 @media (max-width: 640px) {
   .header-logo { width: 30px; height: 30px; border-radius: 8px; }
   .header-info h1 { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -282,6 +295,10 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
     <span id="theme-label">Mode sombre</span>
   </button>
 </header>
+
+<div class="sync-banner" id="syncBanner" role="status" aria-live="polite">
+  <span class="sb-dot"></span><span class="sb-txt" id="syncBannerTxt"></span>
+</div>
 
 <div class="container">
 
@@ -685,6 +702,9 @@ const DRAFT_SORT_KEY = 'laforet_blog_draft_sort';
 
 window.onload = async function() {
   initTheme();
+  // Affiche tout de suite le bandeau si on démarre hors-ligne, ou s'il
+  // reste des modifications en attente d'un précédent passage sans réseau.
+  refreshBlogSyncStatus();
   document.getElementById('g-date').value = new Date().toISOString().slice(0,10);
   renderCats();
   renderGrid();
@@ -714,6 +734,9 @@ window.onload = async function() {
   }
 
   renderDrafts();
+  // Renvoie vers le serveur toute modification restée en attente d'un
+  // précédent passage hors-ligne.
+  retryAllPendingBlog();
   // Sécurité : force le collage en texte brut dans la zone éditable de réponse IA,
   // pour éviter qu'un contenu HTML collé (ex: depuis une page malveillante) ne soit
   // inséré tel quel dans le DOM de la page.
@@ -1334,6 +1357,40 @@ function flashSaveToast(msg, type) {
 // Cache local pour éviter des allers-retours inutiles
 let _draftsCache = null;
 
+/* ------------------------------------------------------------
+   FILE D'ATTENTE HORS-LIGNE — même principe que dans photoimmo.html,
+   dossier.html et bibliotheque.html. setDrafts() persistait déjà en
+   localStorage avant d'envoyer à Supabase (donc rien n'était perdu
+   hors-ligne), mais un échec d'envoi ne relançait jamais rien tout
+   seul — il fallait une nouvelle sauvegarde manuelle pour que ça
+   reparte. Idem pour deleteDraftCloud() : en cas d'échec, la ligne
+   restait présente côté serveur et pouvait "revenir" au prochain
+   chargement. Ajout d'un flag "dirty" + file d'attente de suppression,
+   retentés automatiquement au retour du réseau.
+   ------------------------------------------------------------ */
+const DRAFTS_DIRTY_KEY = 'blog_drafts_dirty';
+function markDraftsDirty(dirty) {
+  try {
+    if (dirty) localStorage.setItem(DRAFTS_DIRTY_KEY, '1');
+    else localStorage.removeItem(DRAFTS_DIRTY_KEY);
+  } catch {}
+  refreshBlogSyncStatus();
+}
+function isDraftsDirty() { try { return localStorage.getItem(DRAFTS_DIRTY_KEY) === '1'; } catch { return false; } }
+
+const DRAFTS_PENDING_DELETE_KEY = 'blog_drafts_pending_deletes';
+function getPendingDraftDeletes() { try { return JSON.parse(localStorage.getItem(DRAFTS_PENDING_DELETE_KEY)) || []; } catch { return []; } }
+function setPendingDraftDeletes(l) { try { localStorage.setItem(DRAFTS_PENDING_DELETE_KEY, JSON.stringify(l)); } catch {} }
+function markPendingDraftDelete(id) {
+  const l = getPendingDraftDeletes();
+  if (!l.includes(String(id))) { l.push(String(id)); setPendingDraftDeletes(l); }
+  refreshBlogSyncStatus();
+}
+function clearPendingDraftDelete(id) {
+  setPendingDraftDeletes(getPendingDraftDeletes().filter(x => x !== String(id)));
+  refreshBlogSyncStatus();
+}
+
 /* Envoie tous les brouillons de la liste vers Supabase, UNE LIGNE PAR
    BROUILLON (id = brouillon.id), en un seul appel réseau (upsert accepte
    un tableau de lignes) — comme pour biens_photoimmo, pour que deux
@@ -1345,19 +1402,25 @@ async function pushDraftsBatch(list) {
     const rows = list.map(d => ({ id: String(d.id), data: d, updated_at: new Date().toISOString() }));
     const { error } = await supabaseClient.from('blog_drafts').upsert(rows);
     if (error) throw error;
+    markDraftsDirty(false);
   } catch (e) {
     console.warn('[blog] Supabase pushDraftsBatch error :', e);
+    markDraftsDirty(true);
   }
 }
 /* Supprime la ligne cloud d'UN brouillon précis (appelé explicitement à la
    suppression — voir deleteDraft plus bas — plutôt que déduit d'une
-   comparaison de listes, pour rester simple et sûr). */
+   comparaison de listes, pour rester simple et sûr). En cas d'échec
+   (hors-ligne), la suppression est mise en attente et retentée par
+   retryAllPendingBlog(). */
 async function deleteDraftCloud(id) {
   try {
     const { error } = await supabaseClient.from('blog_drafts').delete().eq('id', String(id));
     if (error) throw error;
+    clearPendingDraftDelete(id);
   } catch (e) {
     console.warn('[blog] Supabase deleteDraftCloud error :', e);
+    markPendingDraftDelete(id);
   }
 }
 
@@ -1386,6 +1449,17 @@ async function getDrafts() {
         try { await supabaseClient.from('blog_drafts').delete().eq('id', row.id); } catch (e) {}
       }
     }
+    // S'il reste des modifications locales pas encore envoyées (dernier
+    // passage hors-ligne), on privilégie la copie locale : le serveur n'a
+    // pas encore la dernière version. Sinon, on retire simplement les
+    // brouillons dont la suppression est en attente d'envoi, pour ne pas
+    // les voir "revenir" après avoir été supprimés hors-ligne.
+    if (isDraftsDirty()) {
+      try { drafts = JSON.parse(localStorage.getItem(DRAFTS_KEY) || '[]'); } catch {}
+    } else {
+      const pendingDeleteSet = new Set(getPendingDraftDeletes());
+      drafts = drafts.filter(d => !pendingDeleteSet.has(String(d.id)));
+    }
     _draftsCache = drafts;
     try { localStorage.setItem(DRAFTS_KEY, JSON.stringify(drafts)); } catch {}
     return _draftsCache;
@@ -1402,6 +1476,7 @@ async function setDrafts(list) {
   _draftsCache = list;
   // Toujours persister en localStorage (cache hors-ligne)
   try { localStorage.setItem(DRAFTS_KEY, JSON.stringify(list)); } catch {}
+  markDraftsDirty(true); // marqué tout de suite, avant l'envoi (évite une race condition avec retryAllPendingBlog)
   // Puis synchroniser avec Supabase — une ligne par brouillon
   await pushDraftsBatch(list);
 }
@@ -1411,6 +1486,71 @@ function getDraftsSync() {
   if (_draftsCache !== null) return _draftsCache;
   try { return JSON.parse(localStorage.getItem(DRAFTS_KEY) || '[]'); } catch { return []; }
 }
+
+/* ------------------------------------------------------------
+   RETRY GLOBAL + BANDEAU DE STATUT
+   ------------------------------------------------------------ */
+function countPendingBlog() {
+  return (isDraftsDirty() ? 1 : 0) + getPendingDraftDeletes().length;
+}
+
+let _blogRetryInFlight = false;
+let _blogConsecutiveFailures = 0;
+async function retryAllPendingBlog() {
+  if (_blogRetryInFlight || !navigator.onLine) return;
+  if (countPendingBlog() === 0) return;
+  _blogRetryInFlight = true;
+  refreshBlogSyncStatus();
+  try {
+    if (isDraftsDirty()) await pushDraftsBatch(getDraftsSync());
+    for (const id of getPendingDraftDeletes()) await deleteDraftCloud(id);
+    if (countPendingBlog() === 0) { _blogJustSynced = true; _blogConsecutiveFailures = 0; }
+    else { _blogConsecutiveFailures++; }
+  } finally {
+    _blogRetryInFlight = false;
+    refreshBlogSyncStatus();
+  }
+}
+
+let _blogJustSynced = false, _blogSyncedFadeT = null;
+function refreshBlogSyncStatus() {
+  const el = document.getElementById('syncBanner');
+  const txt = document.getElementById('syncBannerTxt');
+  if (!el || !txt) return;
+  const pending = countPendingBlog();
+  el.classList.remove('offline', 'syncing', 'synced');
+
+  if (!navigator.onLine) {
+    el.classList.add('show', 'offline');
+    txt.textContent = pending > 0
+      ? `🔌 Hors-ligne — modifications enregistrées localement, envoi dès le retour du réseau`
+      : '🔌 Hors-ligne — vos modifications sont enregistrées localement';
+  } else if (pending > 0 && _blogConsecutiveFailures >= 2) {
+    // navigator.onLine dit "connecté" mais plusieurs tentatives ont échoué
+    // de suite : réseau local sans accès internet réel, ou serveur injoignable.
+    el.classList.add('show', 'offline');
+    txt.textContent = '⚠️ Connexion au serveur impossible — nouvel essai automatique';
+  } else if (_blogRetryInFlight || pending > 0) {
+    el.classList.add('show', 'syncing');
+    txt.textContent = '⏳ Synchronisation en cours…';
+  } else if (_blogJustSynced) {
+    el.classList.add('show', 'synced');
+    txt.textContent = '✅ Tout est synchronisé';
+    clearTimeout(_blogSyncedFadeT);
+    _blogSyncedFadeT = setTimeout(() => { _blogJustSynced = false; el.classList.remove('show'); }, 2500);
+  } else {
+    el.classList.remove('show');
+  }
+}
+
+window.addEventListener('online', () => {
+  retryAllPendingBlog();
+});
+window.addEventListener('offline', () => {
+  _blogConsecutiveFailures = 0;
+  refreshBlogSyncStatus();
+});
+setInterval(() => { if (navigator.onLine && countPendingBlog() > 0) retryAllPendingBlog(); }, 20000);
 // ── POPUP DE CONFIRMATION GENERIQUE ────────────────────────────────────────
 let _confirmModalAction = null;
 
