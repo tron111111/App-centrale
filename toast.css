@@ -1,0 +1,24 @@
+/* toast.css — bulle de confirmation partagée (voir toast.js) */
+.toast-shared {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--surface, var(--card, #fff));
+  border: 1px solid var(--border, var(--line, #e2e7f0));
+  color: var(--text, var(--ink, #161d33));
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0,0,0,.15);
+  z-index: 9999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s, transform .2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.toast-shared svg { flex-shrink: 0; }
+.toast-shared.show { opacity: 1; transform: translateX(-50%) translateY(0); }

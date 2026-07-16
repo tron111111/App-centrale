@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
+<script src="theme-early.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#16266b">
@@ -241,6 +242,7 @@
 <script src="supabase-lib.js"></script>
 <script src="supabase-client.js"></script>
 <script src="auth-guard.js"></script>
+<script src="html-utils.js"></script>
 <header>
   <div class="h-top">
     <a class="back-home" href="index.html" title="Retour à l'accueil"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg> Accueil</a>
@@ -1538,7 +1540,9 @@ async function updateStorageInfo(){
     el.textContent=' · Stockage utilisé : '+fmt(usage)+(pct!=null?' ('+pct+'% de l’espace disponible)':'');
   }catch(e){/* silencieux : purement informatif */}
 }
-function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+// Alias de compatibilité : la logique d'échappement vit désormais dans
+// html-utils.js (escHtml), partagée avec les autres pages du portail.
+function esc(s){ return escHtml(s); }
 
 $('home').addEventListener('click',async e=>{
   if(e.target.closest('#newBienBtn'))return openNewBien();

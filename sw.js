@@ -14,7 +14,7 @@
 // Incrémenter ce nom à chaque modification de la liste de fichiers ou du
 // contenu des fichiers eux-mêmes, pour forcer la mise à jour du cache chez
 // les utilisateurs (sinon ils resteraient sur l'ancienne version en cache).
-const NOM_CACHE = 'app-centrale-v1';
+const NOM_CACHE = 'app-centrale-v2';
 
 // Liste des fichiers statiques à mettre en cache pour un fonctionnement
 // hors ligne de l'interface. À compléter si de nouveaux fichiers/pages
@@ -32,6 +32,13 @@ const FICHIERS_A_METTRE_EN_CACHE = [
   'supabase-lib.js',
   'supabase-client.js',
   'auth-guard.js',
+  'theme-early.js',
+  'theme.js',
+  'html-utils.js',
+  'toast.js',
+  'toast.css',
+  'page-transition.js',
+  'page-transition.css',
   'logo_laforet.png'
 ];
 

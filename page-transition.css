@@ -1,0 +1,24 @@
+/* page-transition.css — overlay de transition entre pages (voir page-transition.js) */
+#laforet-transition {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0f1b50, #16266b);
+  opacity: 0;
+  visibility: hidden;
+  z-index: 99999;
+  transition: opacity .28s ease, visibility .28s ease;
+}
+#laforet-transition.show { opacity: 1; visibility: visible; }
+#laforet-transition img {
+  width: 92px;
+  height: 92px;
+  background: #fff;
+  padding: 10px;
+  border-radius: 22px;
+  box-shadow: 0 25px 60px rgba(0,0,0,.35);
+  animation: laforet-transition-pulse .8s ease-in-out infinite alternate;
+}
+@keyframes laforet-transition-pulse { from { transform: scale(.92); } to { transform: scale(1.05); } }
