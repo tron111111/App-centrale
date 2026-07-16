@@ -319,6 +319,10 @@ formMdpOublie.addEventListener('submit', async function (e) {
   afficherSucces('Si un compte existe avec cet email, un lien de réinitialisation vient de vous être envoyé.');
 });
 </script>
-
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js');
+  }
+</script>
 </body>
 </html>

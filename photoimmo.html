@@ -2165,5 +2165,10 @@ window.addEventListener('pageshow',e=>{
   btns.forEach(btn=>btn.addEventListener('click',()=>apply(document.documentElement.getAttribute('data-theme')!=='dark')));
 })();
 </script>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js');
+  }
+</script>
 </body>
 </html>
