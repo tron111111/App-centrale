@@ -2000,7 +2000,7 @@ function hubGen(format) {
            `- Prose fluide, ton courtois et professionnel. Pas de bullet points dans l'annonce rédigée.\n` +
            `- Ne mentionne ni prix ni DPE (gérés séparément sur les portails).\n` +
            `- Évite les formules vagues, génériques ou trop "IA" (ex : "élément à la fois esthétique et convivial", "un cadre de vie rare", "un havre de paix", "cette demeure d'exception"). Préfère des phrases simples, factuelles et directes, comme le ferait un agent qui décrit le bien sans emphase artificielle.\n` +
-           `- Longueur cible : environ 1000 caractères (espaces compris) pour le texte de l'annonce. Ne descends pas en dessous de 900 ni au-dessus de 1100 caractères.\n\n` +
+           `- Longueur cible : environ 2000 caractères (espaces compris) pour le texte de l'annonce. Ne descends pas en dessous de 1900 ni au-dessus de 2100 caractères.\n\n` +
            `Règle de sécurité : si une donnée obligatoire est absente, vide ou laissée sous forme de placeholder, écris exactement [INFORMATION OBLIGATOIRE NON RENSEIGNEE] à l'endroit concerné. N'invente jamais de fait, de nom ni de circonstance qui ne figure pas dans les données fournies.\n` +
            `Consignes : Ton courtois, professionnel et humain. Phrases claires et directes. Pas de formules creuses ni de point d'exclamation. Aucun émoji.\n` +
            `CHAQUE PROMPT EST INDEPENDANT DONC NE PREND PAS EN COMPTE LES PROMPTS PRECEDENTS , NE LES GARDE PAS NON PLUS EN MEMOIRE`;
@@ -3415,7 +3415,7 @@ const TUTO_STEPS = [
     title: 'Le générateur d\'annonces centralisé',
     body: 'En haut de page, le <strong>générateur d\'annonces</strong> est le cœur de l\'outil. Remplissez les champs une seule fois (type de bien, pièces, surface, équipements…) puis cliquez sur le format souhaité.',
     visual: `<div style="display:flex;flex-wrap:wrap;gap:8px;">
-      <span style="background:#fff;border:1.5px solid #e2e7f0;border-radius:8px;padding:8px 12px;font-size:12px;">📄 Annonce Internet<br><span style="color:#a8b0c4;font-size:11px;">~1000 caractères · sans prix</span></span>
+      <span style="background:#fff;border:1.5px solid #e2e7f0;border-radius:8px;padding:8px 12px;font-size:12px;">📄 Annonce Internet<br><span style="color:#a8b0c4;font-size:11px;">~2000 caractères · sans prix</span></span>
       <span style="background:#fff;border:1.5px solid #e2e7f0;border-radius:8px;padding:8px 12px;font-size:12px;">🪟 Annonce vitrine<br><span style="color:#a8b0c4;font-size:11px;">≤ 300 caractères</span></span>
       <span style="background:#fff;border:1.5px solid #e2e7f0;border-radius:8px;padding:8px 12px;font-size:12px;">📱 Post réseaux sociaux<br><span style="color:#a8b0c4;font-size:11px;">Avec mentions légales</span></span>
       <span style="background:#fff;border:1.5px solid #e2e7f0;border-radius:8px;padding:8px 12px;font-size:12px;">🔑 Annonce locative<br><span style="color:#a8b0c4;font-size:11px;">Avec loyer et charges</span></span>
