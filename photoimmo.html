@@ -28,7 +28,7 @@
   [data-theme="dark"]{
     --bg:#0f1117; --card:#1a1f2e; --ink:#e8ecf4; --muted:#8892aa;
     --line:#2a3148; --shadow:0 1px 3px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);
-    --green-l:#1a2240; --gold-l:#0e2030;
+    --green:#29a9e0; --green-d:#5cc4ea; --green-l:#1a2240; --gold-l:#0e2030;
     --ok-bg:#123524; --ok-border:#1f6b46; --ok-ink:#6fd9a0;
     --import:#a78bfa; --import-bg:#241f3a; --import-border:#4a3f78;
     --pbar-bg:#252c42; --bar-bg:#252c42;
@@ -39,7 +39,7 @@
   body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     background:var(--bg);color:var(--ink);line-height:1.5;padding-bottom:env(safe-area-inset-bottom)}
   :focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-  header{background:linear-gradient(135deg,var(--green-d),var(--green));color:#fff;
+  header{background:linear-gradient(135deg,#0f1b50,#16266b);color:#fff;
     padding:calc(16px + env(safe-area-inset-top)) 18px 16px;position:sticky;top:0;z-index:50;box-shadow:0 2px 16px rgba(15,46,29,.25)}
   .h-top{display:flex;align-items:center;gap:12px}
   .logo{width:46px;height:46px;border-radius:12px;overflow:hidden;flex:none;border:1px solid rgba(255,255,255,.18);background:#fff}
@@ -114,7 +114,7 @@
   .screen{position:fixed;inset:0;background:var(--bg);z-index:100;overflow-y:auto;-webkit-overflow-scrolling:touch;display:none}
   .screen.open{display:block;animation:fade .2s ease}
   @keyframes fade{from{opacity:0}to{opacity:1}}
-  .s-head{background:linear-gradient(135deg,var(--green-d),var(--green));color:#fff;padding:calc(13px + env(safe-area-inset-top)) 16px 16px;position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:12px}
+  .s-head{background:linear-gradient(135deg,#0f1b50,#16266b);color:#fff;padding:calc(13px + env(safe-area-inset-top)) 16px 16px;position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:12px}
   .s-back{background:rgba(255,255,255,.16);border:none;color:#fff;font-size:14px;font-weight:700;padding:9px 14px;border-radius:999px;cursor:pointer}
   .s-title{font-size:17px;font-weight:800;margin:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .s-body{max-width:760px;margin:0 auto;padding:16px 16px 90px}
@@ -246,7 +246,7 @@
     <a class="back-home" href="index.html" title="Retour à l'accueil"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg> Accueil</a>
     <div class="logo"><img src="logo_laforet.png" alt="Laforêt"></div>
     <div>
-      <h1>PhotoImmo <span style="font-size:11px;font-weight:700;letter-spacing:1.5px;background:var(--gold);color:var(--green-d);padding:2px 6px;border-radius:5px;vertical-align:middle">PRO</span></h1>
+      <h1>PhotoImmo <span style="font-size:11px;font-weight:700;letter-spacing:1.5px;background:var(--gold);color:#0f1b50;padding:2px 6px;border-radius:5px;vertical-align:middle">PRO</span></h1>
       <p>Shooting guidé, noté et livré — par bien</p>
     </div>
     <button class="dark-toggle" title="Mode sombre" aria-label="Basculer le mode sombre" style="background:rgba(255,255,255,.16);border:none;color:#fff;width:34px;height:34px;border-radius:50%;cursor:pointer;flex:none;margin-left:auto;display:flex;align-items:center;justify-content:center;padding:0"><svg class="dark-toggle-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>

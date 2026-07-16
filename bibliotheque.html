@@ -85,8 +85,8 @@ header .header-info h1 { color: #fff !important; }
 .header-info h1 { font-size: 18px; font-weight: 800; color: var(--text); line-height: 1.2; letter-spacing: .2px; }
 .header-info span { font-size: 12px; color: var(--text3); opacity: .85; }
 .header-right { margin-left: auto; }
-.theme-toggle { background: var(--input-bg); border: 1px solid var(--border); border-radius: 20px; padding: 5px 12px; font-size: 12px; color: var(--text2); cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-.theme-toggle:hover { background: var(--border); }
+.theme-toggle { background: rgba(255,255,255,.16); border: none; color: #fff; border-radius: 20px; padding: 5px 12px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.theme-toggle:hover { background: rgba(255,255,255,.28); }
 
 /* BANDEAU DE STATUT HORS-LIGNE / SYNCHRO — même principe que dans photoimmo.html / dossier.html */
 .sync-banner { display: none; align-items: center; gap: 9px; padding: 9px 16px; font-size: 12.5px; font-weight: 700; position: sticky; top: 0; z-index: 99; }
@@ -464,8 +464,8 @@ footer { text-align: center; padding: 2rem 1rem calc(2rem + env(safe-area-inset-
 
 /* MENU ⋯ */
 .more-menu { position: relative; }
-.more-btn { background: var(--input-bg); border: 1px solid var(--border); border-radius: 20px; padding: 5px 12px; font-size: 15px; color: var(--text2); cursor: pointer; line-height: 1; letter-spacing: 2px; transition: background .15s; }
-.more-btn:hover { background: var(--border); }
+.more-btn { background: rgba(255,255,255,.16); border: none; border-radius: 20px; padding: 5px 12px; font-size: 15px; color: #fff; cursor: pointer; line-height: 1; letter-spacing: 2px; transition: background .15s; }
+.more-btn:hover { background: rgba(255,255,255,.28); }
 .more-dropdown { display: none; position: absolute; top: calc(100% + 6px); right: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,.1); min-width: 160px; z-index: 200; overflow: hidden; }
 .more-dropdown.open { display: block; }
 .more-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 14px; font-size: 13px; color: var(--text2); background: none; border: none; cursor: pointer; text-decoration: none; transition: background .12s; font-family: inherit; }
