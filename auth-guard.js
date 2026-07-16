@@ -20,7 +20,7 @@
   demarrerSurveillanceInactivite();
 })();
 
-// --- Déconnexion automatique après 30 min d'inactivité ---
+// --- Déconnexion automatique après 1h d'inactivité ---
 //
 // Ce comportement ne s'applique qu'aux pages qui chargent auth-guard.js,
 // donc jamais à login.html ni à test-connexion.html (elles ne l'incluent pas).
@@ -31,7 +31,7 @@
 // ouverts en même temps restent synchronisés sur la même minuterie.
 
 function demarrerSurveillanceInactivite() {
-  const DUREE_INACTIVITE_MS = 30 * 60 * 1000; // 30 minutes
+  const DUREE_INACTIVITE_MS = 60 * 60 * 1000; // 1 heure
   const CLE_DERNIERE_ACTIVITE = 'laforet_derniere_activite';
   const INTERVALLE_VERIFICATION_MS = 15 * 1000; // vérifie toutes les 15s
 
