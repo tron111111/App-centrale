@@ -56,6 +56,7 @@ body { overflow-x: hidden; }
   --c-admin: #34d399; --c-admin-bg: #0a2e20; --c-admin-border: #0f5a3a;
 }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; transition: background .2s, color .2s; }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 
 /* HEADER */
 header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2px 16px rgba(15,27,80,.3); padding: calc(.85rem + env(safe-area-inset-top)) 1.25rem .85rem; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 100; }
@@ -271,13 +272,21 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
 .toast { display: none; align-items: flex-start; gap: 6px; margin-top: 10px; padding: 9px 13px; border-radius: 8px; font-size: 12px; line-height: 1.5; }
 .toast.ok { background: var(--c-admin-bg); border: 1px solid var(--c-admin-border); color: var(--c-admin); }
 .toast.warn { background: var(--c-prosp-bg); border: 1px solid var(--c-prosp-border); color: var(--c-prosp); }
-#save-toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 500; max-width: min(92vw, 480px); margin-top: 0; box-shadow: 0 6px 20px rgba(0,0,0,.18); }
+#save-toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 9999; max-width: min(92vw, 480px); margin-top: 0; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 10px 18px; font-weight: 600; color: var(--text); box-shadow: 0 8px 24px rgba(0,0,0,.15); }
+#save-toast svg { color: var(--c-admin); }
+#save-toast.warn svg { color: var(--c-prosp); }
 
-/* POPUP DE CONFIRMATION (suppression, remplacement...) */
-.modal-overlay { position: fixed; inset: 0; background: rgba(15,17,26,.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
-.modal-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.2rem 1.2rem 1rem; max-width: 380px; width: 100%; box-shadow: 0 12px 40px rgba(0,0,0,.3); }
-.modal-message { font-size: 13.5px; color: var(--text); line-height: 1.55; margin-bottom: 1.1rem; }
-.modal-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+/* POPUP DE CONFIRMATION (suppression, remplacement...) — style commun à toutes les apps du portail */
+.modal-overlay { position: fixed; inset: 0; background: rgba(15,20,40,.55); display: flex; align-items: center; justify-content: center; z-index: 99998; padding: 20px; backdrop-filter: blur(2px); }
+.modal-box { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 22px 22px 18px; max-width: 380px; width: 100%; box-shadow: 0 20px 50px rgba(15,20,40,.3); animation: confirmIn .18s ease; }
+@keyframes confirmIn { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+.modal-message { font-size: 13.5px; color: var(--text); line-height: 1.5; margin-bottom: 18px; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+.modal-actions button { border-radius: 9px; padding: 9px 16px; font-size: 13px; font-weight: 700; cursor: pointer; border: 1px solid var(--border); font-family: inherit; }
+.modal-cancel-btn { background: var(--bg); color: var(--text2); }
+.modal-cancel-btn:hover { background: var(--border); }
+.modal-confirm-btn { background: #dc2626; border-color: #dc2626; color: #fff; }
+.modal-confirm-btn:hover { background: #b91c1c; }
 </style>
 </head>
 <body>
@@ -544,8 +553,8 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
   <div class="modal-box">
     <div class="modal-message" id="confirm-modal-message"></div>
     <div class="modal-actions">
-      <button class="draft-btn" onclick="hideConfirmModal()">Annuler</button>
-      <button class="btn-copy" id="confirm-modal-confirm-btn" style="background:#dc2626;" onclick="runConfirmModalAction()">Confirmer</button>
+      <button class="modal-cancel-btn" onclick="hideConfirmModal()">Annuler</button>
+      <button class="modal-confirm-btn" id="confirm-modal-confirm-btn" onclick="runConfirmModalAction()">Confirmer</button>
     </div>
   </div>
 </div>

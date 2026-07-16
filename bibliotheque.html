@@ -74,6 +74,7 @@ body { overflow-x: hidden; }
   --c-admin: #34d399; --c-admin-bg: #0a2e20; --c-admin-border: #0f5a3a;
 }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; transition: background .2s, color .2s; }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 
 /* HEADER */
 header { background: linear-gradient(135deg, #0f1b50, #16266b); border-bottom: none; box-shadow: 0 2px 16px rgba(15,27,80,.3); padding: calc(.85rem + env(safe-area-inset-top)) 1.25rem .85rem; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 100; }
@@ -189,6 +190,18 @@ header .header-info h1 { color: #fff !important; }
 #confirm-keep-btn:hover{background:var(--border);}
 #confirm-reset-btn{background:#dc2626;border-color:#dc2626;color:#fff;}
 #confirm-reset-btn:hover{background:#b91c1c;}
+
+/* Modale de confirmation générique (remplace les confirm() natifs du navigateur) */
+#confirm-generic-overlay{position:fixed;inset:0;background:rgba(15,20,40,.55);display:none;align-items:center;justify-content:center;z-index:99998;padding:20px;backdrop-filter:blur(2px);}
+#confirm-generic-overlay.show{display:flex;}
+#confirm-generic-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;max-width:380px;width:100%;padding:22px 22px 18px;box-shadow:0 20px 50px rgba(15,20,40,.3);animation:confirmIn .18s ease;}
+#confirm-generic-box p{margin:0 0 18px;font-size:13.5px;line-height:1.5;color:var(--text2);}
+#confirm-generic-actions{display:flex;gap:10px;justify-content:flex-end;}
+#confirm-generic-actions button{border-radius:9px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid var(--border);font-family:inherit;}
+#confirm-generic-cancel-btn{background:var(--bg);color:var(--text2);}
+#confirm-generic-cancel-btn:hover{background:var(--border);}
+#confirm-generic-ok-btn{background:#dc2626;border-color:#dc2626;color:#fff;}
+#confirm-generic-ok-btn:hover{background:#b91c1c;}
 .hub-icon { width: 28px; height: 28px; border-radius: 8px; background: var(--c-ann-bg); border: 1px solid var(--c-ann-border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .hub-icon svg { color: var(--c-ann); }
 .hub-title { font-size: 14px; font-weight: 700; color: var(--text); }
@@ -370,10 +383,16 @@ footer { text-align: center; padding: 2rem 1rem calc(2rem + env(safe-area-inset-
 }
 .btn-rename-cancel:hover { opacity: .8; }
 .save-bien-toast {
-  display: none; margin-top: 7px; padding: 7px 10px;
-  background: var(--c-admin-bg); border: 1px solid var(--c-admin-border);
-  border-radius: 8px; font-size: 11px; color: var(--c-admin);
+  display: none; align-items: center; gap: 8px;
+  position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+  z-index: 9999; max-width: min(92vw, 480px);
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 999px; padding: 10px 18px; font-size: 13px; font-weight: 600; color: var(--text);
+  box-shadow: 0 8px 24px rgba(0,0,0,.15);
 }
+.save-bien-toast.show { display: flex; }
+.save-bien-toast::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--c-admin); flex-shrink: 0; }
+.save-bien-toast.error::before { background: #dc2626; }
 
 /* PANNEAU RÉPONSE IA (Claude / Gemini) — accent dynamique via --ai-accent */
 .ai-api-panel {
@@ -2971,10 +2990,31 @@ function loadBien(idx) {
   }
 }
 
-async function deleteBien(idx) {
+let _confirmGenericAction = null;
+function showGenericConfirm(message, onConfirm) {
+  document.getElementById('confirm-generic-message').textContent = message;
+  _confirmGenericAction = onConfirm;
+  document.getElementById('confirm-generic-overlay').classList.add('show');
+}
+function hideGenericConfirm() {
+  document.getElementById('confirm-generic-overlay').classList.remove('show');
+  _confirmGenericAction = null;
+}
+function runGenericConfirm() {
+  const action = _confirmGenericAction;
+  hideGenericConfirm();
+  if (action) action();
+}
+
+function deleteBien(idx) {
   const entry = biensCache[idx];
   if (!entry) return;
-  if (!confirm('Supprimer le bien "' + entry.name + '" ?')) return;
+  showGenericConfirm('Supprimer le bien "' + entry.name + '" ?', () => deleteBienConfirmed(entry));
+}
+
+async function deleteBienConfirmed(entry) {
+  const idx = biensCache.indexOf(entry);
+  if (idx === -1) return;
   // Retiré de l'affichage tout de suite (fonctionne hors-ligne), puis on
   // tente l'envoi. En cas d'échec, la suppression est mise en attente.
   biensCache.splice(idx, 1);
@@ -3026,12 +3066,10 @@ function renderBienList() {
 function showSaveToast(msg, success) {
   const t = document.getElementById('save-bien-toast');
   t.textContent = msg;
-  t.style.display = 'block';
-  t.style.color = success ? 'var(--c-admin)' : '#ef4444';
-  t.style.background = success ? 'var(--c-admin-bg)' : '#fef2f2';
-  t.style.borderColor = success ? 'var(--c-admin-border)' : '#fecaca';
+  t.classList.toggle('error', !success);
+  t.classList.add('show');
   clearTimeout(t._timer);
-  t._timer = setTimeout(() => t.style.display = 'none', 3000);
+  t._timer = setTimeout(() => t.classList.remove('show'), 3000);
 }
 
 function showApiError(el, msg) {
@@ -3630,6 +3668,16 @@ document.addEventListener('DOMContentLoaded', () => {
     <div id="confirm-actions">
       <button id="confirm-cancel-btn" onclick="hubClearCancel()">Annuler</button>
       <button id="confirm-ok-btn" onclick="hubClearConfirmed()">Réinitialiser</button>
+    </div>
+  </div>
+</div>
+
+<div id="confirm-generic-overlay" role="dialog" aria-modal="true" aria-labelledby="confirm-generic-message" onclick="if(event.target===this) hideGenericConfirm()">
+  <div id="confirm-generic-box">
+    <p id="confirm-generic-message"></p>
+    <div id="confirm-generic-actions">
+      <button id="confirm-generic-cancel-btn" onclick="hideGenericConfirm()">Annuler</button>
+      <button id="confirm-generic-ok-btn" onclick="runGenericConfirm()">Confirmer</button>
     </div>
   </div>
 </div>
