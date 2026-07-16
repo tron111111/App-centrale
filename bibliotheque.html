@@ -87,6 +87,19 @@ header .header-info h1 { color: #fff !important; }
 .theme-toggle { background: var(--input-bg); border: 1px solid var(--border); border-radius: 20px; padding: 5px 12px; font-size: 12px; color: var(--text2); cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 .theme-toggle:hover { background: var(--border); }
 
+/* BANDEAU DE STATUT HORS-LIGNE / SYNCHRO — même principe que dans photoimmo.html / dossier.html */
+.sync-banner { display: none; align-items: center; gap: 9px; padding: 9px 16px; font-size: 12.5px; font-weight: 700; position: sticky; top: 0; z-index: 99; }
+.sync-banner.show { display: flex; }
+.sync-banner .sb-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.sync-banner .sb-txt { flex: 1; min-width: 0; }
+.sync-banner.offline { background: var(--c-prosp-bg); color: var(--c-prosp); border-bottom: 1.5px solid var(--c-prosp-border); }
+.sync-banner.offline .sb-dot { background: var(--c-prosp); }
+.sync-banner.syncing { background: var(--sky-bg); color: var(--blue-dark); border-bottom: 1.5px solid var(--sky); }
+.sync-banner.syncing .sb-dot { background: var(--sky); animation: sbPulse 1s ease-in-out infinite; }
+.sync-banner.synced { background: var(--c-admin-bg); color: var(--c-admin); border-bottom: 1.5px solid var(--c-admin-border); }
+.sync-banner.synced .sb-dot { background: var(--c-admin); }
+@keyframes sbPulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+
 /* SEARCH */
 .header-search { flex: 1; max-width: 320px; position: relative; }
 .header-search input { width: 100%; background: var(--input-bg); border: 1px solid var(--border); border-radius: 20px; padding: 6px 12px 6px 32px; font-size: 13px; color: var(--text); font-family: inherit; outline: none; transition: border-color .15s; }
@@ -636,6 +649,10 @@ footer { text-align: center; padding: 2rem 1rem calc(2rem + env(safe-area-inset-
     </div>
   </div>
 </header>
+
+<div class="sync-banner" id="syncBanner" role="status" aria-live="polite">
+  <span class="sb-dot"></span><span class="sb-txt" id="syncBannerTxt"></span>
+</div>
 
 <div class="container">
   <div class="cats-wrap">
@@ -1595,6 +1612,9 @@ let currentHubFormat = "internet";
 
 window.onload = async function() {
   initTheme();
+  // Affiche tout de suite le bandeau si on démarre hors-ligne, ou s'il
+  // reste des éléments en attente d'un précédent passage sans réseau.
+  refreshBibSyncStatus();
   // Hub caché par défaut (visible uniquement sur Annonces / Tous)
   document.getElementById('hub').style.display = (currentCat === 'Annonces' || currentCat === 'Tous') ? 'block' : 'none';
   // Sur mobile, replier le hub par défaut pour que les cartes soient visibles
@@ -1613,6 +1633,9 @@ window.onload = async function() {
   // liste car renderBienList() s'en sert pour le badge 🔗 "déjà lié".
   await loadRegistry();
   renderBienList();
+  // Renvoie vers le serveur tout ce qui a pu rester en attente d'un
+  // précédent passage hors-ligne.
+  retryAllPendingBib();
   // Case vitrine : régénère le prompt uniquement si on est déjà à l'étape 3
   document.getElementById('include-vitrine').addEventListener('change', function() {
     if (currentHubFormat === 'internet' && currentWizStep === 3) hubGen('internet');
@@ -2539,14 +2562,56 @@ async function streamGeminiWithModel(model, prompt, apiKey, boxEl) {
 // lit getBiens() de façon synchrone) continue de fonctionner sans réécriture.
 let biensCache = [];
 
+/* ------------------------------------------------------------
+   FILE D'ATTENTE HORS-LIGNE — même principe que dans photoimmo.html
+   et dossier.html : chaque écriture (sauvegarde/suppression d'un
+   bien, ou du registre inter-apps) est toujours appliquée tout de
+   suite en local, puis synchronisée vers Supabase. En cas d'échec
+   (hors-ligne), elle est mise en attente dans localStorage et
+   retentée automatiquement au retour du réseau — rien n'est perdu.
+   ------------------------------------------------------------ */
+const BIB_CACHE_KEY = 'bibliotheque_biens_cache';
+const BIB_PENDING_UPSERT_KEY = 'bibliotheque_pending_upserts';
+const BIB_PENDING_DELETE_KEY = 'bibliotheque_pending_deletes';
+
+function saveBiensSnapshot() { try { localStorage.setItem(BIB_CACHE_KEY, JSON.stringify(biensCache)); } catch (e) {} }
+function loadBiensSnapshot() { try { return JSON.parse(localStorage.getItem(BIB_CACHE_KEY)) || []; } catch (e) { return []; } }
+
+function getPendingBienUpserts() { try { return JSON.parse(localStorage.getItem(BIB_PENDING_UPSERT_KEY)) || []; } catch (e) { return []; } }
+function setPendingBienUpserts(l) { try { localStorage.setItem(BIB_PENDING_UPSERT_KEY, JSON.stringify(l)); } catch (e) {} }
+function markPendingBienUpsert(id, entry) {
+  const l = getPendingBienUpserts().filter(p => p.id !== id);
+  l.push({ id, entry });
+  setPendingBienUpserts(l);
+  refreshBibSyncStatus();
+}
+function clearPendingBienUpsert(id) {
+  setPendingBienUpserts(getPendingBienUpserts().filter(p => p.id !== id));
+  refreshBibSyncStatus();
+}
+
+function getPendingBienDeletes() { try { return JSON.parse(localStorage.getItem(BIB_PENDING_DELETE_KEY)) || []; } catch (e) { return []; } }
+function setPendingBienDeletes(l) { try { localStorage.setItem(BIB_PENDING_DELETE_KEY, JSON.stringify(l)); } catch (e) {} }
+function markPendingBienDelete(id) {
+  clearPendingBienUpsert(id); // inutile de pousser une sauvegarde pour un bien qu'on vient de supprimer
+  const l = getPendingBienDeletes();
+  if (!l.includes(id)) { l.push(id); setPendingBienDeletes(l); }
+  refreshBibSyncStatus();
+}
+function clearPendingBienDelete(id) {
+  setPendingBienDeletes(getPendingBienDeletes().filter(x => x !== id));
+  refreshBibSyncStatus();
+}
+
 async function loadBiensFromSupabase() {
+  let base;
   try {
     const { data, error } = await supabaseClient
       .from('biens_bibliotheque')
       .select('id, data, updated_at')
       .order('updated_at', { ascending: false });
     if (error) throw error;
-    biensCache = (data || []).map(row => ({
+    base = (data || []).map(row => ({
       __id: row.id,
       name: row.data.name,
       data: row.data.data,
@@ -2554,9 +2619,23 @@ async function loadBiensFromSupabase() {
     }));
   } catch (e) {
     console.error('Erreur de chargement des biens depuis Supabase :', e);
-    biensCache = [];
-    showSaveToast('❌ Impossible de charger les biens sauvegardés (connexion).', false);
+    base = loadBiensSnapshot();
+    showSaveToast('🔌 Hors-ligne — biens affichés depuis le cache local.', false);
   }
+
+  // Superpose les modifications locales pas encore synchronisées, pour ne
+  // jamais afficher une version "en retard" par rapport à ce que l'agent
+  // vient de saisir sur ce poste.
+  const pendingUpserts = getPendingBienUpserts();
+  const pendingDeleteSet = new Set(getPendingBienDeletes());
+  pendingUpserts.forEach(p => {
+    const cacheEntry = Object.assign({ __id: p.id }, p.entry);
+    const i = base.findIndex(b => b.__id === p.id);
+    if (i >= 0) base[i] = cacheEntry; else base.unshift(cacheEntry);
+  });
+  biensCache = base.filter(b => !pendingDeleteSet.has(b.__id));
+  saveBiensSnapshot();
+  refreshBibSyncStatus();
 }
 
 async function upsertBienSupabase(id, entry) {
@@ -2607,7 +2686,23 @@ try { _registryCache = JSON.parse(localStorage.getItem(REG_KEY)) || []; } catch(
 function getBienRegistry() { return _registryCache; }
 function _persistRegistryLocal() { try { localStorage.setItem(REG_KEY, JSON.stringify(_registryCache)); } catch(e) {} }
 
-/* Envoie UNE ligne (un bien) vers Supabase — même format que dossier.html. */
+const REG_PENDING_KEY = 'bibliotheque_registry_pending';
+function getPendingRegistryEntries() { try { return JSON.parse(localStorage.getItem(REG_PENDING_KEY)) || []; } catch (e) { return []; } }
+function setPendingRegistryEntries(l) { try { localStorage.setItem(REG_PENDING_KEY, JSON.stringify(l)); } catch (e) {} }
+function markPendingRegistryEntry(entry) {
+  const l = getPendingRegistryEntries().filter(e => e.norm !== entry.norm);
+  l.push(entry);
+  setPendingRegistryEntries(l);
+  refreshBibSyncStatus();
+}
+function clearPendingRegistryEntry(norm) {
+  setPendingRegistryEntries(getPendingRegistryEntries().filter(e => e.norm !== norm));
+  refreshBibSyncStatus();
+}
+
+/* Envoie UNE ligne (un bien) vers Supabase — même format que dossier.html.
+   Mise en attente automatique en cas d'échec (hors-ligne), retentée par
+   retryAllPendingBib(). */
 async function pushRegistryEntry(entry) {
   if (!entry || !entry.norm) return;
   try {
@@ -2616,7 +2711,11 @@ async function pushRegistryEntry(entry) {
     if (user) payload.updated_by = user.id;
     const { error } = await supabaseClient.from('biens_registry').upsert(payload);
     if (error) throw error;
-  } catch(e) { console.warn('[cloud] échec envoi biens_registry :', e); }
+    clearPendingRegistryEntry(entry.norm);
+  } catch(e) {
+    console.warn('[cloud] échec envoi biens_registry :', e);
+    markPendingRegistryEntry(entry);
+  }
 }
 
 /* Charge le registre complet depuis Supabase (une ligne par bien).
@@ -2650,6 +2749,84 @@ async function loadRegistry() {
     _persistRegistryLocal();
   } catch(e) { console.warn('[cloud] échec chargement biens_registry :', e); }
 }
+
+/* ------------------------------------------------------------
+   SYSTÈME DE SYNCHRO / BANDEAU — regroupe les 3 files d'attente
+   (biens_bibliotheque upserts, biens_bibliotheque deletes, registre)
+   et pilote le bandeau #syncBanner en haut de page.
+   ------------------------------------------------------------ */
+function countPendingBib() {
+  return getPendingBienUpserts().length + getPendingBienDeletes().length + getPendingRegistryEntries().length;
+}
+
+let _bibRetryInFlight = false;
+let _bibConsecutiveFailures = 0;
+async function retryAllPendingBib() {
+  if (_bibRetryInFlight || !navigator.onLine) return;
+  if (countPendingBib() === 0) return;
+  _bibRetryInFlight = true;
+  refreshBibSyncStatus();
+  try {
+    for (const p of getPendingBienUpserts()) {
+      const ok = await upsertBienSupabase(p.id, p.entry);
+      if (ok) clearPendingBienUpsert(p.id);
+    }
+    for (const id of getPendingBienDeletes()) {
+      const ok = await deleteBienSupabase(id);
+      if (ok) clearPendingBienDelete(id);
+    }
+    for (const entry of getPendingRegistryEntries()) {
+      await pushRegistryEntry(entry); // se retire seule de la file en cas de succès
+    }
+    if (countPendingBib() === 0) { _bibJustSynced = true; _bibConsecutiveFailures = 0; }
+    else { _bibConsecutiveFailures++; }
+  } finally {
+    _bibRetryInFlight = false;
+    refreshBibSyncStatus();
+  }
+}
+
+let _bibJustSynced = false, _bibSyncedFadeT = null;
+function refreshBibSyncStatus() {
+  const el = document.getElementById('syncBanner');
+  const txt = document.getElementById('syncBannerTxt');
+  if (!el || !txt) return;
+  const pending = countPendingBib();
+  el.classList.remove('offline', 'syncing', 'synced');
+
+  if (!navigator.onLine) {
+    el.classList.add('show', 'offline');
+    txt.textContent = pending > 0
+      ? `🔌 Hors-ligne — ${pending} élément${pending > 1 ? 's' : ''} enregistré${pending > 1 ? 's' : ''} localement, envoi dès le retour du réseau`
+      : '🔌 Hors-ligne — vos modifications sont enregistrées localement';
+  } else if (pending > 0 && _bibConsecutiveFailures >= 2) {
+    // navigator.onLine dit "connecté" mais plusieurs tentatives ont échoué
+    // de suite : réseau local sans accès internet réel, ou serveur injoignable.
+    el.classList.add('show', 'offline');
+    txt.textContent = `⚠️ Connexion au serveur impossible — ${pending} élément${pending > 1 ? 's' : ''} en attente, nouvel essai automatique`;
+  } else if (_bibRetryInFlight || pending > 0) {
+    el.classList.add('show', 'syncing');
+    txt.textContent = `⏳ Synchronisation en cours… (${pending || '…'} élément${pending === 1 ? '' : 's'})`;
+  } else if (_bibJustSynced) {
+    el.classList.add('show', 'synced');
+    txt.textContent = '✅ Tout est synchronisé';
+    clearTimeout(_bibSyncedFadeT);
+    _bibSyncedFadeT = setTimeout(() => { _bibJustSynced = false; el.classList.remove('show'); }, 2500);
+  } else {
+    el.classList.remove('show');
+  }
+}
+
+window.addEventListener('online', () => {
+  showSaveToast('🔌 Réseau retrouvé — synchronisation…', true);
+  retryAllPendingBib();
+});
+window.addEventListener('offline', () => {
+  _bibConsecutiveFailures = 0;
+  refreshBibSyncStatus();
+});
+setInterval(() => { if (navigator.onLine && countPendingBib() > 0) retryAllPendingBib(); }, 20000);
+
 function upsertBienLink(label, appKey, appValue) {
   const norm = normBienLabel(label);
   if (!norm) return null;
@@ -2708,19 +2885,20 @@ async function saveBien() {
   // Remplace si même nom existe déjà dans le cache local
   const idx = biensCache.findIndex(b => normBienLabel(b.name) === norm);
 
-  const ok = await upsertBienSupabase(norm, entry);
-  if (!ok) {
-    showSaveToast('❌ Erreur lors de la sauvegarde en ligne. Réessayez.', false);
-    return;
-  }
-
+  // Appliqué en local tout de suite (fonctionne hors-ligne), puis on tente
+  // l'envoi. En cas d'échec, la sauvegarde est mise en attente au lieu
+  // d'être perdue.
   const cacheEntry = Object.assign({ __id: norm }, entry);
-  if (idx >= 0) {
-    biensCache[idx] = cacheEntry;
-    showSaveToast('✅ Bien "' + name + '" mis à jour.', true);
+  if (idx >= 0) biensCache[idx] = cacheEntry; else biensCache.unshift(cacheEntry);
+  saveBiensSnapshot();
+
+  const ok = await upsertBienSupabase(norm, entry);
+  if (ok) {
+    clearPendingBienUpsert(norm);
+    showSaveToast(idx >= 0 ? '✅ Bien "' + name + '" mis à jour.' : (isNew ? '✅ Bien "' + name + '" créé et sauvegardé.' : '✅ Bien "' + name + '" sauvegardé.'), true);
   } else {
-    biensCache.unshift(cacheEntry);
-    showSaveToast(isNew ? '✅ Bien "' + name + '" créé et sauvegardé.' : '✅ Bien "' + name + '" sauvegardé.', true);
+    markPendingBienUpsert(norm, entry);
+    showSaveToast('🔌 Enregistré localement — sera synchronisé au retour du réseau.', true);
   }
   upsertBienLink(name, 'bibliotheque', name);
   // Nouveau bien : on seed aussitôt ses infos centrales (type/ville) pour
@@ -2797,13 +2975,18 @@ async function deleteBien(idx) {
   const entry = biensCache[idx];
   if (!entry) return;
   if (!confirm('Supprimer le bien "' + entry.name + '" ?')) return;
-  const ok = await deleteBienSupabase(entry.__id);
-  if (!ok) {
-    showSaveToast('❌ Erreur lors de la suppression en ligne. Réessayez.', false);
-    return;
-  }
+  // Retiré de l'affichage tout de suite (fonctionne hors-ligne), puis on
+  // tente l'envoi. En cas d'échec, la suppression est mise en attente.
   biensCache.splice(idx, 1);
-  showSaveToast('🗑️ Bien "' + entry.name + '" supprimé.', true);
+  saveBiensSnapshot();
+  const ok = await deleteBienSupabase(entry.__id);
+  if (ok) {
+    clearPendingBienDelete(entry.__id);
+    showSaveToast('🗑️ Bien "' + entry.name + '" supprimé.', true);
+  } else {
+    markPendingBienDelete(entry.__id);
+    showSaveToast('🔌 Suppression enregistrée localement — sera synchronisée au retour du réseau.', true);
+  }
   renderBienList();
 }
 
