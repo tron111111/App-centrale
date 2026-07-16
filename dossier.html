@@ -180,6 +180,19 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); border-bottom: n
 .toast-dossier svg { flex-shrink: 0; }
 .toast-dossier.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+/* BANDEAU DE STATUT HORS-LIGNE / SYNCHRO — même principe que dans photoimmo.html */
+.sync-banner { display: none; align-items: center; gap: 9px; padding: 9px 16px; font-size: 12.5px; font-weight: 700; position: sticky; top: 0; z-index: 99; }
+.sync-banner.show { display: flex; }
+.sync-banner .sb-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.sync-banner .sb-txt { flex: 1; min-width: 0; }
+.sync-banner.offline { background: var(--st-compromis-bg); color: var(--st-compromis); border-bottom: 1.5px solid var(--st-compromis-border); }
+.sync-banner.offline .sb-dot { background: var(--st-compromis); }
+.sync-banner.syncing { background: var(--sky-bg); color: var(--blue-dark); border-bottom: 1.5px solid var(--sky); }
+.sync-banner.syncing .sb-dot { background: var(--sky); animation: sbPulse 1s ease-in-out infinite; }
+.sync-banner.synced { background: var(--st-vendu-bg); color: var(--st-vendu); border-bottom: 1.5px solid var(--st-vendu-border); }
+.sync-banner.synced .sb-dot { background: var(--st-vendu); }
+@keyframes sbPulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+
 footer { text-align: center; padding: 2rem 1rem calc(2rem + env(safe-area-inset-bottom)); font-size: 12px; color: var(--text4); }
 
 @media (max-width: 640px) {
@@ -205,6 +218,10 @@ footer { text-align: center; padding: 2rem 1rem calc(2rem + env(safe-area-inset-
     </button>
   </div>
 </header>
+
+<div class="sync-banner" id="syncBanner" role="status" aria-live="polite">
+  <span class="sb-dot"></span><span class="sb-txt" id="syncBannerTxt"></span>
+</div>
 
 <div class="container">
 
@@ -356,29 +373,99 @@ function guessVilleFromAddress(addr) {
   return parts.length > 1 ? parts[parts.length-1].trim() : '';
 }
 
-/* Charge le registre complet depuis Supabase, une fois au démarrage. */
-async function loadRegistry() {
-  const { data, error } = await supabaseClient.from('biens_registry').select('data');
-  if (error) {
-    showToast('warn', 'Impossible de charger les dossiers (connexion ?)');
-    _registryCache = [];
-    return;
-  }
-  _registryCache = (data || [])
-    .map(row => row.data)
-    .filter(entry => {
-      if (!entry) return false;
-      // Répare les entrées anciennes/corrompues qui ont un label mais pas de norm.
-      if (!entry.norm && entry.label) entry.norm = normBienLabel(entry.label);
-      if (!entry.norm) {
-        console.warn('[dossier] Entrée biens_registry ignorée (pas de norm/label) :', entry);
-        return false;
-      }
-      return true;
-    });
+/* ------------------------------------------------------------
+   FILE D'ATTENTE HORS-LIGNE — même principe que dans photoimmo.html :
+   une écriture (création/modif/suppression de dossier) est toujours
+   appliquée tout de suite en local (_registryCache + copie dans
+   localStorage), puis on tente de la pousser vers Supabase. En cas
+   d'échec (hors-ligne ou coupure réseau), elle est mise en attente
+   et retentée automatiquement au retour du réseau (event 'online')
+   ou toutes les 20s en filet de sécurité — rien n'est perdu.
+   ------------------------------------------------------------ */
+const REGISTRY_CACHE_KEY = 'dossier_registry_cache';
+const REGISTRY_PENDING_KEY = 'dossier_registry_pending';
+const REGISTRY_PENDING_DELETE_KEY = 'dossier_registry_pending_deletes';
+
+function saveRegistrySnapshot() {
+  try { localStorage.setItem(REGISTRY_CACHE_KEY, JSON.stringify(_registryCache)); } catch (e) {}
+}
+function loadRegistrySnapshot() {
+  try { return JSON.parse(localStorage.getItem(REGISTRY_CACHE_KEY)) || []; } catch (e) { return []; }
 }
 
-/* Crée ou met à jour un dossier central (statut/prix/notes/ville/type) */
+function getPendingUpserts() { try { return JSON.parse(localStorage.getItem(REGISTRY_PENDING_KEY)) || []; } catch (e) { return []; } }
+function setPendingUpserts(list) { try { localStorage.setItem(REGISTRY_PENDING_KEY, JSON.stringify(list)); } catch (e) {} }
+function markPendingUpsert(norm, entry) {
+  const list = getPendingUpserts().filter(p => p.norm !== norm);
+  list.push({ norm, entry });
+  setPendingUpserts(list);
+  refreshSyncStatus();
+}
+function clearPendingUpsert(norm) {
+  setPendingUpserts(getPendingUpserts().filter(p => p.norm !== norm));
+  refreshSyncStatus();
+}
+
+function getPendingDeletes() { try { return JSON.parse(localStorage.getItem(REGISTRY_PENDING_DELETE_KEY)) || []; } catch (e) { return []; } }
+function setPendingDeletes(list) { try { localStorage.setItem(REGISTRY_PENDING_DELETE_KEY, JSON.stringify(list)); } catch (e) {} }
+function markPendingDelete(norm) {
+  clearPendingUpsert(norm); // inutile de pousser une modif pour un bien qu'on vient de supprimer
+  const list = getPendingDeletes();
+  if (!list.includes(norm)) { list.push(norm); setPendingDeletes(list); }
+  refreshSyncStatus();
+}
+function clearPendingDelete(norm) {
+  setPendingDeletes(getPendingDeletes().filter(n => n !== norm));
+  refreshSyncStatus();
+}
+
+function countPendingRegistry() { return getPendingUpserts().length + getPendingDeletes().length; }
+
+/* Charge le registre complet depuis Supabase, une fois au démarrage
+   (et à chaque retour au premier plan de l'onglet). Si le réseau est
+   indisponible, on retombe sur la dernière copie connue en local
+   (localStorage), pour que la liste des dossiers reste consultable
+   hors-ligne plutôt que de s'afficher vide. */
+async function loadRegistry() {
+  let base;
+  try {
+    const { data, error } = await supabaseClient.from('biens_registry').select('data');
+    if (error) throw error;
+    base = (data || [])
+      .map(row => row.data)
+      .filter(entry => {
+        if (!entry) return false;
+        if (!entry.norm && entry.label) entry.norm = normBienLabel(entry.label);
+        if (!entry.norm) {
+          console.warn('[dossier] Entrée biens_registry ignorée (pas de norm/label) :', entry);
+          return false;
+        }
+        return true;
+      });
+  } catch (e) {
+    console.warn('[dossier] Impossible de charger biens_registry, utilisation du cache local :', e);
+    base = loadRegistrySnapshot();
+    showToast('warn', 'Hors-ligne — dossiers affichés depuis le cache local');
+  }
+
+  // On superpose les modifications locales pas encore synchronisées
+  // (file d'attente), pour ne jamais afficher une version "en retard"
+  // par rapport à ce que l'agent vient de saisir sur ce poste.
+  const pendingUpserts = getPendingUpserts();
+  const pendingDeleteSet = new Set(getPendingDeletes());
+  pendingUpserts.forEach(p => {
+    const i = base.findIndex(e => e.norm === p.norm);
+    if (i >= 0) base[i] = p.entry; else base.unshift(p.entry);
+  });
+  _registryCache = base.filter(e => !pendingDeleteSet.has(e.norm));
+  saveRegistrySnapshot();
+  refreshSyncStatus();
+}
+
+/* Crée ou met à jour un dossier central (statut/prix/notes/ville/type).
+   Toujours appliqué en local en premier (retour instantané, fonctionne
+   hors-ligne), puis synchronisé vers Supabase — mis en attente si ça
+   échoue, au lieu d'être perdu comme c'était le cas auparavant. */
 async function upsertCentral(label, fields) {
   const norm = normBienLabel(label);
   if (!norm) return null;
@@ -390,16 +477,98 @@ async function upsertCentral(label, fields) {
   if (!entry.central) entry.central = {};
   Object.assign(entry.central, fields);
   entry.updatedAt = Date.now();
+  saveRegistrySnapshot();
 
-  const { error } = await supabaseClient.from('biens_registry').upsert({ id: norm, data: entry });
-  if (error) { showToast('warn', 'Échec de l’enregistrement (connexion ?)'); return null; }
+  try {
+    const { error } = await supabaseClient.from('biens_registry').upsert({ id: norm, data: entry });
+    if (error) throw error;
+    clearPendingUpsert(norm);
+  } catch (e) {
+    console.warn('[dossier] Échec envoi biens_registry, mis en attente :', e);
+    markPendingUpsert(norm, entry);
+  }
   return entry;
 }
+
+/* Supprime un dossier. Retiré immédiatement de l'affichage local ;
+   si la suppression ne peut pas être envoyée à Supabase tout de suite
+   (hors-ligne), elle est mise en attente et rejouée automatiquement
+   dès que le réseau revient. */
 async function deleteCentralBien(norm) {
-  const { error } = await supabaseClient.from('biens_registry').delete().eq('id', norm);
-  if (error) { showToast('warn', 'Échec de la suppression (connexion ?)'); return; }
   _registryCache = _registryCache.filter(e => e.norm !== norm);
+  saveRegistrySnapshot();
+
+  try {
+    const { error } = await supabaseClient.from('biens_registry').delete().eq('id', norm);
+    if (error) throw error;
+    clearPendingDelete(norm);
+  } catch (e) {
+    console.warn('[dossier] Échec suppression biens_registry, mis en attente :', e);
+    markPendingDelete(norm);
+  }
 }
+
+/* Rejoue toutes les écritures/suppressions en attente. Appelé au retour
+   du réseau (event 'online'), et toutes les 20s en filet de sécurité. */
+let _retryRegistryInFlight = false;
+async function retryPendingRegistryAll() {
+  if (_retryRegistryInFlight || !navigator.onLine) return;
+  if (countPendingRegistry() === 0) return;
+  _retryRegistryInFlight = true;
+  refreshSyncStatus();
+  try {
+    for (const p of getPendingUpserts()) {
+      try {
+        const { error } = await supabaseClient.from('biens_registry').upsert({ id: p.norm, data: p.entry });
+        if (error) throw error;
+        clearPendingUpsert(p.norm);
+      } catch (e) { console.warn('[dossier] retry upsert échoué pour', p.norm, e); }
+    }
+    for (const norm of getPendingDeletes()) {
+      try {
+        const { error } = await supabaseClient.from('biens_registry').delete().eq('id', norm);
+        if (error) throw error;
+        clearPendingDelete(norm);
+      } catch (e) { console.warn('[dossier] retry suppression échouée pour', norm, e); }
+    }
+  } finally {
+    _retryRegistryInFlight = false;
+    refreshSyncStatus();
+  }
+}
+
+/* Bandeau de statut (hors-ligne / synchronisation en cours / synchronisé). */
+let _registryJustSynced = false;
+function refreshSyncStatus() {
+  const el = document.getElementById('syncBanner');
+  const txt = document.getElementById('syncBannerTxt');
+  if (!el || !txt) return;
+  const pending = countPendingRegistry();
+
+  el.classList.remove('offline', 'syncing', 'synced', 'show');
+
+  if (!navigator.onLine) {
+    el.classList.add('offline', 'show');
+    txt.textContent = pending > 0
+      ? `🔌 Hors-ligne — ${pending} modification${pending > 1 ? 's' : ''} enregistrée${pending > 1 ? 's' : ''} localement, envoi dès le retour du réseau`
+      : '🔌 Hors-ligne — les modifications seront enregistrées localement';
+  } else if (_retryRegistryInFlight || pending > 0) {
+    el.classList.add('syncing', 'show');
+    txt.textContent = `⏳ Synchronisation en cours… (${pending || '…'} élément${pending === 1 ? '' : 's'})`;
+  } else if (_registryJustSynced) {
+    el.classList.add('synced', 'show');
+    txt.textContent = '✅ Tout est synchronisé';
+    _registryJustSynced = false;
+    setTimeout(() => { if (countPendingRegistry() === 0) el.classList.remove('show'); }, 2500);
+  }
+}
+
+window.addEventListener('online', () => {
+  refreshSyncStatus();
+  retryPendingRegistryAll().then(() => { if (countPendingRegistry() === 0) { _registryJustSynced = true; refreshSyncStatus(); } });
+});
+window.addEventListener('offline', refreshSyncStatus);
+setInterval(() => { if (navigator.onLine && countPendingRegistry() > 0) retryPendingRegistryAll(); }, 20000);
 
 /* ---------- Lecture (seule) des données de PhotoImmo et de la Bibliothèque ----------
    Chargées directement depuis Supabase (tables biens_photoimmo et
@@ -876,10 +1045,16 @@ function updateThemeUI(theme) {
 /* ============================== INIT ============================== */
 window.onload = async function() {
   initTheme();
+  // Affiche tout de suite le bandeau si on démarre hors-ligne, ou s'il
+  // reste des modifications en attente d'un précédent passage sans réseau.
+  refreshSyncStatus();
   // Les 3 sources sont chargées en parallèle (aucune ne dépend des autres) :
   // ça évite d'attendre inutilement en série pour un simple affichage de liste.
   await Promise.all([loadRegistry(), loadPhotoimmoBiens(), loadBibliothequeBiens()]);
   renderList();
+  // Renvoie vers le serveur toute modification restée en attente d'un
+  // précédent passage hors-ligne.
+  retryPendingRegistryAll();
 
   // Un collègue peut créer/modifier un bien pendant que cet onglet reste
   // ouvert en arrière-plan. On rafraîchit les 3 sources quand l'onglet
