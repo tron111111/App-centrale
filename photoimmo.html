@@ -193,6 +193,11 @@
   .cmp-actions .cmp-state{margin-top:0;flex:1}
   .cmp-save{flex:none;width:40px;height:40px;border-radius:9px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;display:grid;place-items:center}
   .cmp-save:active{transform:scale(.95)}
+  .cmp-del{flex:none;width:40px;height:40px;border-radius:9px;border:1.5px solid var(--bad);background:var(--card);color:var(--bad);cursor:pointer;display:grid;place-items:center}
+  .cmp-del:active{transform:scale(.95)}
+  /* jauge de stockage cloud (bucket Supabase Storage) — voir updateCloudStorageInfo() */
+  .cloud-storage-line{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+  .cloud-storage-line button{border:none;background:none;color:var(--muted);cursor:pointer;font-size:11px;text-decoration:underline;padding:0}
   .cmp-card img{cursor:zoom-in}
 
   /* lightbox */
@@ -1134,6 +1139,99 @@ async function cloudDeleteThumbs(photoIds){
     const {error}=await supabaseClient.storage.from(PHOTO_BUCKET).remove(photoIds);
     if(error)throw error;
   }catch(e){ console.warn('[cloud] échec suppression photo(s)',e); }
+  invalidateStorageCache(); // le total a changé, on force un recalcul à la prochaine consultation
+}
+
+/* ============================================================
+   SUIVI DU QUOTA SUPABASE STORAGE
+   ------------------------------------------------------------
+   Avant : le quota du bucket "photoimmo-photos" n'était visible
+   que manuellement depuis le dashboard Supabase, sans aucune
+   alerte. Un bien qui accumule des photos pouvait donc faire
+   grossir le bucket indéfiniment sans que personne ne le voie.
+   Maintenant : on liste régulièrement les fichiers du bucket
+   (storage.list() renvoie la taille de chaque fichier dans
+   metadata.size) pour connaître l'usage réel, on l'affiche sur
+   l'écran d'accueil, et on avertit par un toast quand on franchit
+   des seuils critiques.
+   ⚠️ STORAGE_QUOTA_BYTES est une estimation à ajuster vous-même
+   selon votre plan Supabase réel (Dashboard → Settings → Billing
+   → Storage). Par défaut, on part sur l'hypothèse d'un plan
+   Free (1 Go) : changez cette valeur si vous êtes sur un autre plan.
+   ============================================================ */
+const STORAGE_QUOTA_BYTES=1*1024*1024*1024; // 1 Go — À AJUSTER selon votre plan Supabase réel
+const STORAGE_CACHE_KEY='photoimmo_storage_usage_cache';
+const STORAGE_CACHE_TTL_MS=6*60*60*1000; // on ne relance un recalcul complet qu'une fois toutes les 6h, sauf action manuelle
+const STORAGE_ALERT_KEY='photoimmo_storage_alert_level';
+
+// Parcourt le bucket page par page (1000 fichiers max par appel) et additionne
+// la taille de chaque fichier. Peut représenter plusieurs appels réseau si le
+// bucket contient beaucoup de photos, d'où le cache ci-dessous.
+async function cloudStorageUsageBytes(){
+  let bytes=0,count=0,offset=0;const pageSize=1000;
+  while(true){
+    const {data,error}=await supabaseClient.storage.from(PHOTO_BUCKET).list('',{limit:pageSize,offset,sortBy:{column:'name',order:'asc'}});
+    if(error||!data||!data.length)break;
+    for(const f of data){ if(f.metadata&&typeof f.metadata.size==='number'){bytes+=f.metadata.size;count++;} }
+    if(data.length<pageSize)break;
+    offset+=pageSize;
+  }
+  return {bytes,count};
+}
+function getCachedStorageUsage(){
+  try{
+    const c=JSON.parse(localStorage.getItem(STORAGE_CACHE_KEY));
+    if(c&&Date.now()-c.t<STORAGE_CACHE_TTL_MS)return c;
+  }catch(e){}
+  return null;
+}
+function setCachedStorageUsage(bytes,count){
+  try{localStorage.setItem(STORAGE_CACHE_KEY,JSON.stringify({bytes,count,t:Date.now()}));}catch(e){}
+}
+// Invalide le cache : à appeler après tout ajout/suppression de photo pour
+// forcer un recalcul exact au prochain affichage plutôt que d'afficher un
+// chiffre périmé.
+function invalidateStorageCache(){ try{localStorage.removeItem(STORAGE_CACHE_KEY);}catch(e){} }
+
+function fmtOctets(n){
+  if(n<1024*1024)return Math.round(n/1024)+' Ko';
+  if(n<1024*1024*1024)return (n/1024/1024).toFixed(1)+' Mo';
+  return (n/1024/1024/1024).toFixed(2)+' Go';
+}
+// Avertit une seule fois par palier franchi (évite de spammer le toast à
+// chaque ouverture de l'app une fois le seuil dépassé) ; le palier redescend
+// automatiquement si le ménage fait repasser l'usage sous le seuil.
+function maybeAlertStorageQuota(bytes){
+  const pct=bytes/STORAGE_QUOTA_BYTES*100;
+  let lastLevel=0;try{lastLevel=Number(localStorage.getItem(STORAGE_ALERT_KEY))||0;}catch(e){}
+  const level=pct>=95?2:pct>=80?1:0;
+  if(level>lastLevel){
+    if(level===1)toast('⚠️ Stockage cloud à '+Math.round(pct)+'% : pensez à faire le ménage (photos ou biens à supprimer)');
+    if(level===2)toast('🔴 Stockage cloud presque plein ('+Math.round(pct)+'%) : supprimez des photos ou des biens rapidement');
+  }
+  if(level!==lastLevel){try{localStorage.setItem(STORAGE_ALERT_KEY,String(level));}catch(e){}}
+}
+function renderCloudStorageInfo(el,bytes,count){
+  const pct=Math.round(bytes/STORAGE_QUOTA_BYTES*100);
+  const color=pct>=95?'var(--bad)':pct>=80?'var(--mid)':'var(--ok)';
+  el.innerHTML=' · <span class="cloud-storage-line">Stockage cloud : <b style="color:'+color+'">'+fmtOctets(bytes)+'</b> ('+pct+'% de '+fmtOctets(STORAGE_QUOTA_BYTES)+', '+count+' fichier'+(count>1?'s':'')+') <button id="refreshStorageBtn" title="Recalculer maintenant">Actualiser</button></span>';
+  const btn=$('refreshStorageBtn');if(btn)btn.onclick=e=>{e.stopPropagation();updateCloudStorageInfo(true);};
+}
+// force=true : ignore le cache et relance un listing complet du bucket
+// (utilisé par le bouton "Actualiser" ou après une suppression).
+async function updateCloudStorageInfo(force){
+  const el=$('cloudStorageInfo');if(!el)return;
+  let cached=force?null:getCachedStorageUsage();
+  if(!cached){
+    el.textContent=' · Stockage cloud : calcul en cours…';
+    try{
+      const {bytes,count}=await cloudStorageUsageBytes();
+      setCachedStorageUsage(bytes,count);
+      cached={bytes,count};
+    }catch(e){ console.warn('[cloud] échec calcul usage stockage',e); el.textContent=''; return; }
+  }
+  renderCloudStorageInfo(el,cached.bytes,cached.count);
+  maybeAlertStorageQuota(cached.bytes);
 }
 
 // Vignettes prises hors-ligne (ou pendant un échec réseau) : leur id est
@@ -1527,9 +1625,10 @@ function renderHome(){
     });
   }
   html+='<div class="section-title">Aide</div><button class="btn btn-ghost" id="rulesBtn" style="width:100%">'+ic('star',18)+' Les 10 règles d’or du shooting</button>';
-  html+='<div class="footer-note">Analyse 100% locale. Vos photos sont synchronisées entre vos postes via votre espace Supabase privé. Ajoutez l’app à l’écran d’accueil pour l’utiliser hors-ligne sur le terrain (envoi automatique dès que le réseau revient).<span id="storageInfo"></span></div>';
+  html+='<div class="footer-note">Analyse 100% locale. Vos photos sont synchronisées entre vos postes via votre espace Supabase privé. Ajoutez l’app à l’écran d’accueil pour l’utiliser hors-ligne sur le terrain (envoi automatique dès que le réseau revient).<span id="storageInfo"></span><span id="cloudStorageInfo"></span></div>';
   $('home').innerHTML=html;
   updateStorageInfo();
+  updateCloudStorageInfo();
 }
 // Affiche l'espace de stockage réellement utilisé par le navigateur pour ce
 // site (photos incluses), quand l'API le permet. Purement informatif : aide
@@ -1996,6 +2095,7 @@ function renderScore(entry,isNew){
       <button id="reimportBtn">${ic('image',16)} Réimporter</button>
       <button id="rotateBtn">${ic('rotate',16)} Pivoter</button>
       ${ps.length>1?`<button id="cmpBtn">${ic('scale',16)} Comparer (${ps.length})</button>`:''}
+      <button id="delPhotoBtn" style="color:var(--bad);border-color:var(--bad)">${ic('trash',16)} Supprimer</button>
     </div>
     <button class="btn btn-ghost" id="saveImgBtn" style="width:100%;margin-top:4px">${ic('download',16)} Enregistrer la photo</button>`;
   if(url===PLACEHOLDER_THUMB) hydrateThumbs($('scoreBody'));
@@ -2009,6 +2109,13 @@ function renderScore(entry,isNew){
   $('keepBtn').onclick=()=>{const willKeep=keepPhoto(entry.room,entry.id);entry.kept=willKeep;$('keepBtn').innerHTML=willKeep?ic('check',16)+' Photo retenue':ic('checkcircle',16)+' Retenir cette photo';toast(willKeep?'Photo retenue pour '+DATA[entry.room].name:'Sélection annulée');};
   const cb=$('cmpBtn');if(cb)cb.onclick=()=>{closeScreen('scoreScreen');openCompare(entry.room);};
   $('saveImgBtn').onclick=()=>saveImage(entry);
+  $('delPhotoBtn').onclick=async()=>{
+    if(!(await customConfirm('Supprimer cette photo ?','Cette photo sera supprimée définitivement, y compris dans le cloud (Supabase). Cette action est irréversible.','Supprimer')))return;
+    await deletePhoto(entry.room,entry.id);
+    closeScreen('scoreScreen');
+    renderBien();
+    toast('Photo supprimée');
+  };
   openScreen('scoreScreen');
   // Corriger l'orientation de l'aperçu si le fichier a une rotation EXIF (ex: prise en paysage sur iOS)
   const sf=sessionFull[entry.id];
@@ -2031,6 +2138,22 @@ function setOverlay(on,url){
   };im.src=url;
 }
 function keepPhoto(room,id){const b=getBien(currentBienId);const cur=b.photos.find(p=>p.room===room&&p.id===id);const willKeep=!(cur&&cur.kept);b.photos.forEach(p=>{if(p.room===room)p.kept=willKeep&&(p.id===id);});const l=loadBiens();l[l.findIndex(x=>x.id===currentBienId)]=b;saveBiens(l);return willKeep;}
+// Supprime définitivement une photo (contrairement à "Reprendre"/"Réimporter",
+// qui ne faisaient qu'AJOUTER une nouvelle photo sans jamais retirer les
+// anciennes) : retire l'entrée de la fiche du bien, libère la vignette en
+// IndexedDB, révoque l'object URL en mémoire, ET supprime le fichier côté
+// bucket Supabase Storage — jusqu'ici seule la suppression d'un bien entier
+// nettoyait le cloud ; une photo supprimée individuellement restait orpheline
+// dans le bucket pour toujours.
+async function deletePhoto(room,id){
+  const b=getBien(currentBienId);if(!b)return;
+  b.photos=(b.photos||[]).filter(p=>p.id!==id);
+  const l=loadBiens();const idx=l.findIndex(x=>x.id===currentBienId);if(idx>-1){l[idx]=b;saveBiens(l);}
+  if(sessionFull[id]){ try{URL.revokeObjectURL(sessionFull[id].url);}catch(e){} delete sessionFull[id]; }
+  if(thumbUrlCache[id]){ try{URL.revokeObjectURL(thumbUrlCache[id]);}catch(e){} delete thumbUrlCache[id]; }
+  await idbDel(id);
+  await cloudDeleteThumbs([id]); // invalide aussi le cache du quota de stockage
+}
 async function saveImage(entry){
   const sf=sessionFull[entry.id];const name='Laforet-'+safeName(DATA[entry.room].name)+'-'+entry.score+'.jpg';
   try{
@@ -2053,11 +2176,20 @@ function openCompare(room){
       return `<div class="cmp-card ${p.kept?'kept':(isBest?'best':'')}" data-pid="${p.id}">
         <img src="${src}" data-photo-id="${p.id}" alt="">
         <div class="cmp-info"><div class="cmp-score" style="color:${bd==='ok'?'#0f6b3f':bd==='mid'?'#b07d12':'#9a3b2e'}">${p.score}<span style="font-size:13px;color:#aab">/100</span> ${isBest?ic('star',14):''}</div>
-        <div class="cmp-actions"><div class="cmp-state">${p.kept?ic('check',13)+' Retenue':'Tapez pour retenir'}</div><button class="cmp-save" data-save="${p.id}" title="Enregistrer la photo">${ic('download',17)}</button></div></div></div>`;}).join('')+'</div>';
+        <div class="cmp-actions"><div class="cmp-state">${p.kept?ic('check',13)+' Retenue':'Tapez pour retenir'}</div><button class="cmp-save" data-save="${p.id}" title="Enregistrer la photo">${ic('download',17)}</button><button class="cmp-del" data-del="${p.id}" title="Supprimer cette photo">${ic('trash',16)}</button></div></div></div>`;}).join('')+'</div>';
   hydrateThumbs($('cmpBody'));
-  $('cmpBody').onclick=e=>{
+  $('cmpBody').onclick=async e=>{
     const sv=e.target.closest('[data-save]');
     if(sv){const p=photosOf(getBien(currentBienId),room).find(x=>x.id===sv.dataset.save);if(p)saveImage(p);return;}
+    const dl=e.target.closest('[data-del]');
+    if(dl){
+      if(!(await customConfirm('Supprimer cette photo ?','Cette photo sera supprimée définitivement, y compris dans le cloud (Supabase). Cette action est irréversible.','Supprimer')))return;
+      await deletePhoto(room,dl.dataset.del);
+      renderBien();
+      toast('Photo supprimée');
+      if(photosOf(getBien(currentBienId),room).length)openCompare(room);else closeScreen('cmpScreen');
+      return;
+    }
     const c=e.target.closest('[data-pid]');if(!c)return;
     if(e.target.tagName==='IMG'){openLightbox(e.target.src);return;}
     const willKeep=keepPhoto(room,c.dataset.pid);openCompare(room);renderBien();toast(willKeep?'Angle retenu':'Sélection annulée');
