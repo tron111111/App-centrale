@@ -1328,6 +1328,11 @@ function countPending(){
 // Relance tous les envois en attente (photos, biens, registre, suppressions).
 // Appelée au retour du réseau, et périodiquement en filet de sécurité.
 let _retryInFlight=false;
+// Compte les tentatives de synchro consécutives qui se terminent encore
+// avec des éléments en attente (échec). Sert à détecter le cas où
+// navigator.onLine dit "connecté" (WiFi actif) alors que la connexion
+// au serveur ne passe pas réellement — voir refreshSyncStatus().
+let _consecutiveSyncFailures=0;
 async function retryAllPending(){
   if(_retryInFlight||!navigator.onLine)return;
   _retryInFlight=true;
@@ -1337,7 +1342,8 @@ async function retryAllPending(){
     if(isBiensDirty())await cloudPushBiens(loadBiens());
     await retryPendingRegistry();
     await retryPendingDeletes();
-    if(countPending()===0)_justSynced=true;
+    if(countPending()===0){_justSynced=true;_consecutiveSyncFailures=0;}
+    else{_consecutiveSyncFailures++;}
   }finally{
     _retryInFlight=false;
     refreshSyncStatus();
@@ -1355,6 +1361,16 @@ function refreshSyncStatus(){
     txt.textContent=pending>0
       ? `🔌 Hors-ligne — ${pending} élément${pending>1?'s':''} enregistré${pending>1?'s':''} localement, envoi dès le retour du réseau`
       : '🔌 Hors-ligne — vos modifications sont enregistrées localement';
+  }else if(pending>0&&_consecutiveSyncFailures>=2){
+    // navigator.onLine indique une connexion active (WiFi/4G branché),
+    // mais plusieurs tentatives d'envoi ont échoué de suite : le serveur
+    // est très probablement injoignable (WiFi sans accès internet réel,
+    // coupure momentanée, etc). On le signale clairement plutôt que de
+    // rester bloqué indéfiniment sur "synchronisation en cours", qui
+    // laissait croire à tort qu'un envoi était activement en train de
+    // réussir.
+    el.classList.add('show','offline');
+    txt.textContent=`⚠️ Connexion au serveur impossible — ${pending} élément${pending>1?'s':''} en attente, nouvel essai automatique`;
   }else if(_retryInFlight||pending>0){
     el.classList.add('show','syncing');
     txt.textContent=`⏳ Synchronisation en cours… (${pending||'…'} élément${pending===1?'':'s'})`;
@@ -1371,10 +1387,10 @@ let _justSynced=false,_syncedFadeT=null;
 
 window.addEventListener('online',()=>{
   toast('🔌 Réseau retrouvé — synchronisation…');
-  _justSynced=true;
   retryAllPending();
 });
 window.addEventListener('offline',()=>{
+  _consecutiveSyncFailures=0;
   refreshSyncStatus();
 });
 // Filet de sécurité : certains navigateurs mobiles ne déclenchent pas
