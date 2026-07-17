@@ -190,6 +190,13 @@ footer { text-align: center; padding: 2rem 1rem calc(2rem + env(safe-area-inset-
   .header-info span { display: none; }
   .bien-grid { grid-template-columns: 1fr; }
   .detail-addr { font-size: 17px; }
+
+  /* Inputs 16px = pas de zoom iOS */
+  .toolbar-search input,
+  .toolbar-filter select,
+  .dfield input,
+  .dfield select,
+  .dfield textarea { font-size: 16px !important; }
 }
 </style>
 </head>
