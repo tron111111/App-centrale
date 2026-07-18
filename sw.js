@@ -14,7 +14,7 @@
 // Incrémenter ce nom à chaque modification de la liste de fichiers ou du
 // contenu des fichiers eux-mêmes, pour forcer la mise à jour du cache chez
 // les utilisateurs (sinon ils resteraient sur l'ancienne version en cache).
-const NOM_CACHE = 'app-centrale-v2';
+const NOM_CACHE = 'app-centrale-v3';
 
 // Liste des fichiers statiques à mettre en cache pour un fonctionnement
 // hors ligne de l'interface. À compléter si de nouveaux fichiers/pages
@@ -43,10 +43,23 @@ const FICHIERS_A_METTRE_EN_CACHE = [
 ];
 
 // --- Installation : téléchargement et mise en cache des fichiers listés ---
+//
+// IMPORTANT : on n'utilise PAS cache.addAll(), car un seul fichier de la
+// liste renvoyant autre chose que 200 (renommage, faute de frappe, fichier
+// pas encore déployé...) ferait échouer l'installation entière du Service
+// Worker, silencieusement, sans que personne ne s'en aperçoive. On charge
+// donc chaque fichier séparément et on logue ceux qui échouent, sans
+// bloquer les autres.
 self.addEventListener('install', function (evenement) {
   evenement.waitUntil(
     caches.open(NOM_CACHE).then(function (cache) {
-      return cache.addAll(FICHIERS_A_METTRE_EN_CACHE);
+      return Promise.allSettled(
+        FICHIERS_A_METTRE_EN_CACHE.map(function (fichier) {
+          return cache.add(fichier).catch(function (erreur) {
+            console.warn('[sw.js] Échec de mise en cache : ' + fichier, erreur);
+          });
+        })
+      );
     })
   );
   // Active immédiatement ce Service Worker sans attendre la fermeture des

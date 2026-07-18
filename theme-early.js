@@ -18,3 +18,18 @@
   var theme = saved || (sysDark ? 'dark' : 'light');
   document.documentElement.setAttribute('data-theme', theme);
 })();
+
+// Synchronisation entre onglets : si le thème est changé dans un autre
+// onglet du portail (via toggleTheme() dans theme.js), l'événement
+// 'storage' se déclenche ici dans tous les AUTRES onglets ouverts
+// (jamais dans celui qui a fait le changement) et on applique
+// immédiatement le nouveau thème, sans attendre un rechargement de page.
+// theme.js se charge ensuite de resynchroniser l'icône/le libellé du
+// bouton si updateThemeUI() est disponible sur la page.
+window.addEventListener('storage', function (evenement) {
+  if (evenement.key !== 'theme' || !evenement.newValue) return;
+  document.documentElement.setAttribute('data-theme', evenement.newValue);
+  if (typeof updateThemeUI === 'function') {
+    updateThemeUI(evenement.newValue);
+  }
+});
