@@ -85,5 +85,16 @@ function demarrerSurveillanceInactivite() {
     }
   });
 
+  // Réaction immédiate si un AUTRE onglet enregistre une déconnexion (par
+  // exemple : déconnexion manuelle, ou inactivité détectée en premier dans
+  // cet autre onglet). Sans ça, cet onglet-ci resterait connecté jusqu'à
+  // son prochain cycle de polling (jusqu'à 15s de décalage) après que
+  // l'autre onglet ait déjà coupé la session côté Supabase.
+  window.addEventListener('storage', function (evenement) {
+    if (evenement.key === CLE_DERNIERE_ACTIVITE) {
+      verifierInactivite();
+    }
+  });
+
   setInterval(verifierInactivite, INTERVALLE_VERIFICATION_MS);
 }
