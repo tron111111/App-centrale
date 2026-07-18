@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
+<script src="theme-early.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!--
@@ -41,6 +42,38 @@
     --amber-bg: #fffbeb;
     --radius: 12px;
     --shadow: 0 2px 12px rgba(0,0,0,.07);
+  }
+
+  /* Mêmes teintes que celles documentées en section 9 (fond, surfaces, texte,
+     bordures), étendues aux couleurs d'accent utilisées dans les cartes,
+     tableaux et badges de cette page. */
+  [data-theme="dark"] {
+    --bg: #111113;
+    --surface: #1c1c1e;
+    --border: #2c2c2e;
+    --text: #f2f2f7;
+    --text2: #c7c7cc;
+    --text3: #8e8e93;
+    --blue: #5b9bff;
+    --blue-bg: #16223f;
+    --blue-light: #1d2f57;
+    --green: #34d399;
+    --green-bg: #0f2b21;
+    --red: #f87171;
+    --red-bg: #3a1616;
+    --purple: #c084fc;
+    --purple-bg: #2a1b3d;
+    --amber: #fbbf24;
+    --amber-bg: #3a2a0a;
+    --shadow: 0 2px 12px rgba(0,0,0,.4);
+  }
+  /* Les icônes d'en-tête de section (emoji) ont leur fond en style inline
+     (couleurs pastel fixes) plutôt qu'en variable CSS : on les uniformise
+     en un ton neutre sombre plutôt que de garder des pastels clairs
+     illisibles sur fond sombre. */
+  [data-theme="dark"] .section-icon {
+    background: var(--surface) !important;
+    border: 1px solid var(--border);
   }
 
   body {
@@ -119,6 +152,31 @@
   .cover-meta-value {
     font-size: 15px;
     font-weight: 600;
+  }
+
+  /* Même pilule que sur index.html / bibliotheque.html / photoimmo.html / dossier.html / blog.html */
+  .theme-toggle {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+    background: rgba(255,255,255,.14);
+    border: 1px solid rgba(255,255,255,.25);
+    color: #fff;
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    font-family: inherit;
+  }
+  .theme-toggle:hover { background: rgba(255,255,255,.24); }
+  @media (max-width: 640px) {
+    .theme-toggle span { display: none; }
+    .theme-toggle { padding: 7px 9px; }
   }
 
   /* ── TOC ── */
@@ -480,9 +538,14 @@
 <script src="supabase-lib.js"></script>
 <script src="supabase-client.js"></script>
 <script src="auth-guard.js"></script>
+<script src="theme.js"></script>
 
 <!-- COVER -->
 <div class="cover">
+  <button class="theme-toggle" onclick="toggleTheme()" title="Mode sombre" aria-label="Basculer le mode sombre">
+    <svg id="theme-icon" width="13" height="13" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    <span id="theme-label">Mode sombre</span>
+  </button>
   <div class="cover-badge">Documentation Officielle · v6.9</div>
   <h1>Bibliothèque de Prompts<br>Laforêt Pithiviers</h1>
   <div class="cover-sub">Guide complet d'utilisation de l'outil de génération de prompts IA pour agents immobiliers — toutes fonctionnalités, tous détails, toutes réponses.</div>
@@ -1432,6 +1495,9 @@
   Documentation officielle de la Bibliothèque de Prompts — Laforêt Pithiviers · Version 6.9<br>
   Générée le 2 juillet 2026 · Usage interne agence uniquement
 </div>
+<script>
+  document.addEventListener('DOMContentLoaded', initTheme);
+</script>
 <script>
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js');

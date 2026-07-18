@@ -617,6 +617,7 @@ footer { text-align: center; padding: 2rem 1rem calc(2rem + env(safe-area-inset-
   #claude-toast { font-size: 12px; }
 }
 </style>
+<link rel="stylesheet" href="page-transition.css">
 </head>
 <body>
 <script src="supabase-lib.js"></script>
@@ -624,8 +625,10 @@ footer { text-align: center; padding: 2rem 1rem calc(2rem + env(safe-area-inset-
 <script src="auth-guard.js"></script>
 <script src="html-utils.js"></script>
 <script src="theme.js"></script>
+<script src="page-transition.js"></script>
+<div id="laforet-transition"><img src="logo_laforet.png" alt="Laforêt"></div>
 <header>
-  <a class="back-home" href="index.html" title="Retour à l'accueil">← Accueil</a>
+  <a class="back-home" href="index.html" title="Retour à l'accueil" data-transition>← Accueil</a>
   <div class="header-logo">
     <img src="logo_laforet.png" alt="Laforêt" width="50" height="50">
   </div>
@@ -729,7 +732,7 @@ footer { text-align: center; padding: 2rem 1rem calc(2rem + env(safe-area-inset-
             </button>
           </div>
           <div id="save-bien-hint" style="font-size:11.5px;color:var(--text3);margin-top:7px;">
-            Choisissez un bien existant dans les suggestions, ou tapez un nouveau nom : il sera automatiquement créé dans le <a href="dossier.html" style="color:var(--c-admin);font-weight:700;">Dossier des biens</a>.
+            Choisissez un bien existant dans les suggestions, ou tapez un nouveau nom : il sera automatiquement créé dans le <a href="dossier.html" style="color:var(--c-admin);font-weight:700;" data-transition>Dossier des biens</a>.
           </div>
           <div class="save-bien-toast" id="save-bien-toast" role="status" aria-live="polite"></div>
           <div class="saved-bien-list" id="saved-bien-list"></div>

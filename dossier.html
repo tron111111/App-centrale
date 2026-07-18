@@ -199,11 +199,13 @@ footer { text-align: center; padding: 2rem 1rem calc(2rem + env(safe-area-inset-
   .dfield textarea { font-size: 16px !important; }
 }
 </style>
+<link rel="stylesheet" href="page-transition.css">
 </head>
 <body>
+<div id="laforet-transition"><img src="logo_laforet.png" alt="Laforêt"></div>
 
 <header>
-  <a class="back-home" href="index.html" title="Retour à l'accueil">← Accueil</a>
+  <a class="back-home" href="index.html" title="Retour à l'accueil" data-transition>← Accueil</a>
   <div class="header-logo"><img src="logo_laforet.png" alt="Laforêt"></div>
   <div class="header-info">
     <h1>Dossier des biens</h1>
@@ -346,6 +348,7 @@ footer { text-align: center; padding: 2rem 1rem calc(2rem + env(safe-area-inset-
 <script src="html-utils.js"></script>
 <script src="theme.js"></script>
 <script src="toast.js"></script>
+<script src="page-transition.js"></script>
 <link rel="stylesheet" href="toast.css">
 <script>
 /* ============================================================

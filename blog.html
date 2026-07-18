@@ -289,12 +289,15 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
 .modal-confirm-btn { background: #dc2626; border-color: #dc2626; color: #fff; }
 .modal-confirm-btn:hover { background: #b91c1c; }
 </style>
+<link rel="stylesheet" href="page-transition.css">
 </head>
 <body>
 <script src="auth-guard.js"></script>
+<script src="page-transition.js"></script>
+<div id="laforet-transition"><img src="logo_laforet.png" alt="Laforêt"></div>
 
 <header>
-  <a class="back-home" href="index.html" title="Retour à l'accueil"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Accueil</a>
+  <a class="back-home" href="index.html" title="Retour à l'accueil" data-transition><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Accueil</a>
   <div class="header-logo"><img src="logo_laforet.png" alt="Laforêt" width="46" height="46"></div>
   <div class="header-info">
     <h1>Générateur de blog</h1>
