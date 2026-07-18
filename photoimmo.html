@@ -1769,7 +1769,7 @@ $('bienBody').addEventListener('click',e=>{
   const s=e.target.closest('[data-shoot]');if(s)return openCam(s.dataset.shoot);
   const im=e.target.closest('[data-import]');if(im)return triggerImport(im.dataset.import);
   const g=e.target.closest('[data-guide]');if(g)return openGuide(g.dataset.guide);
-  const c=e.target.closest('[data-cmp]');if(c){const ps=photosOf(getBien(currentBienId),c.dataset.cmp);if(ps.length<2){toast('Prenez au moins 2 photos de cette pièce pour comparer');return;}return openCompare(c.dataset.cmp);}
+  const c=e.target.closest('[data-cmp]');if(c){const ps=photosOf(getBien(currentBienId),c.dataset.cmp);if(!ps.length){toast('Prenez au moins 1 photo de cette pièce pour comparer');return;}return openCompare(c.dataset.cmp);}
 });
 
 /* ============================ GUIDE PIÈCE ============================ */
@@ -2094,7 +2094,7 @@ function renderScore(entry,isNew){
       <button id="retakeBtn">${ic('camera',16)} Reprendre</button>
       <button id="reimportBtn">${ic('image',16)} Réimporter</button>
       <button id="rotateBtn">${ic('rotate',16)} Pivoter</button>
-      ${ps.length>1?`<button id="cmpBtn">${ic('scale',16)} Comparer (${ps.length})</button>`:''}
+      ${ps.length>0?`<button id="cmpBtn">${ic('scale',16)} Comparer (${ps.length})</button>`:''}
       <button id="delPhotoBtn" style="color:var(--bad);border-color:var(--bad)">${ic('trash',16)} Supprimer</button>
     </div>
     <button class="btn btn-ghost" id="saveImgBtn" style="width:100%;margin-top:4px">${ic('download',16)} Enregistrer la photo</button>`;
