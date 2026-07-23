@@ -288,6 +288,12 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
 .modal-cancel-btn:hover { background: var(--border); }
 .modal-confirm-btn { background: #dc2626; border-color: #dc2626; color: #fff; }
 .modal-confirm-btn:hover { background: #b91c1c; }
+.modal-confirm-btn:disabled { background: var(--border); border-color: var(--border); color: var(--text3, var(--text2)); cursor: not-allowed; }
+#confirm-modal-type-wrap { display: none; margin: -8px 0 18px; }
+#confirm-modal-type-wrap.show { display: block; }
+#confirm-modal-type-input { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg); color: var(--text); font-size: 13.5px; font-family: inherit; margin-bottom: 4px; }
+#confirm-modal-type-input:focus { outline: none; border-color: #dc2626; }
+#confirm-modal-type-hint { font-size: 11.5px; color: var(--text2); }
 </style>
 <link rel="stylesheet" href="page-transition.css">
 </head>
@@ -556,6 +562,10 @@ header { background: linear-gradient(135deg, #0f1b50, #16266b); box-shadow: 0 2p
 <div class="modal-overlay" id="confirm-modal-overlay" style="display:none;" onclick="if(event.target===this) hideConfirmModal()">
   <div class="modal-box">
     <div class="modal-message" id="confirm-modal-message"></div>
+    <div id="confirm-modal-type-wrap">
+      <input type="text" id="confirm-modal-type-input" autocomplete="off" placeholder="Tapez ici pour confirmer">
+      <div id="confirm-modal-type-hint"></div>
+    </div>
     <div class="modal-actions">
       <button class="modal-cancel-btn" onclick="hideConfirmModal()">Annuler</button>
       <button class="modal-confirm-btn" id="confirm-modal-confirm-btn" onclick="runConfirmModalAction()">Confirmer</button>
@@ -1541,22 +1551,61 @@ window.addEventListener('offline', () => {
 });
 setInterval(() => { if (navigator.onLine && countPendingBlog() > 0) retryAllPendingBlog(); }, 20000);
 // ── POPUP DE CONFIRMATION GENERIQUE ────────────────────────────────────────
+// 3e argument optionnel `requiredText` : si fourni, le bouton "Confirmer"
+// reste désactivé tant que l'utilisateur n'a pas retapé exactement ce texte
+// dans le champ prévu. Réservé aux actions les plus destructrices (ex.
+// remplacement de TOUS les brouillons partagés de l'agence). Sans ce 3e
+// argument, comportement inchangé (confirmation en un clic), donc l'appel
+// existant pour la suppression d'un brouillon n'est pas affecté.
 let _confirmModalAction = null;
+let _confirmModalRequiredText = null;
 
-function showConfirmModal(message, onConfirm) {
+function showConfirmModal(message, onConfirm, requiredText) {
   document.getElementById('confirm-modal-message').textContent = message;
   _confirmModalAction = onConfirm;
+  _confirmModalRequiredText = requiredText || null;
+  const wrap = document.getElementById('confirm-modal-type-wrap');
+  const input = document.getElementById('confirm-modal-type-input');
+  const btn = document.getElementById('confirm-modal-confirm-btn');
+  if (_confirmModalRequiredText) {
+    wrap.classList.add('show');
+    input.value = '';
+    document.getElementById('confirm-modal-type-hint').innerHTML =
+      'Pour confirmer, tapez « <b>' + _confirmModalRequiredText.replace(/</g, '&lt;') + '</b> » ci-dessus.';
+    btn.disabled = true;
+    setTimeout(() => input.focus(), 50);
+  } else {
+    wrap.classList.remove('show');
+    btn.disabled = false;
+  }
   document.getElementById('confirm-modal-overlay').style.display = 'flex';
 }
 function hideConfirmModal() {
   document.getElementById('confirm-modal-overlay').style.display = 'none';
+  document.getElementById('confirm-modal-type-wrap').classList.remove('show');
   _confirmModalAction = null;
+  _confirmModalRequiredText = null;
 }
 function runConfirmModalAction() {
+  // Défense en profondeur : si une saisie était requise, on revérifie la
+  // correspondance ici plutôt que de faire confiance au seul état
+  // (désactivé/activé) du bouton.
+  if (_confirmModalRequiredText) {
+    const saisi = document.getElementById('confirm-modal-type-input').value.trim().toLowerCase();
+    if (saisi !== _confirmModalRequiredText.trim().toLowerCase()) return;
+  }
   const action = _confirmModalAction;
   hideConfirmModal();
   if (action) action();
 }
+document.getElementById('confirm-modal-type-input').addEventListener('input', function () {
+  if (!_confirmModalRequiredText) return;
+  const ok = this.value.trim().toLowerCase() === _confirmModalRequiredText.trim().toLowerCase();
+  document.getElementById('confirm-modal-confirm-btn').disabled = !ok;
+});
+document.getElementById('confirm-modal-type-input').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter' && !document.getElementById('confirm-modal-confirm-btn').disabled) runConfirmModalAction();
+});
 
 // ── EXPORT / IMPORT DES BROUILLONS EN FICHIER (sauvegarde locale) ─────────
 let pendingImportDrafts = null;
@@ -1632,7 +1681,8 @@ function confirmReplaceAll() {
   const n = pendingImportDrafts ? pendingImportDrafts.length : 0;
   showConfirmModal(
     `Remplacer TOUS les brouillons partagés de l'agence (créés par tous les agents, sur tous les appareils) par les ${n} brouillon${n > 1 ? 's' : ''} du fichier importé ? Cette action est irréversible et concerne toute l'équipe, pas seulement cet appareil.`,
-    () => confirmFileImport('replace')
+    () => confirmFileImport('replace'),
+    'REMPLACER'
   );
 }
 
