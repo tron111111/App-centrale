@@ -1042,6 +1042,24 @@ document.getElementById('new-bien-overlay').addEventListener('click', e => { if 
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.getElementById('new-bien-overlay').classList.contains('show')) closeNewBienModal(); });
 
 /* Toast et thème : voir toast.js et theme.js (chargés en <head>). */
+/* Ouverture directe d'un bien depuis un lien externe (ex. recherche globale
+   sur index.html) : dossier.html?open=<norm>. Si le bien n'est pas trouvé
+   (norm invalide, bien supprimé entre-temps...), on reste simplement sur la
+   liste plutôt que d'afficher une page cassée, avec un avertissement. */
+function ouvrirDepuisURL() {
+  const params = new URLSearchParams(location.search);
+  const norm = params.get('open');
+  if (!norm) return;
+  // On nettoie l'URL tout de suite (évite de rouvrir le même détail si
+  // l'agent revient en arrière puis recharge la page).
+  history.replaceState(null, '', location.pathname);
+  if (findEntryByNorm(norm)) {
+    openDetail(norm);
+  } else {
+    showToast('warn', 'Bien introuvable — il a peut-être été supprimé');
+  }
+}
+
 /* ============================== INIT ============================== */
 window.onload = async function() {
   initTheme();
@@ -1052,6 +1070,7 @@ window.onload = async function() {
   // ça évite d'attendre inutilement en série pour un simple affichage de liste.
   await Promise.all([loadRegistry(), loadPhotoimmoBiens(), loadBibliothequeBiens()]);
   renderList();
+  ouvrirDepuisURL();
   // Renvoie vers le serveur toute modification restée en attente d'un
   // précédent passage hors-ligne.
   retryPendingRegistryAll();

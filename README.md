@@ -22,7 +22,7 @@ Ce dépôt héberge un ensemble d'outils web internes utilisés au quotidien par
 
 | Page | Description |
 |---|---|
-| [`index.html`](index.html) | Portail d'accueil — sélection de l'application à ouvrir, avec barre de recherche. |
+| [`index.html`](index.html) | Portail d'accueil — sélection de l'application à ouvrir, avec barre de recherche, et **recherche globale d'un bien** (adresse/ville) tous outils confondus. |
 | [`bibliotheque.html`](bibliotheque.html) | Bibliothèque de prompts IA (Claude & Gemini) : annonces, emails, réseaux sociaux, prospection et administratif. Comprend un générateur d'annonce centralisé et un mode sombre. |
 | [`photoimmo.html`](photoimmo.html) | PhotoImmo Pro — notation et gestion des photos de biens immobiliers pièce par pièce, avec guide de prise de vue et moteur de scoring multi-critères (netteté, exposition, contraste, balance des blancs, cadrage). La suppression d'un bien entier (photos comprises, cloud inclus) exige une confirmation en deux étapes ; la suppression d'une photo individuelle reste une confirmation simple. |
 | [`dossier.html`](dossier.html) | Dossier des biens — fiche centralisée par bien : informations générales, statut, prix, notes, et liens automatiques vers les photos (PhotoImmo Pro) et la fiche descriptive (Bibliothèque de prompts). |
@@ -92,6 +92,15 @@ Pour éviter la duplication de code entre les pages, plusieurs briques communes 
 | `toast.js` / `toast.css` | Bulle de confirmation partagée (succès / avertissement / suppression), utilisée par `dossier.html`. Les appels sont mis en file d'attente (FIFO) : un nouveau toast n'écrase plus celui déjà affiché, il attend sa disparition avant de s'afficher à son tour. |
 | `page-transition.js` / `page-transition.css` | Overlay de transition (logo qui pulse) affiché lors de la navigation entre les apps du portail depuis `index.html`, pour éviter un flash d'écran blanc pendant le chargement. |
 
+## Recherche globale d'un bien (`index.html`)
+
+Depuis le portail d'accueil, une seconde barre de recherche (« Rechercher un bien ») permet de retrouver un bien par adresse ou ville, sans avoir à savoir dans quel outil il a été créé en premier :
+
+- Interroge directement les 3 tables partagées (`biens_registry`, `biens_photoimmo`, `biens_bibliotheque`), avec la même logique de correspondance/normalisation que `dossier.html` (même code, dupliqué comme les autres modules communs pour rester une page statique indépendante).
+- Chargement paresseux : les données ne sont interrogées qu'à la première frappe (pas au chargement de la page), puis gardées en mémoire le temps de la session.
+- Chaque résultat affiche le statut, l'avancement des photos et la présence d'une fiche descriptive, avec 3 accès directs : ouvrir le dossier centralisé (`dossier.html?open=<id>`, nouveau paramètre d'URL), ouvrir directement dans PhotoImmo Pro, ou dans la Bibliothèque.
+- Recherche insensible aux accents/majuscules, limitée aux 6 meilleurs résultats (avec indication du nombre de résultats supplémentaires) pour rester lisible sur mobile.
+
 ## Dossier des biens (`dossier.html`)
 
 Fiche centralisée par bien immobilier, qui réunit au même endroit tout ce qui est produit par les autres applications du portail (photos, description/annonce) et le suivi commercial du dossier :
@@ -109,6 +118,7 @@ Fiche centralisée par bien immobilier, qui réunit au même endroit tout ce qui
   - **Bloc Description / annonce** : aperçu des informations clés de l'annonce (type, ville, pièces, surface, prix) si une fiche existe dans la Bibliothèque de prompts, avec lien direct vers celle-ci (ouverture ou création) ;
   - suppression du dossier avec confirmation en deux étapes, précisant que les données déjà créées dans PhotoImmo et la Bibliothèque ne sont pas supprimées.
 - **Suppression en deux étapes** : cliquer sur la corbeille ouvre une modale qui rappelle le nom du bien et l'effet de l'action, mais le bouton **Supprimer** reste désactivé tant que l'agent n'a pas retapé exactement le nom du dossier affiché dans un champ dédié. Le bouton ne s'active qu'en cas de correspondance exacte (revérifiée aussi côté code, pas seulement dans l'état du bouton), ce qui évite une suppression accidentelle en un clic réflexe sur un bouton rouge. Validation possible au clavier (Entrée) une fois la saisie correcte.
+- **Ouverture directe** : `dossier.html?open=<id du bien>` ouvre automatiquement la vue détail du bien correspondant (utilisé par la recherche globale du portail d'accueil). Si l'identifiant ne correspond à aucun bien, un avertissement s'affiche et l'agent reste sur la vue liste.
 - **Registre partagé** (table Supabase `biens_registry`) : `dossier.html` est la source de vérité pour la liste des biens et leurs champs centraux (statut, prix, notes). Le format d'écriture (une ligne par bien) est désormais identique entre `dossier.html`, `photoimmo.html` et `bibliotheque.html`, ce qui rend la liaison automatique entre les 3 outils fiable en usage multi-appareils. Les aperçus photo/description affichés sur chaque carte sont désormais lus **directement depuis Supabase** (tables `biens_photoimmo` et `biens_bibliotheque`), et non plus depuis le cache local (`localStorage`) de PhotoImmo Pro et de la Bibliothèque : un bien créé ou modifié sur un autre appareil apparaît donc correctement, sans dépendre de l'état du poste courant. Ces 3 sources sont rechargées automatiquement à chaque retour au premier plan de l'onglet, pour rester à jour même si la page reste ouverte toute la journée. Seules les vignettes photo elles-mêmes restent mises en cache local (IndexedDB) pour un affichage instantané ; si une photo n'a jamais été ouverte sur ce poste, elle est retéléchargée à la volée depuis le bucket Supabase Storage.
 - **Toasts de confirmation** (création, mise à jour, suppression, avertissement) et **icônes SVG inline** (aucun emoji), cohérents avec la charte graphique du portail.
 - **Mode sombre** synchronisé sur les préférences système, comme les autres pages.

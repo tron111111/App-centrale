@@ -166,6 +166,68 @@
   .app-empty.show { display: block; }
   .app-empty b { display: block; color: var(--ink); font-size: 15px; margin-bottom: 5px; }
 
+  /* RECHERCHE GLOBALE DE BIENS */
+  .bien-results {
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    margin: -2px 0 18px;
+  }
+  .bien-results.show { display: flex; }
+  .bien-hint, .bien-loading, .bien-empty2 {
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    padding: 10px 12px 2px;
+  }
+  .bien-more {
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    padding: 2px 4px 4px;
+  }
+  .bien-result {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 13px 14px;
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(22,38,107,.05);
+    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  }
+  .bien-result:hover { transform: translateY(-2px); border-color: #cfd8ea; box-shadow: 0 8px 18px rgba(22,38,107,.09); }
+  .bien-result-icon {
+    width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
+    background: var(--icon-blue-l);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .bien-result-icon svg { width: 18px; height: 18px; color: var(--blue); }
+  [data-theme="dark"] .bien-result-icon svg { color: var(--sky); }
+  .bien-result-main { flex: 1; min-width: 0; }
+  .bien-result-addr { font-size: 14px; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bien-result-sub { font-size: 12px; color: var(--muted); margin-top: 2px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .bien-result-chip {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-size: 11px; font-weight: 600; color: var(--muted);
+    background: var(--blue-l); border-radius: 999px; padding: 2px 8px;
+  }
+  .bien-result-chip.ok { color: #1a8a4a; background: #e4f6ea; }
+  [data-theme="dark"] .bien-result-chip.ok { color: #4fd484; background: #123a26; }
+  .bien-result-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .bien-result-action {
+    width: 32px; height: 32px; border-radius: 9px;
+    background: var(--sky-l);
+    display: flex; align-items: center; justify-content: center;
+    color: #0f7ab0; text-decoration: none;
+  }
+  .bien-result-action:hover { background: var(--sky); color: #fff; }
+  [data-theme="dark"] .bien-result-action { color: var(--sky); }
+  .bien-result-arrow { font-size: 20px; color: #c5cede; flex-shrink: 0; font-weight: 300; }
 
   /* CARDS */
   .app-card{position:relative;background:var(--card);border:1px solid #e4e8f1;border-radius:18px;padding:22px 20px;display:flex;align-items:center;gap:18px;cursor:pointer;text-decoration:none;color:inherit;overflow:hidden;box-shadow:0 4px 10px rgba(22,38,107,.05),0 12px 28px rgba(22,38,107,.05);margin-bottom:16px;transition:transform .25s ease,box-shadow .25s ease,border-color .25s ease;}
@@ -324,6 +386,7 @@ color:var(--sky);
 <script src="supabase-lib.js"></script>
 <script src="supabase-client.js"></script>
 <script src="auth-guard.js"></script>
+<script src="html-utils.js"></script>
 <script src="theme.js"></script>
 <script src="page-transition.js"></script>
 
@@ -345,15 +408,19 @@ color:var(--sky);
 </header>
 
 <main>
-  <p class="section-label">Choisir une application</p>
+  <p class="section-label">Rechercher</p>
 
   <div class="app-search">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-    <input type="text" id="appSearch" placeholder="Rechercher une application…" autocomplete="off">
-    <button class="app-search-clear" id="appSearchClear" title="Effacer" aria-label="Effacer la recherche">
+    <input type="text" id="globalSearch" placeholder="Une application, une adresse, une ville…" autocomplete="off">
+    <button class="app-search-clear" id="globalSearchClear" title="Effacer" aria-label="Effacer la recherche">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
   </div>
+
+  <div id="bienResults" class="bien-results"></div>
+
+  <p class="section-label" style="margin-top:22px">Applications</p>
 
   <div id="appList">
   <a class="app-card" href="bibliotheque.html" data-transition>
@@ -411,9 +478,9 @@ color:var(--sky);
 document.addEventListener('DOMContentLoaded',function(){
   initTheme();
 
-  // Recherche d'applications
-  const searchInput=document.getElementById('appSearch');
-  const searchClear=document.getElementById('appSearchClear');
+  // Filtrage des cartes d'application, piloté par le même champ que la
+  // recherche de biens (voir script suivant, qui appelle filterApps() à
+  // chaque frappe en plus de sa propre recherche réseau).
   const emptyState=document.getElementById('appEmpty');
   const cards=Array.from(document.querySelectorAll('.app-card'));
 
@@ -422,8 +489,7 @@ document.addEventListener('DOMContentLoaded',function(){
   }
 
   function filterApps(){
-    const q=normalize(searchInput.value.trim());
-    searchClear.classList.toggle('show', q.length>0);
+    const q=normalize(document.getElementById('globalSearch').value.trim());
     let visibleCount=0;
     cards.forEach(card=>{
       const name=normalize(card.querySelector('.app-name')?.textContent);
@@ -435,12 +501,226 @@ document.addEventListener('DOMContentLoaded',function(){
     });
     emptyState.classList.toggle('show', visibleCount===0);
   }
+  window.filterApps = filterApps;
+});
+</script>
+<script>
+/* ============================================================
+   RECHERCHE GLOBALE D'UN BIEN
+   Cherche un bien par adresse/ville dans les 3 tables Supabase
+   partagées (biens_registry, biens_photoimmo, biens_bibliotheque)
+   et propose des liens directs vers le Dossier, PhotoImmo Pro et
+   la Bibliothèque, où qu'ait été créé le bien en premier. Même
+   logique de normalisation/correspondance que dossier.html, pour
+   rester cohérent avec ce qui y est affiché.
+   ============================================================ */
+function normBienLabel(s) { return (s||'').trim().toLowerCase().replace(/\s+/g,' '); }
+function guessVilleFromAddress(addr) {
+  const parts = (addr||'').split(',');
+  return parts.length > 1 ? parts[parts.length-1].trim() : '';
+}
+function normSearch(str) {
+  return (str||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+}
 
-  searchInput.addEventListener('input', filterApps);
-  searchClear.addEventListener('click',()=>{
-    searchInput.value='';
+const STATUT_LABELS = { estimation:"À l'estimation", mandat:'En mandat', compromis:'Compromis signé', vendu:'Vendu', location:'En location', loue:'Loué', archive:'Archivé' };
+function statutLabel(s) { return STATUT_LABELS[s] || STATUT_LABELS.estimation; }
+const REQUIRED_ROOMS = {
+  maison: ['facade','entree','salon','cuisine','sam','chambre','sdb','bureau','jardin','terrasse','garage','vue'],
+  appartement: ['entree','salon','cuisine','sam','chambre','sdb','bureau','terrasse','vue']
+};
+function photoProgress(piBien) {
+  if (!piBien) return null;
+  const req = REQUIRED_ROOMS[piBien.type] || REQUIRED_ROOMS.maison;
+  const doneRooms = new Set((piBien.photos||[]).map(p => p.room));
+  return { done: req.filter(r => doneRooms.has(r)).length, total: req.length };
+}
+
+let _bienRegistry = null, _bienPhotoimmo = [], _bienBibliotheque = [];
+let _bienDataPromise = null;
+
+/* Charge les 3 sources une seule fois, en tâche de fond (déclenché au
+   premier caractère tapé, pas au chargement de la page, pour ne pas
+   ralentir l'arrivée sur le portail avec des appels réseau inutiles si
+   personne ne s'en sert). */
+function chargerDonneesBiens() {
+  if (_bienDataPromise) return _bienDataPromise;
+  _bienDataPromise = Promise.all([
+    supabaseClient.from('biens_registry').select('data'),
+    supabaseClient.from('biens_photoimmo').select('data'),
+    supabaseClient.from('biens_bibliotheque').select('data')
+  ]).then(([reg, pi, bib]) => {
+    _bienRegistry = (reg.data || []).map(r => r.data).filter(e => e && (e.norm || e.label));
+    _bienRegistry.forEach(e => { if (!e.norm) e.norm = normBienLabel(e.label); });
+    _bienPhotoimmo = (pi.data || []).map(r => r.data).filter(Boolean);
+    _bienBibliotheque = (bib.data || []).map(r => ({ name: r.data.name, data: r.data.data }));
+  }).catch(e => {
+    console.warn('[recherche biens] échec de chargement :', e);
+    _bienRegistry = _bienRegistry || [];
+  });
+  return _bienDataPromise;
+}
+
+function matchPhotoimmoBien(entry) {
+  if (entry.links && entry.links.photoimmo) {
+    const b = _bienPhotoimmo.find(x => x.id === entry.links.photoimmo);
+    if (b) return b;
+  }
+  return _bienPhotoimmo.find(x => normBienLabel(x.address) === entry.norm) || null;
+}
+function matchBibliothequeBien(entry) {
+  if (entry.links && entry.links.bibliotheque) {
+    const b = _bienBibliotheque.find(x => x.name === entry.links.bibliotheque);
+    if (b) return b;
+  }
+  return _bienBibliotheque.find(x => normBienLabel(x.name) === entry.norm) || null;
+}
+function effectiveVille(entry, bibBien) {
+  if (entry.central && entry.central.ville) return entry.central.ville;
+  if (bibBien && bibBien.data && bibBien.data['h-ville']) return bibBien.data['h-ville'];
+  return guessVilleFromAddress(entry.label);
+}
+function effectiveType(entry, piBien, bibBien) {
+  if (entry.central && entry.central.type) return entry.central.type;
+  if (piBien) return piBien.type;
+  if (bibBien && bibBien.data && bibBien.data['h-type']) return bibBien.data['h-type'].toLowerCase().startsWith('appart') ? 'appartement' : 'maison';
+  return '';
+}
+function effectiveStatut(entry) { return (entry.central && entry.central.statut) || 'estimation'; }
+
+document.addEventListener('DOMContentLoaded', function () {
+  const bienInput = document.getElementById('globalSearch');
+  const bienClear = document.getElementById('globalSearchClear');
+  const bienResults = document.getElementById('bienResults');
+  let debounceTimer = null;
+
+  function iconMaison() {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>';
+  }
+  function iconPhoto() {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>';
+  }
+  function iconFiche() {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>';
+  }
+
+  function renderResults(entries, total) {
+    if (!entries.length) {
+      bienResults.innerHTML = '<div class="bien-empty2">Aucun bien ne correspond à cette recherche.</div>';
+      return;
+    }
+    const MAX = 6;
+    const shown = entries.slice(0, MAX);
+    bienResults.innerHTML = shown.map(({ entry, piBien, bibBien }) => {
+      const ville = effectiveVille(entry, bibBien);
+      const type = effectiveType(entry, piBien, bibBien);
+      const typeLabel = type === 'appartement' ? 'Appartement' : (type === 'maison' ? 'Maison' : '');
+      const statut = effectiveStatut(entry);
+      const pr = photoProgress(piBien);
+      const dossierUrl = 'dossier.html?open=' + encodeURIComponent(entry.norm);
+      const piUrl = 'photoimmo.html?bien=' + encodeURIComponent(entry.label) + '&type=' + encodeURIComponent(type);
+      const bibUrl = 'bibliotheque.html?bien=' + encodeURIComponent(entry.label) + '&type=' + encodeURIComponent(type === 'appartement' ? 'Appartement' : 'Maison') + '&ville=' + encodeURIComponent(ville);
+      // Un <div> cliquable (et non un <a> englobant) : les 2 liens d'action
+      // (PhotoImmo / Bibliothèque) sont de vrais <a>, et un <a> ne peut pas
+      // en contenir un autre en HTML valide — ça casserait le clic sur le
+      // reste de la carte. role="link" + tabindex + gestion clavier (Entrée)
+      // gardent la carte accessible malgré tout.
+      return `
+      <div class="bien-result" data-href="${dossierUrl}" role="link" tabindex="0">
+        <div class="bien-result-icon">${iconMaison()}</div>
+        <div class="bien-result-main">
+          <div class="bien-result-addr">${escHtml(entry.label)}</div>
+          <div class="bien-result-sub">
+            <span>${escHtml(ville)}${typeLabel ? ' · ' + typeLabel : ''}</span>
+            <span class="bien-result-chip">${escHtml(statutLabel(statut))}</span>
+            ${pr ? `<span class="bien-result-chip ${pr.done===pr.total?'ok':''}">${pr.done}/${pr.total} photos</span>` : ''}
+            ${bibBien ? '<span class="bien-result-chip ok">Fiche prête</span>' : ''}
+          </div>
+        </div>
+        <div class="bien-result-actions">
+          <a class="bien-result-action" href="${piUrl}" data-transition title="Ouvrir dans PhotoImmo Pro">${iconPhoto()}</a>
+          <a class="bien-result-action" href="${bibUrl}" data-transition title="Ouvrir dans la Bibliothèque">${iconFiche()}</a>
+        </div>
+        <span class="bien-result-arrow">›</span>
+      </div>`;
+    }).join('') + (total > MAX ? `<div class="bien-more">+ ${total - MAX} autre${total - MAX > 1 ? 's' : ''} résultat${total - MAX > 1 ? 's' : ''} — affinez votre recherche</div>` : '');
+  }
+
+  function lancerRecherche() {
+    const q = bienInput.value.trim();
+    bienClear.classList.toggle('show', q.length > 0);
+
+    if (!q) {
+      bienResults.classList.remove('show');
+      bienResults.innerHTML = '';
+      return;
+    }
+    if (q.length < 2) {
+      bienResults.classList.add('show');
+      bienResults.innerHTML = '<div class="bien-hint">Tapez au moins 2 caractères…</div>';
+      return;
+    }
+
+    bienResults.classList.add('show');
+    if (!_bienRegistry) bienResults.innerHTML = '<div class="bien-loading">Recherche…</div>';
+
+    chargerDonneesBiens().then(() => {
+      // La recherche a pu changer pendant le chargement : on relit la
+      // valeur actuelle du champ plutôt que la valeur capturée au départ.
+      const qNow = normSearch(bienInput.value.trim());
+      if (!qNow || qNow.length < 2) return;
+
+      const entries = (_bienRegistry || []).map(entry => {
+        const piBien = matchPhotoimmoBien(entry);
+        const bibBien = matchBibliothequeBien(entry);
+        return { entry, piBien, bibBien };
+      }).filter(({ entry, bibBien }) => {
+        const ville = effectiveVille(entry, bibBien);
+        return normSearch(entry.label).includes(qNow) || normSearch(ville).includes(qNow);
+      }).sort((a, b) => (b.entry.updatedAt || b.entry.createdAt || 0) - (a.entry.updatedAt || a.entry.createdAt || 0));
+
+      renderResults(entries, entries.length);
+    });
+  }
+
+  bienInput.addEventListener('input', function () {
     filterApps();
-    searchInput.focus();
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(lancerRecherche, 200);
+  });
+  bienClear.addEventListener('click', () => {
+    bienInput.value = '';
+    filterApps();
+    lancerRecherche();
+    bienInput.focus();
+  });
+
+  // Navigation sur une carte de résultat : au clic ou au clavier (Entrée /
+  // Espace), sauf si le clic vient des 2 liens d'action (PhotoImmo /
+  // Bibliothèque), qui gèrent déjà leur propre navigation via
+  // page-transition.js. Overlay de transition posé à la main (comme
+  // page-transition.js) car ce n'est pas un <a> — voir commentaire plus haut.
+  function ouvrirCarte(carte) {
+    const overlay = document.getElementById('laforet-transition');
+    const url = carte.getAttribute('data-href');
+    if (overlay) {
+      overlay.classList.add('show');
+      setTimeout(() => { window.location.href = url; }, 280);
+    } else {
+      window.location.href = url;
+    }
+  }
+  bienResults.addEventListener('click', function (e) {
+    if (e.target.closest('.bien-result-actions')) return;
+    const carte = e.target.closest('.bien-result');
+    if (carte) ouvrirCarte(carte);
+  });
+  bienResults.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const carte = e.target.closest('.bien-result');
+    if (!carte) return;
+    e.preventDefault();
+    ouvrirCarte(carte);
   });
 });
 </script>
