@@ -543,15 +543,49 @@ let _bienDataPromise = null;
    premier caractère tapé, pas au chargement de la page, pour ne pas
    ralentir l'arrivée sur le portail avec des appels réseau inutiles si
    personne ne s'en sert). */
+// Ancien format (avant le passage "une ligne par bien") : tout le registre
+// stocké dans une seule ligne géante, id = REG_KEY, data = tableau d'entrées.
+// Même clé que dans photoimmo.html / bibliotheque.html / dossier.html.
+const REG_KEY = 'laforet_biens_registry';
+
 function chargerDonneesBiens() {
   if (_bienDataPromise) return _bienDataPromise;
   _bienDataPromise = Promise.all([
-    supabaseClient.from('biens_registry').select('data'),
+    supabaseClient.from('biens_registry').select('id,data'),
     supabaseClient.from('biens_photoimmo').select('data'),
     supabaseClient.from('biens_bibliotheque').select('data')
-  ]).then(([reg, pi, bib]) => {
-    _bienRegistry = (reg.data || []).map(r => r.data).filter(e => e && (e.norm || e.label));
+  ]).then(async ([reg, pi, bib]) => {
+    const regRows = reg.data || [];
+    const legacyRow = regRows.find(r => r.id === REG_KEY);
+
+    _bienRegistry = regRows
+      .filter(r => r.id !== REG_KEY)
+      .map(r => r.data)
+      .filter(e => e && (e.norm || e.label));
     _bienRegistry.forEach(e => { if (!e.norm) e.norm = normBienLabel(e.label); });
+
+    // Migration idempotente de l'ancien format, si la ligne legacy est
+    // encore présente (même logique que bibliotheque.html / photoimmo.html /
+    // dossier.html) : on éclate le tableau en une ligne par bien, puis on
+    // supprime la ligne legacy. Si une autre app a déjà fait ce travail,
+    // cette ligne n'existe plus et cette étape ne fait rien.
+    if (legacyRow && Array.isArray(legacyRow.data)) {
+      for (const entry of legacyRow.data) {
+        if (!entry) continue;
+        if (!entry.norm && entry.label) entry.norm = normBienLabel(entry.label);
+        if (!entry.norm) continue;
+        if (!_bienRegistry.some(e => e.norm === entry.norm)) {
+          _bienRegistry.push(entry);
+          try {
+            await supabaseClient.from('biens_registry').upsert({ id: entry.norm, data: entry });
+          } catch (e2) {
+            console.warn('[recherche biens] échec migration entrée registre :', entry.norm, e2);
+          }
+        }
+      }
+      try { await supabaseClient.from('biens_registry').delete().eq('id', REG_KEY); } catch (e2) {}
+    }
+
     _bienPhotoimmo = (pi.data || []).map(r => r.data).filter(Boolean);
     _bienBibliotheque = (bib.data || []).map(r => ({ name: r.data.name, data: r.data.data }));
   }).catch(e => {

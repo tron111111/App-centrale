@@ -437,12 +437,22 @@ function countPendingRegistry() { return getPendingUpserts().length + getPending
    indisponible, on retombe sur la dernière copie connue en local
    (localStorage), pour que la liste des dossiers reste consultable
    hors-ligne plutôt que de s'afficher vide. */
+// Ancien format (avant le passage "une ligne par bien") : tout le registre
+// stocké dans une seule ligne géante, id = REG_KEY, data = tableau d'entrées.
+// Même clé que dans photoimmo.html / bibliotheque.html, pour reconnaître
+// cette ligne legacy si elle traîne encore.
+const REG_KEY = 'laforet_biens_registry';
+
 async function loadRegistry() {
   let base;
   try {
-    const { data, error } = await supabaseClient.from('biens_registry').select('data');
+    const { data, error } = await supabaseClient.from('biens_registry').select('id,data');
     if (error) throw error;
-    base = (data || [])
+    const rows = data || [];
+    const legacyRow = rows.find(r => r.id === REG_KEY);
+
+    base = rows
+      .filter(row => row.id !== REG_KEY)
       .map(row => row.data)
       .filter(entry => {
         if (!entry) return false;
@@ -453,6 +463,28 @@ async function loadRegistry() {
         }
         return true;
       });
+
+    // Migration idempotente de l'ancien format, si la ligne legacy est
+    // encore présente (même logique que bibliotheque.html / photoimmo.html) :
+    // on éclate le tableau en une ligne par bien, puis on supprime la ligne
+    // legacy. Si les autres apps ont déjà fait ce travail, cette ligne
+    // n'existe plus et cette étape ne fait rien.
+    if (legacyRow && Array.isArray(legacyRow.data)) {
+      for (const entry of legacyRow.data) {
+        if (!entry) continue;
+        if (!entry.norm && entry.label) entry.norm = normBienLabel(entry.label);
+        if (!entry.norm) continue;
+        if (!base.some(e => e.norm === entry.norm)) {
+          base.push(entry);
+          try {
+            await supabaseClient.from('biens_registry').upsert({ id: entry.norm, data: entry });
+          } catch (e2) {
+            console.warn('[dossier] Échec migration entrée registre :', entry.norm, e2);
+          }
+        }
+      }
+      try { await supabaseClient.from('biens_registry').delete().eq('id', REG_KEY); } catch (e2) {}
+    }
   } catch (e) {
     console.warn('[dossier] Impossible de charger biens_registry, utilisation du cache local :', e);
     base = loadRegistrySnapshot();
