@@ -1,0 +1,28 @@
+name: Supabase Keep-Alive
+
+# Objectif : empêcher la mise en pause automatique du projet Supabase
+# (plan gratuit) après 7 jours d'inactivité, en effectuant une requête
+# légère toutes les 3 jours. Une simple requête API (même en lecture
+# seule et sans authentification particulière) suffit à réinitialiser
+# le compteur d'inactivité côté Supabase.
+
+on:
+  schedule:
+    # Toutes les 3 jours à 4h00 UTC. Marge confortable par rapport au
+    # seuil de 7 jours, même en cas d'échec ponctuel d'une exécution
+    # (GitHub Actions peut retarder légèrement les cron jobs).
+    - cron: '0 4 */3 * *'
+  # Permet aussi de le déclencher manuellement depuis l'onglet Actions
+  # du dépôt GitHub, pratique pour tester sans attendre le prochain cycle.
+  workflow_dispatch:
+
+jobs:
+  ping-supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase (garde le projet actif)
+        run: |
+          curl -sS -o /dev/null -w "Code HTTP : %{http_code}\n" \
+            "https://tclqiusyonocedobtoky.supabase.co/rest/v1/" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"
