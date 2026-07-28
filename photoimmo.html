@@ -5,11 +5,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#16266b">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://tclqiusyonocedobtoky.supabase.co; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://tclqiusyonocedobtoky.supabase.co; object-src 'none'; base-uri 'self'; form-action 'none'">
 <link rel="icon" href="logo_laforet.png">
 <link rel="apple-touch-icon" href="logo_laforet.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="PhotoImmo">
 <title>PhotoImmo Pro — Laforêt</title>
@@ -216,8 +216,6 @@
   .srow{display:flex;gap:10px;font-size:14px;padding:6px 0;border-bottom:1px dashed var(--line)}
   .srow:last-child{border-bottom:none}.slabel{flex:none;width:92px;font-weight:700;color:var(--muted);font-size:12px;text-transform:uppercase}
   .eviter h3{color:#9a3b2e}.eviter li{color:#9a3b2e}
-  .toast{position:fixed;left:50%;bottom:calc(28px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--card);border:1px solid var(--line);color:var(--ink);font-weight:600;font-size:13px;padding:10px 18px;border-radius:999px;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,.15);opacity:0;transition:.25s;pointer-events:none}
-  .toast.show{opacity:1}
 
   /* Modale de confirmation (remplace les confirm() natifs du navigateur — même style que la Bibliothèque) */
   #confirm-overlay{position:fixed;inset:0;background:rgba(15,20,40,.55);display:none;align-items:center;justify-content:center;z-index:99998;padding:20px;backdrop-filter:blur(2px)}
@@ -256,12 +254,14 @@
   }
 </style>
 <link rel="stylesheet" href="page-transition.css">
+<link rel="stylesheet" href="toast.css">
 </head>
 <body>
 <script src="supabase-lib.js"></script>
 <script src="supabase-client.js"></script>
 <script src="auth-guard.js"></script>
 <script src="html-utils.js"></script>
+<script src="toast.js"></script>
 <script src="page-transition.js"></script>
 <div id="laforet-transition"><img src="logo_laforet.png" alt="Laforêt"></div>
 <header>
@@ -317,7 +317,7 @@
 <input type="file" id="importInput" accept="image/*" multiple style="display:none">
 <canvas id="work" style="display:none"></canvas>
 <div id="printArea"></div>
-<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="toast-shared" id="toast" role="status" aria-live="polite"></div>
 
 <div id="confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
   <div id="confirm-box">
@@ -902,8 +902,11 @@ function safeName(s){return (s||'photo').normalize('NFD').replace(/[̀-ͯ]/g,'')
 
 /* ============================ APP PRO ============================ */
 function loadImg(file){return new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=no;i.src=URL.createObjectURL(file);});}
-let toastT;
-function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2200);}
+// Alias vers le module partagé toast.js (toast.css + showToast), pour
+// bénéficier de la file d'attente commune et du style unifié avec le reste
+// du portail, sans avoir à modifier les nombreux appels existants à toast(m)
+// dans cette page.
+function toast(m){ showToast('success', m); }
 function fmtDate(t){const d=new Date(t),p=n=>String(n).padStart(2,'0');return p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear();}
 
 /* ---------- modale de confirmation (remplace les confirm() natifs) ----------
@@ -2312,10 +2315,6 @@ async function exportBien(id){
   setTimeout(()=>window.print(),350);
 }
 
-/* ============================ PWA ============================ */
-if('serviceWorker' in navigator && location.protocol==='https:'){
-  navigator.serviceWorker.register('sw.js').catch(()=>{});
-}
 /* init */
 renderHome();
 // Affiche tout de suite le bandeau si on démarre hors-ligne, ou s'il
