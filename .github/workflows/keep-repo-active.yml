@@ -1,0 +1,20 @@
+name: Keep Repo Active
+# Objectif : empêcher GitHub de désactiver automatiquement les workflows
+# programmés (cron), ce qui arrive après 60 jours sans activité (push)
+# sur le repo. Un commit vide mensuel suffit à maintenir l'activité.
+on:
+  schedule:
+    - cron: '0 3 1 * *'  # Le 1er de chaque mois à 3h00 UTC
+  workflow_dispatch:
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Commit vide pour maintenir l'activité du repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit --allow-empty -m "chore: keep repo active"
+          git push
