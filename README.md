@@ -89,7 +89,7 @@ Pour éviter la duplication de code entre les pages, plusieurs briques communes 
 | `theme-early.js` | Applique le mode sombre/clair avant le premier rendu (anti-flash), chargé en tout premier dans `<head>`. Écoute aussi les changements de thème faits dans un autre onglet (`storage` event) pour rester synchronisé entre tous les onglets ouverts du portail, sans rechargement de page. |
 | `theme.js` | Bascule manuelle du mode sombre (`initTheme()`, `toggleTheme()`), utilisée par la plupart des pages (indépendant du sélecteur `dark-toggle` propre à `photoimmo.html`). |
 | `html-utils.js` | Échappement HTML commun (`escHtml()`) avant insertion de données (Supabase ou saisie utilisateur) dans du `innerHTML`. |
-| `toast.js` / `toast.css` | Bulle de confirmation partagée (succès / avertissement / suppression), utilisée par `dossier.html`. Les appels sont mis en file d'attente (FIFO) : un nouveau toast n'écrase plus celui déjà affiché, il attend sa disparition avant de s'afficher à son tour. |
+| `toast.js` / `toast.css` | Bulle de confirmation partagée (succès / avertissement / suppression), utilisée par `dossier.html` et `photoimmo.html`. Les appels sont mis en file d'attente (FIFO) : un nouveau toast n'écrase plus celui déjà affiché, il attend sa disparition avant de s'afficher à son tour. |
 | `page-transition.js` / `page-transition.css` | Overlay de transition (logo qui pulse) affiché lors de la navigation entre les apps du portail depuis `index.html`, pour éviter un flash d'écran blanc pendant le chargement. |
 
 ## Recherche globale d'un bien (`index.html`)
@@ -143,7 +143,7 @@ Outil de rédaction assisté pour le blog de l'agence (actualités immobilières
 - **Mode hors-ligne** via Service Worker (`sw.js`) : interface utilisable sans réseau, données Supabase toujours en direct — voir section « Mode hors-ligne » ci-dessus.
 - **Backend partagé Supabase** : base de données Postgres + authentification + stockage de fichiers, hébergé en région UE.
 - **Stockage local en complément** : `localStorage` et `IndexedDB` restent utilisés comme cache rapide et copie de secours hors-ligne sur chaque poste, en plus de la synchro cloud.
-- **Content-Security-Policy stricte** sur chaque page (`default-src 'self'`, `script-src 'self'`, `object-src 'none'`, `frame-ancestors 'self'`, `connect-src` limité au projet Supabase et, pour `blog.html`, aux API IA), aucun CDN externe autorisé.
+- **Content-Security-Policy stricte** sur chaque page (`default-src 'self'`, `script-src 'self'`, `object-src 'none'`, `connect-src` limité au projet Supabase et, pour `blog.html`/`bibliotheque.html`, aux API IA), aucun CDN externe autorisé. *(Note : la directive `frame-ancestors` a été retirée de ces CSP — un navigateur l'ignore de toute façon quand elle est déclarée via une balise `<meta>` plutôt qu'un en-tête HTTP, ce que GitHub Pages ne permet pas de configurer ; la garder ne faisait que produire un avertissement trompeur en console sans apporter de protection réelle.)*
 - **Mode sombre** synchronisé sur les préférences système, avec bascule manuelle.
 
 ## Utilisation de l'IA (bibliothèque de prompts & générateur de blog)
@@ -189,6 +189,18 @@ App-centrale/
 ├── logo_laforet.png                  # Logo de l'agence
 └── README.md
 ```
+
+## Journal des correctifs récents
+
+Suite à une revue de code complète (28/07/2026), les corrections suivantes ont été apportées :
+
+- **Modèle IA obsolète** : le nom de modèle Claude codé en dur (`claude-sonnet-4-6`, qui n'existe plus) a été corrigé en `claude-sonnet-5` dans `blog.html` et `bibliotheque.html`.
+- **Migration du registre incomplète** : `dossier.html` et `index.html` ne migraient/nettoyaient pas l'ancien format de `biens_registry` (contrairement à `photoimmo.html` et `bibliotheque.html`), ce qui pouvait faire apparaître une liste de biens incomplète si ces pages étaient ouvertes avant les deux autres après un déploiement. Les deux pages appliquent désormais la même logique de migration idempotente.
+- **CSP nettoyée** : la directive `frame-ancestors 'self'` a été retirée de toutes les pages (non fonctionnelle via balise `<meta>`, voir section « Caractéristiques techniques »).
+- **Compatibilité mobile renforcée** : ajout de la balise standard `mobile-web-app-capable` à côté de `apple-mobile-web-app-capable` (obsolète mais toujours nécessaire pour Safari/iOS) sur les pages concernées.
+- **`photoimmo.html`** : suppression d'un double enregistrement du Service Worker (`sw.js`), et harmonisation du système de toast avec le module partagé `toast.js`/`toast.css` (bénéficie désormais de la file d'attente commune).
+- **Favicon manquant** ajouté sur `documentation_bibliotheque.html`.
+- **`sw.js`** : `NOM_CACHE` incrémenté (`v4` → `v5`) pour forcer la mise à jour du cache chez les agents ayant déjà visité le portail.
 
 ## Usage interne
 
