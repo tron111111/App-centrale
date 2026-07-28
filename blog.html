@@ -14,7 +14,7 @@
   - connect-src ajoute api.anthropic.com et generativelanguage.googleapis.com pour la
     génération directe via clé API (BYOK), comme dans bibliotheque.html.
 -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://api.anthropic.com https://generativelanguage.googleapis.com https://tclqiusyonocedobtoky.supabase.co; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://api.anthropic.com https://generativelanguage.googleapis.com https://tclqiusyonocedobtoky.supabase.co; object-src 'none'; base-uri 'self'; form-action 'none'">
 <title>Générateur de blog — Laforêt Pithiviers</title>
 <meta name="description" content="Génère des articles de blog prêts à publier pour le site Laforêt Pithiviers : actualités immobilières et vie locale.">
 <link rel="icon" type="image/png" href="logo_laforet.png">
@@ -1571,7 +1571,7 @@ function showConfirmModal(message, onConfirm, requiredText) {
     wrap.classList.add('show');
     input.value = '';
     document.getElementById('confirm-modal-type-hint').innerHTML =
-      'Pour confirmer, tapez « <b>' + _confirmModalRequiredText.replace(/</g, '&lt;') + '</b> » ci-dessus.';
+      'Pour confirmer, tapez « <b>' + _confirmModalRequiredText.replace(/</g, '&lt') + '</b> » ci-dessus.';
     btn.disabled = true;
     setTimeout(() => input.focus(), 50);
   } else {
