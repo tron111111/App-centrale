@@ -106,10 +106,11 @@ main { max-width: 460px; margin: 0 auto; padding: 28px 16px calc(32px + env(safe
 .output { display:flex; align-items:center; gap:8px; background: var(--result-bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px 14px; margin-bottom: 22px; }
 #password { flex:1; font-family: 'SFMono-Regular', Consolas, Menlo, monospace; font-size: 16px; font-weight: 600; letter-spacing: 0.02em; background: transparent; border: none; color: var(--text); outline: none; min-width: 0; word-break: break-all; }
 
-.icon-btn { flex: none; width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text3); cursor:pointer; display:flex; align-items:center; justify-content:center; transition: all 0.15s ease; }
+.icon-btn { flex: none; width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text3); cursor:pointer; display:flex; align-items:center; justify-content:center; transition: background .2s ease, color .2s ease, border-color .2s ease, transform .2s ease; }
 .icon-btn:hover { background: var(--c-ann-bg); color: var(--c-ann); border-color: var(--c-ann-border); }
 .icon-btn:active { transform: scale(0.94); }
 .icon-btn svg { width:16px; height:16px; }
+.icon-btn.copied { background: var(--c-admin-bg); color: var(--c-admin); border-color: var(--c-admin-border); transform: scale(1.08); }
 
 /* Longueur */
 .row { margin-bottom: 20px; }
@@ -282,6 +283,9 @@ input[type=range]::-moz-range-thumb { width:18px; height:18px; border-radius:50%
   const strengthSub = document.getElementById('strengthSub');
   const copyBtn = document.getElementById('copyBtn');
   const generateBtn = document.getElementById('generateBtn');
+  const ICON_COPY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+  const ICON_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+  let _copyBtnTimer;
   const CIRC = 201;
 
   document.querySelectorAll('.toggle').forEach(t => {
@@ -395,6 +399,14 @@ input[type=range]::-moz-range-thumb { width:18px; height:18px; border-radius:50%
       document.execCommand('copy');
     }
     showToast('success', 'Mot de passe copié ✓');
+
+    copyBtn.classList.add('copied');
+    copyBtn.innerHTML = ICON_CHECK;
+    clearTimeout(_copyBtnTimer);
+    _copyBtnTimer = setTimeout(() => {
+      copyBtn.classList.remove('copied');
+      copyBtn.innerHTML = ICON_COPY;
+    }, 1300);
   });
 
   generateBtn.addEventListener('click', generate);
