@@ -14,7 +14,7 @@
 // Incrémenter ce nom à chaque modification de la liste de fichiers ou du
 // contenu des fichiers eux-mêmes, pour forcer la mise à jour du cache chez
 // les utilisateurs (sinon ils resteraient sur l'ancienne version en cache).
-const NOM_CACHE = 'app-centrale-v5';
+const NOM_CACHE = 'app-centrale-v6';
 
 // Liste des fichiers statiques à mettre en cache pour un fonctionnement
 // hors ligne de l'interface. À compléter si de nouveaux fichiers/pages
@@ -29,6 +29,7 @@ const FICHIERS_A_METTRE_EN_CACHE = [
   'photoimmo.html',
   'dossier.html',
   'blog.html',
+  'generateur_mdp.html',
   'supabase-lib.js',
   'supabase-client.js',
   'auth-guard.js',

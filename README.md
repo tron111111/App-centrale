@@ -27,6 +27,7 @@ Ce dépôt héberge un ensemble d'outils web internes utilisés au quotidien par
 | [`photoimmo.html`](photoimmo.html) | PhotoImmo Pro — notation et gestion des photos de biens immobiliers pièce par pièce, avec guide de prise de vue et moteur de scoring multi-critères (netteté, exposition, contraste, balance des blancs, cadrage). La suppression d'un bien entier (photos comprises, cloud inclus) exige une confirmation en deux étapes ; la suppression d'une photo individuelle reste une confirmation simple. |
 | [`dossier.html`](dossier.html) | Dossier des biens — fiche centralisée par bien : informations générales, statut, prix, notes, et liens automatiques vers les photos (PhotoImmo Pro) et la fiche descriptive (Bibliothèque de prompts). |
 | [`blog.html`](blog.html) | Générateur de blog — création d'articles pour le blog de l'agence à partir de modèles thématiques, génération directe via Claude ou Gemini (BYOK), mise en forme automatique et gestion de brouillons. |
+| [`generateur_mdp.html`](generateur_mdp.html) | Générateur de mots de passe — longueur et types de caractères réglables, indicateur d'entropie, génération 100 % locale (`crypto.getRandomValues`) : rien n'est envoyé ni stocké. |
 | [`documentation_bibliotheque.html`](documentation_bibliotheque.html) | Documentation d'utilisation de la bibliothèque de prompts. |
 | [`login.html`](login.html) | Page de connexion commune à tout le portail (compte agence Supabase), avec accès à la réinitialisation de mot de passe. |
 | [`accepter-invitation.html`](accepter-invitation.html) | Page d'activation de compte via lien d'invitation envoyé par email (définition du mot de passe initial). Aucune auto-inscription possible depuis le portail. |
@@ -176,6 +177,7 @@ App-centrale/
 ├── photoimmo.html                    # PhotoImmo Pro
 ├── dossier.html                      # Dossier des biens (fiche centralisée)
 ├── blog.html                         # Générateur de blog
+├── generateur_mdp.html               # Générateur de mots de passe (local, hors ligne)
 ├── test-connexion.html               # Page technique de diagnostic Supabase
 ├── supabase-lib.js                   # Librairie supabase-js vendorisée (pas de CDN)
 ├── supabase-client.js                # Connexion Supabase commune à toutes les pages
@@ -191,6 +193,8 @@ App-centrale/
 ```
 
 ## Journal des correctifs récents
+
+- **Nouvelle application — `generateur_mdp.html`** : intégration du générateur de mots de passe (auparavant une page autonome) au portail — carte d'accès depuis `index.html`, protection par `auth-guard.js`, mise en cache hors ligne via `sw.js` (`NOM_CACHE` incrémenté en `v6`), CSP et balises PWA alignées sur le reste du portail. La génération reste 100 % locale au navigateur (`crypto.getRandomValues`) : aucune donnée n'est envoyée ni stockée côté Supabase.
 
 Suite à une revue de code complète (28/07/2026), les corrections suivantes ont été apportées :
 
