@@ -21,6 +21,7 @@
 <title>Coffre — Générateur de mots de passe</title>
 <meta name="description" content="Génère des mots de passe robustes et aléatoires directement dans le navigateur, sans rien envoyer ni stocker.">
 <link rel="stylesheet" href="page-transition.css">
+<link rel="stylesheet" href="toast.css">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 html { overflow-x: hidden; }
@@ -110,8 +111,6 @@ main { max-width: 460px; margin: 0 auto; padding: 28px 16px calc(32px + env(safe
 .icon-btn:active { transform: scale(0.94); }
 .icon-btn svg { width:16px; height:16px; }
 
-.copied-tag { font-size: 10px; font-weight: 700; color: var(--c-admin); letter-spacing: 0.04em; opacity: 0; transition: opacity 0.2s ease; position: absolute; margin-top: -32px; margin-left: -2px; text-transform: uppercase; }
-
 /* Longueur */
 .row { margin-bottom: 20px; }
 .row-head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom: 10px; }
@@ -154,8 +153,10 @@ input[type=range]::-moz-range-thumb { width:18px; height:18px; border-radius:50%
 <script src="supabase-client.js"></script>
 <script src="auth-guard.js"></script>
 <script src="theme.js"></script>
+<script src="toast.js"></script>
 <script src="page-transition.js"></script>
 <div id="laforet-transition"><img src="logo_laforet.png" alt="Laforêt"></div>
+<div class="toast-shared" id="toast"></div>
 
 <header>
   <a class="back-home" href="index.html" title="Retour à l'accueil" data-transition>← Accueil</a>
@@ -197,7 +198,6 @@ input[type=range]::-moz-range-thumb { width:18px; height:18px; border-radius:50%
     <div class="output">
       <div style="position:relative; flex:1; display:flex;">
         <input type="text" id="password" readonly autocomplete="off" value="" placeholder="•••••••••••••">
-        <span class="copied-tag" id="copiedTag">COPIÉ ✓</span>
       </div>
       <button class="icon-btn" id="copyBtn" title="Copier">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
@@ -281,7 +281,6 @@ input[type=range]::-moz-range-thumb { width:18px; height:18px; border-radius:50%
   const strengthLabel = document.getElementById('strengthLabel');
   const strengthSub = document.getElementById('strengthSub');
   const copyBtn = document.getElementById('copyBtn');
-  const copiedTag = document.getElementById('copiedTag');
   const generateBtn = document.getElementById('generateBtn');
   const CIRC = 201;
 
@@ -395,8 +394,7 @@ input[type=range]::-moz-range-thumb { width:18px; height:18px; border-radius:50%
       passwordField.select();
       document.execCommand('copy');
     }
-    copiedTag.style.opacity = '1';
-    setTimeout(() => copiedTag.style.opacity = '0', 1200);
+    showToast('success', 'Mot de passe copié ✓');
   });
 
   generateBtn.addEventListener('click', generate);
