@@ -196,7 +196,14 @@ App-centrale/
 
 - **Nouvelle application — `generateur_mdp.html`** : intégration du générateur de mots de passe (auparavant une page autonome) au portail — carte d'accès depuis `index.html`, protection par `auth-guard.js`, mise en cache hors ligne via `sw.js` (`NOM_CACHE` incrémenté en `v6`), CSP et balises PWA alignées sur le reste du portail. La génération reste 100 % locale au navigateur (`crypto.getRandomValues`) : aucune donnée n'est envoyée ni stockée côté Supabase.
 
-Suite à une revue de code complète (28/07/2026), les corrections suivantes ont été apportées :
+Suite à une revue de `generateur_mdp.html` (29/07/2026), les ajustements suivants ont été apportés :
+
+- **`auth-guard.js`** : `generateur_mdp.html` ajouté à la liste des pages protégées citée dans le commentaire d'en-tête (le script s'appliquait déjà correctement, seule la documentation était incomplète).
+- **`generateur_mdp.html`** : ajout de `autocomplete="off"` sur le champ de mot de passe généré, pour éviter toute suggestion d'autofill du navigateur.
+- **`generateur_mdp.html`** : retour visuel renforcé sur la copie — le bouton « Copier » passe brièvement au vert (`--c-admin`) en plus du tag « COPIÉ ✓ » déjà existant.
+- **Mode sombre — jaune/doré** : la teinte jaune du niveau de robustesse « CORRECT » (`--c-prosp`) était trop vive en mode sombre ; adoucie en un doré plus feutré (`#cfa53d`). Dans le même esprit, `index.html` définissait `--gold` (couleur de l'icône et du badge de la carte « Générateur de mots de passe ») uniquement en mode clair : la variable ne changeait donc pas en mode sombre et restait terne/brune sur fond sombre. Une valeur `--gold` dédiée au mode sombre (`#cfa53d`, cohérente avec `generateur_mdp.html`) a été ajoutée.
+
+
 
 - **Modèle IA obsolète** : le nom de modèle Claude codé en dur (`claude-sonnet-4-6`, qui n'existe plus) a été corrigé en `claude-sonnet-5` dans `blog.html` et `bibliotheque.html`.
 - **Migration du registre incomplète** : `dossier.html` et `index.html` ne migraient/nettoyaient pas l'ancien format de `biens_registry` (contrairement à `photoimmo.html` et `bibliotheque.html`), ce qui pouvait faire apparaître une liste de biens incomplète si ces pages étaient ouvertes avant les deux autres après un déploiement. Les deux pages appliquent désormais la même logique de migration idempotente.
