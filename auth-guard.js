@@ -1,6 +1,7 @@
 // auth-guard.js
 // À inclure dans CHAQUE page qui doit être protégée (dossier.html, blog.html,
-// bibliotheque.html, photoimmo.html, index.html), juste après supabase-client.js.
+// bibliotheque.html, photoimmo.html, index.html, generateur_mdp.html), juste
+// après supabase-client.js.
 //
 // Ce script vérifie qu'un utilisateur est connecté. Si ce n'est pas le cas,
 // il redirige immédiatement vers login.html.
